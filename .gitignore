@@ -21,3 +21,7 @@ Diagnostics/
 *.png
 /111
 OpenHMM2/
+
+# Python bytecode
+__pycache__/
+*.pyc
