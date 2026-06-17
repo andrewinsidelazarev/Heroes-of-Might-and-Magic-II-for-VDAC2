@@ -72,7 +72,6 @@ MenuScene_DL:
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 138, 71
                 FT_VERTEX2F 0, 10880
                 FT_END
-                FT_DISPLAY
 MenuScene_DL_SIZE EQU $ - MenuScene_DL
 
 MENU_BUTTON_COUNT EQU 5

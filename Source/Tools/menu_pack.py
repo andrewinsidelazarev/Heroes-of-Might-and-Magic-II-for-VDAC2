@@ -143,7 +143,7 @@ def emit_inc(addrs, tiles, buttons, pak):
         L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {scaled_screen_pixels(b['w'])}, {scaled_screen_pixels(b['h'])}")
         L.append(f"                FT_VERTEX2F {scaled_vertex2f_units(b['ox'])}, {scaled_vertex2f_units(b['oy'])}")
     L.append("                FT_END")
-    L.append("                FT_DISPLAY")
+    # БЕЗ FT_DISPLAY — глобальный курсор дорисовывается в Render_Menu, затем DISPLAY.
     L.append("MenuScene_DL_SIZE EQU $ - MenuScene_DL")
     L.append("")
 
