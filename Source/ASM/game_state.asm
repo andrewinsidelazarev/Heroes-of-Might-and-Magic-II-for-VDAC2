@@ -53,12 +53,15 @@ Game_Init:
                 LD   A, #FF
                 LD   (MenuHoverIndex), A          ; нет наведённой кнопки
                 CALL Cursor_GlobalUpload          ; глобальный курсор в постоянную RAM_G (раз)
+                CALL Music_InitPort               ; AY port A → выход (иначе MIDI не идёт на пин)
+                CALL Music_GMReset                ; SAM2695 → General MIDI (раз при старте)
                 CALL Menu_Enter
                 RET
 
 ; Вход в adventure-сцену: загрузка карты в RAM_G + инициализация состояния.
 ; Вызывается из Menu_Update по клику New Game (ленивая загрузка карты).
 Adventure_Enter:
+                CALL Music_Stop                   ; погасить меню-музыку (slot3 пойдёт под loader)
                 CALL Render_BlackFrame            ; межсценный чёрный кадр ДО перезаписи RAM_G
                 CALL Background_Upload            ; (иначе старый меню-DL покажет мусор поверх
                 CALL Objects_Upload              ;  частично загруженных adventure-битмапов)

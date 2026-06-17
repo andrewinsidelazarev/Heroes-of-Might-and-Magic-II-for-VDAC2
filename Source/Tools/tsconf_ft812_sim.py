@@ -477,6 +477,38 @@ class TSConfFT812Machine:
                 self.sd.spi_out(value)
             else:
                 self._write_ft_spi(0x57, value)
+        elif low == 0xFD:
+            # AY-3-891x: #FFFD = выбор регистра, #BFFD = запись данных. MIDI-музыка (SAM2695)
+            # выводится через port A (рег 14), бит 2 — bit-bang UART (music.asm MIDI_PutByte).
+            if high == 0xFF:
+                self.ay_reg = value
+            elif high == 0xBF:
+                reg = getattr(self, "ay_reg", 0)
+                if reg == 0x07:                    # mixer/направление портов
+                    self.ay_reg7 = value
+                elif reg == 0x0E and (getattr(self, "ay_reg7", 0) & 0x40):
+                    # рег14 даёт MIDI на пин ТОЛЬКО если port A настроен на выход (reg7 бит6),
+                    # как на реальном AY. Иначе запись «в никуда» — ловит пропуск Music_InitPort.
+                    self._decode_midi_bit((value >> 2) & 1)
+
+    def _decode_midi_bit(self, bit: int) -> None:
+        """Декодер UART MIDI-потока: start(0) + 8 data (LSB) + stop(1) → байт в self.midi_bytes."""
+        if not hasattr(self, "midi_bytes"):
+            self.midi_bytes = bytearray()
+            self._midi_state = 0
+            self._midi_bitn = 0
+            self._midi_acc = 0
+        if self._midi_state == 0:
+            if bit == 0:                       # старт-бит
+                self._midi_state = 1
+                self._midi_bitn = 0
+                self._midi_acc = 0
+        elif self._midi_bitn < 8:              # биты данных, LSB вперёд
+            self._midi_acc |= bit << self._midi_bitn
+            self._midi_bitn += 1
+        else:                                  # стоп-бит → байт готов
+            self.midi_bytes.append(self._midi_acc & 0xFF)
+            self._midi_state = 0
 
     def _write_tsconf_register(self, reg: int, value: int) -> None:
         value &= 0xFF

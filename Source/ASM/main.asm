@@ -76,6 +76,10 @@ MenuHoverIndex EQU #4267        ; индекс кнопки под мышью (#
 MenuLmbDown    EQU #4268        ; 1=LMB зажат над hover-кнопкой → pressed-кадр (base+2)
 MenuLanternIdx EQU #4269        ; текущий кадр анимации фонаря SHNGANIM (0..MENU_LANTERN_FRAMES-1)
 MenuDoorHover  EQU #426A        ; 1=мышь над зоной настроек → подсветка двери (SHNGANIM[18]+пал.8)
+MusicActive    EQU #426B        ; 1=играет MIDI-трек (SAM2695 через AY)
+MusicWait      EQU #426C        ; кадров до следующего MIDI-события
+MusicPtr       EQU #426D        ; текущая позиция в покадровом потоке (2б)
+MusicStart     EQU #426F        ; начало потока — для зацикливания (2б)
 HeroPathXBuf   EQU #4300
 HeroPathYBuf   EQU #4360
 PathDebugXBuf  EQU #EF30
@@ -272,6 +276,7 @@ LdStreamRamgHi: DEFB 0
                 include "generated_runtime_map.inc"
                 include "generated_map_anim.inc"
                 include "menu.asm"          ; после module FT (нужны FT_* макросы)
+                include "music.asm"         ; MIDI-плеер (SAM2695 через AY port A)
 
                 ; Trampolines загрузчика перенесены ВЫШЕ (после MainLoop) — должны быть в
                 ; slot1 (#5000-#7FFF): они вызывают raw_pak, который ремапит slot2; если бы
@@ -279,6 +284,7 @@ LdStreamRamgHi: DEFB 0
                 ; ремапа и RET ушёл бы в мусор-страницу. EQU-константы — здесь:
 HMM2_LOADER_PAGE EQU #A0                          ; overlay-страница загрузчика (slot3)
 RAWPAK_BUF_PAGE  EQU #A1                          ; dir/sector buffer raw_pak (slot2)
+HMM2_MUSIC_PAGE  EQU #A3                          ; overlay-страница покадрового MIDI-потока (slot3)
 LdSavedSP       EQU #4278                         ; slot1: сохранённый основной SP (2б)
 LdStackTop      EQU #4300                         ; slot1: вершина стека загрузчика (#4280..#42FF)
 
@@ -298,4 +304,18 @@ LoaderOvl_Start:
 LoaderOvl_End:
                 ASSERT LoaderOvl_End <= #FFFF
                 SAVEBIN "Build/loader_ovl.bin", LoaderOvl_Start, LoaderOvl_End - LoaderOvl_Start
+                endif
+
+                ; --- Music overlay (АКТИВНО): покадровый MIDI-поток меню в page #A3 @ #C000 ---
+                ; Плеер (music.asm, резидент slot1) читает поток из slot3, который меню держит
+                ; на HMM2_MUSIC_PAGE. Поток генерит music_pack.py из MIDI0042 (XMI→MID→stream).
+                if 1
+                SLOT 3
+                PAGE HMM2_MUSIC_PAGE
+                ORG  #C000
+MusicOvl_Start:
+                include "generated_music.inc"
+MusicOvl_End:
+                ASSERT MusicOvl_End <= #FFFF
+                SAVEBIN "Build/music_ovl.bin", MusicOvl_Start, MusicOvl_End - MusicOvl_Start
                 endif

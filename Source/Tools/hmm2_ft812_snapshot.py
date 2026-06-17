@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import re
 import sys
 from pathlib import Path
@@ -181,7 +182,7 @@ def _blend_bitmap_pixel(
 
 
 def render_dl_into(img, alpha, ops, ram_g: bytes, width: int, height: int,
-                   y_lo: int = 0, y_hi: int | None = None):
+                   y_lo: int = 0, y_hi: int | None = None, subpixel: bool = False):
     """Растеризует DL `ops` (с RAM_G) в готовые img(RGB)/alpha(L), ограничивая
     отрисовку строками [y_lo, y_hi). Используется и для полного кадра, и для
     реконструкции по полосам в физическом cycle-accurate симуляторе."""
@@ -309,6 +310,8 @@ def render_dl_into(img, alpha, ops, ram_g: bytes, width: int, height: int,
             bitmap_handles[bitmap_handle]["size"] = {
                 "w": int(op.fields.get("w", 0)),
                 "h": int(op.fields.get("h", 0)),
+                "wrap_x": int(op.fields.get("wrap_x", 0)),
+                "wrap_y": int(op.fields.get("wrap_y", 0)),
             }
         elif op.name == "BITMAP_SIZE_H":
             bitmap_handles[bitmap_handle]["size_h"] = {
@@ -386,8 +389,13 @@ def render_dl_into(img, alpha, ops, ram_g: bytes, width: int, height: int,
             if bitmap_layout["fmt"] not in ("RGB565", "ARGB4", "L4", "PALETTED4444"):
                 continue
             scale = 1 << vertex_frac
-            x = int(round((op.fields["x"] + translate_x) / scale))
-            y = int(round((op.fields["y"] + translate_y) / scale))
+            # subpixel: дробная экранная позиция тайла (как VERTEX2F 1/16px на железе) →
+            # NEAREST-sample берётся от дробной границы, что воспроизводит sub-pixel «сетку»
+            # на стыках terrain-тайлов при ×1.6. Обычный режим (round) её не ловит.
+            xf = (op.fields["x"] + translate_x) / scale
+            yf = (op.fields["y"] + translate_y) / scale
+            x = int(xf) if subpixel else int(round(xf))
+            y = int(yf) if subpixel else int(round(yf))
             cell = bitmap_cell
             stride = bitmap_layout["stride"] | (bitmap_layout_h["stride_h"] << 10)
             tile_h = bitmap_layout["height"] | (bitmap_layout_h["height_h"] << 9)
@@ -403,19 +411,37 @@ def render_dl_into(img, alpha, ops, ram_g: bytes, width: int, height: int,
                     dx = x + px
                     if dx < 0 or dx >= width or not in_scissor(dx, dy):
                         continue
-                    sx = int((px * state["transform_a"] + state["transform_c"]) / 256)
-                    syy = int(py * state["transform_e"] / 256)
-                    if sx < 0 or syy < 0 or syy >= tile_h:
+                    if subpixel:
+                        # floor (как FT812), НЕ усечение к нулю: на левом крае тайла (dx<xf)
+                        # sx уходит в -1 → REPEAT заворачивает к правому краю клетки = сетка.
+                        sx = math.floor((dx - xf) * state["transform_a"] / 256 + state["transform_c"] / 256)
+                        syy = math.floor((dy - yf) * state["transform_e"] / 256)
+                    else:
+                        sx = int((px * state["transform_a"] + state["transform_c"]) / 256)
+                        syy = int(py * state["transform_e"] / 256)
+                    if sx < 0 or syy < 0:
                         continue
+                    # FT_REPEAT (wrap=1) заворачивает sample к противоположному краю — как
+                    # на железе. FT_BORDER (wrap=0) обрезает за краем. Это различие важно для
+                    # стыков terrain-тайлов 32→52px (перекрытие 0.8px при ×1.6).
+                    if bitmap_size.get("wrap_y", 0):
+                        syy %= tile_h
+                    elif syy >= tile_h:
+                        continue
+                    wrap_x = bitmap_size.get("wrap_x", 0)
                     if bitmap_layout["fmt"] == "L4":
-                        if sx >= stride * 2:
+                        if wrap_x:
+                            sx %= stride * 2
+                        elif sx >= stride * 2:
                             continue
                         a = _l4_alpha_at(ram_g, src + syy * stride + sx // 2, sx)
                         if color_mask[3]:
                             alpha.putpixel((dx, dy), a)
                         continue
                     if bitmap_layout["fmt"] == "PALETTED4444":
-                        if sx >= stride:
+                        if wrap_x:
+                            sx %= stride
+                        elif sx >= stride:
                             continue
                         idx = ram_g[src + syy * stride + sx]
                         put_argb4_pixel((dx, dy), pal[idx])
@@ -487,12 +513,12 @@ def render_dl_band(ops, ram_g: bytes, width: int, height: int, y_lo: int, y_hi: 
     return img, alpha
 
 
-def render_dl_png(ops, ram_g: bytes, out_path: Path, width: int, height: int) -> None:
+def render_dl_png(ops, ram_g: bytes, out_path: Path, width: int, height: int, subpixel: bool = False) -> None:
     from PIL import Image
 
     img = Image.new("RGB", (width, height), (0, 0, 0))
     alpha = Image.new("L", (width, height), 0)
-    render_dl_into(img, alpha, ops, ram_g, width, height)
+    render_dl_into(img, alpha, ops, ram_g, width, height, subpixel=subpixel)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     img.save(out_path)
 

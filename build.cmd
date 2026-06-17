@@ -26,6 +26,12 @@ rem поэтому меню-страницы дописываются после
 python Source\Tools\menu_pack.py
 if errorlevel 1 goto :err
 
+echo === music: XMI -^> MID -^> покадровый поток (меню MIDI0042) ===
+python Source\Tools\xmi2mid.py Music\HEROES2\MIDI0042.XMI -o Build\MIDI0042.mid
+if errorlevel 1 goto :err
+python Source\Tools\music_pack.py Build\MIDI0042.mid --inc Source\ASM\generated_music.inc --label Music_MainMenu
+if errorlevel 1 goto :err
+
 if "%HMM2_DYNAMIC_ACTOR%"=="1" (
   echo === generate dynamic actor ===
   python Source\Tools\dynamic_actor.py

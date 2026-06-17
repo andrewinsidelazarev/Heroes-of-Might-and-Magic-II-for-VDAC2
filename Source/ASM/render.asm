@@ -550,6 +550,15 @@ Render_RuntimeTopObjectsCmd:
                 LD   HL, RuntimeDL_ObjectTranslate
                 LD   BC, RuntimeDL_ObjectTranslate_SIZE
                 CALL Render_CmdBufCopy
+                ; СБРОС BITMAP_TRANSFORM на handle 2: актёр-флип ВЛЕВО (HeroFacingRight=0)
+                ; оставляет A=-160/C=7936 (зеркало) → иначе top-объекты/замки рисуются
+                ; зеркально = вертикальные артефакты на фоне (только при движении влево).
+                LD   HL, #1500
+                LD   DE, #00A0
+                CALL Render_CmdBufWrite32          ; BITMAP_TRANSFORM_A 160 (×1.6, без флипа)
+                LD   HL, #1700
+                LD   DE, #0000
+                CALL Render_CmdBufWrite32          ; BITMAP_TRANSFORM_C 0
                 POP  DE                            ; bottom_size
                 POP  BC                            ; top_size
                 LD   HL, RUNTIME_DL_OBJECT_RAMG & #FFFF

@@ -37,6 +37,11 @@ Menu_Enter:
                 LD   A, #FF
                 LD   (MenuHoverIndex), A
                 CALL Menu_LoadFromPak            ; стрим HMM2MENU.PAK с SD → RAM_G
+                ; музыка меню: slot3 → страница MIDI-потока, запустить MIDI0042 (главное меню)
+                LD   A, HMM2_MUSIC_PAGE
+                SetPage3_A
+                LD   HL, Music_MainMenu
+                CALL Music_Start
                 RET
 
 ; --- Загрузка HMM2MENU.PAK с SD в RAM_G через загрузчик ---
@@ -66,6 +71,10 @@ Menu_LoadFromPak:
 ; Опрос ввода меню (зеркалит MainMenu loop): анимация фонаря по таймеру, hover-индекс
 ; кнопки под мышью, pressed по ЛКМ, и клик-действие с latch.
 Menu_Update:
+                ; --- MIDI-музыка: slot3 на страницу потока, продвинуть на кадр ---
+                LD   A, HMM2_MUSIC_PAGE
+                SetPage3_A
+                CALL Music_Tick
                 ; --- анимация фонаря: смена кадра каждые (1<<SHIFT) гейм-кадров ---
                 LD   A, (FrameCounter)
                 AND  (1 << MENU_LANTERN_SHIFT) - 1
