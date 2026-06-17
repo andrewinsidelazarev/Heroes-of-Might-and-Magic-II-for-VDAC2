@@ -112,10 +112,7 @@ Render_Menu:
                 LD   HL, MenuScene_DL
                 LD   BC, MenuScene_DL_SIZE
                 CALL Render_CmdBufCopy
-                CALL Render_GlobalCursor         ; глобальный курсор мыши поверх меню
-                LD   HL, #0000                   ; FT_DISPLAY
-                LD   DE, #0000
-                CALL Render_CmdBufWrite32
+                CALL Render_GlobalCursor         ; глобальный POINTER-курсор (CURSOR_DL c DISPLAY)
                 CALL Render_SubmitFrameDMA
                 RET
 

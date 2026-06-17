@@ -48,6 +48,7 @@ Game_Init:
                 LD   (FrameCounter), A
                 LD   (FrameCounter + 1), A
                 LD   (MenuClickLatch), A
+                CALL Cursor_GlobalUpload          ; глобальный курсор в постоянную RAM_G (раз)
                 CALL Menu_Enter
                 RET
 

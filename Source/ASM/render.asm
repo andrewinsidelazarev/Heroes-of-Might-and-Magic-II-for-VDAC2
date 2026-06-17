@@ -1552,42 +1552,19 @@ Render_AdventureUICmd:
                 CALL Render_CmdBufCopy
                 RET
 
-; Глобальный курсор мыши (резидент, для ЛЮБОЙ сцены) — белый квадрат ~8px по позиции
-; мыши (логич → физ vertex ×1.6). Временный маркер: POINTER-спрайт в постоянной зоне
-; RAM_G и миграция adventure-курсора на этот же вызов — следующий шаг (задача #22).
+; Глобальный курсор мыши (резидент, для ЛЮБОЙ сцены) — настоящий POINTER-спрайт
+; (ADVMCO[0], ARGB4444) из ПОСТОЯННОЙ зоны RAM_G (#0E0000), резидентно загруженной
+; Cursor_GlobalUpload. Позиция из мыши; спрайт 0 = pointer. Переиспользует тот же
+; Render_CursorCmd, что и adventure (единый драйвер). CURSOR_DL содержит FT_DISPLAY —
+; вызывать ПОСЛЕДНИМ в кадре сцены (отдельный DISPLAY не нужен).
 Render_GlobalCursor:
-                LD   HL, #04FF                   ; COLOR_RGB 255,255,255
-                LD   DE, #FFFF
-                CALL Render_CmdBufWrite32
-                LD   HL, #1F00                   ; BEGIN FT_RECTS (9)
-                LD   DE, #0009
-                CALL Render_CmdBufWrite32
                 CALL Input_MouseX
-                LD   (UIClickX), HL
+                LD   (CursorPixelX), HL
                 CALL Input_MouseY
-                LD   (UIClickY), HL
-                LD   HL, (UIClickX)              ; вершина 1 = позиция мыши
-                CALL Render_ScaleHL_8_5_ToVertex
-                LD   (RenderPathVertexX), HL
-                LD   HL, (UIClickY)
-                CALL Render_ScaleHL_8_5_ToVertex
-                LD   (RenderPathVertexY), HL
-                CALL Render_WriteVertex2FCmd
-                LD   HL, (UIClickX)              ; вершина 2 = +5 логич (≈8px физ)
-                LD   DE, 5
-                ADD  HL, DE
-                CALL Render_ScaleHL_8_5_ToVertex
-                LD   (RenderPathVertexX), HL
-                LD   HL, (UIClickY)
-                LD   DE, 5
-                ADD  HL, DE
-                CALL Render_ScaleHL_8_5_ToVertex
-                LD   (RenderPathVertexY), HL
-                CALL Render_WriteVertex2FCmd
-                LD   HL, #2100                   ; FT_END
-                LD   DE, #0000
-                CALL Render_CmdBufWrite32
-                RET
+                LD   (CursorPixelY), HL
+                XOR  A
+                LD   (CursorSpriteIndex), A      ; 0 = pointer (стрелка)
+                JP   Render_CursorCmd
 
 ; Прямоугольник текущего вьюпорта на мини-карте (как RedrawCursor в fheroes2):
 ; рамка LINE_STRIP цвета RADARCOLOR 0xB5 = RGB(216,124,124) в логических коорд.

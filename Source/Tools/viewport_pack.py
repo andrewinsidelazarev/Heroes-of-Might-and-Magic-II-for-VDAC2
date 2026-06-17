@@ -65,6 +65,10 @@ COMPOSITE_TILE_CACHE_SIZE = COMPOSITE_BG_TILE_OFFSET + COMPOSITE_SLOT_COUNT * CO
 COMPOSITE_CACHE_BANKS = 2 if COMPOSITE_STATIC_TILEMAP else 1
 COMPOSITE_RAMG_CACHE_SIZE = COMPOSITE_TILE_CACHE_SIZE * COMPOSITE_CACHE_BANKS
 RAMG_OBJECT_BASE = ((COMPOSITE_RAMG_CACHE_SIZE + 0x0FFF) & ~0x0FFF) if COMPOSITE_STATIC_TILEMAP else 0x070000
+# Глобальный курсор: ПОСТОЯННАЯ зона RAM_G (между object atlas ~#0D7B00 и DL #0F0000),
+# не перезаписывается сменой сцены; резидентная загрузка один раз. Доступен всем сценам.
+CURSOR_RAMG_BASE = 0x0E0000
+CURSOR_RESIDENT_PAGE = 0xA2          # SPG-страница курсор-спрайтов (рядом с loader #A0/#A1, ≤#F0)
 OBJECT_PALETTE_SIZE = 512
 OBJECT_OPAQUE_PALETTE_SIZE = 512
 OBJECT_TRANSPARENT_INDEX = 0
@@ -1006,9 +1010,9 @@ def cursor_default_draw_offset(sprite: dict) -> tuple[int, int]:
     return -((sprite["w"] - sprite.get("x", 0)) // 2), -((sprite["h"] - sprite.get("y", 0)) // 2)
 
 
-def append_argb4_sprite(payload: bytearray, raw: bytes, width: int, height: int, draw_ox: int, draw_oy: int, label: str, index: int):
-    addr = RAMG_OBJECT_BASE + align(len(payload), 4)
-    while RAMG_OBJECT_BASE + len(payload) < addr:
+def append_argb4_sprite(payload: bytearray, raw: bytes, width: int, height: int, draw_ox: int, draw_oy: int, label: str, index: int, base: int = RAMG_OBJECT_BASE):
+    addr = base + align(len(payload), 4)
+    while base + len(payload) < addr:
         payload.append(0)
     payload.extend(raw)
     return {
@@ -1375,7 +1379,11 @@ def append_adventure_ui_sprites(payload: bytearray, agg_data: bytes, entries, pa
     return {"border_w": border_w, "border_h": border_h, "background_blits": background_blits, "border_blits": border_blits, "buttons": buttons, "radar": radar, "resource_icons": resource_icons, "digits": digits, "resource_panel_ramg": resource_panel_ramg}
 
 
-def append_cursor_sprites(payload: bytearray, agg_data: bytes, entries, palette):
+def append_cursor_sprites(agg_data: bytes, entries, palette):
+    # Курсор — ГЛОБАЛЬНЫЙ драйвер: спрайты в ОТДЕЛЬНОМ payload с базой CURSOR_RAMG_BASE
+    # (постоянная зона RAM_G, не object atlas) — резидентны, доступны во всех сценах.
+    # Возвращает (cursor_sprites, payload).
+    payload = bytearray()
     sprites = read_icn(agg_entry(agg_data, entries, "ADVMCO.ICN"))
     if len(sprites) <= 4:
         raise ValueError("ADVMCO.ICN: missing adventure map cursor sprites")
@@ -1394,11 +1402,11 @@ def append_cursor_sprites(payload: bytearray, agg_data: bytes, entries, palette)
 
     cursor_sprites = []
     pointer = original_sprite(0)
-    cursor_sprites.append(append_argb4_sprite(payload, pointer["raw"], pointer["w"], pointer["h"], 0, 0, "ADVMCO.ICN", 0))
+    cursor_sprites.append(append_argb4_sprite(payload, pointer["raw"], pointer["w"], pointer["h"], 0, 0, "ADVMCO.ICN", 0, base=CURSOR_RAMG_BASE))
 
     move = original_sprite(4)
     move_ox, move_oy = cursor_default_draw_offset(move)
-    cursor_sprites.append(append_argb4_sprite(payload, move["raw"], move["w"], move["h"], move_ox, move_oy, "COLOR_CURSOR_ADVENTURE_MAP", 0))
+    cursor_sprites.append(append_argb4_sprite(payload, move["raw"], move["w"], move["h"], move_ox, move_oy, "COLOR_CURSOR_ADVENTURE_MAP", 0, base=CURSOR_RAMG_BASE))
 
     digits = [cursor_digit_words(6, 7, points, palette) for points in CURSOR_DIGIT_POINTS]
     plus = cursor_digit_words(5, 5, CURSOR_PLUS_POINTS, palette)
@@ -1418,9 +1426,10 @@ def append_cursor_sprites(payload: bytearray, agg_data: bytes, entries, palette)
                 draw_oy,
                 "COLOR_CURSOR_ADVENTURE_MAP",
                 distance_index,
+                base=CURSOR_RAMG_BASE,
             )
         )
-    return cursor_sprites
+    return cursor_sprites, payload
 
 
 def append_route_sprites(payload: bytearray, agg_data: bytes, entries, palette):
@@ -2223,7 +2232,7 @@ def write_runtime_map_inc(path: Path, width: int, height: int, tiles, terrain_re
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page: int, route_red_palette_addr: int = 0):
+def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page: int, route_red_palette_addr: int = 0, cursor_chunks=None):
     cursor_sprite = cursor_sprites[CURSOR_POINTER_INDEX]
     ui_radar = ui_sprites["radar"]
     lines = [
@@ -2412,6 +2421,22 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
         )
         ramg += real_size
     lines.extend([".RestorePage    EQU $+1", "                LD   A, #00", "                SetPage3_A", "                RET", ""])
+    # Глобальный курсор: резидентная загрузка спрайтов в постоянную зону RAM_G один раз
+    # (вызывается из Game_Init). Спрайты в SPG-странице CURSOR_RESIDENT_PAGE.
+    if cursor_chunks:
+        lines.extend(["Cursor_GlobalUpload:", "                GetPage3", "                LD   (.CurRestore), A"])
+        ramg = CURSOR_RAMG_BASE
+        for _, page, real_size in cursor_chunks:
+            lines.extend([
+                f"                SetPage3 #{page:02X}",
+                "                LD   HL, #C000",
+                f"                LD   A, #{(ramg >> 16) & 0xFF:02X}",
+                f"                LD   DE, #{ramg & 0xFFFF:04X}",
+                f"                LD   BC, {real_size}",
+                "                CALL FT.WriteMem",
+            ])
+            ramg += real_size
+        lines.extend([".CurRestore     EQU $+1", "                LD   A, #00", "                SetPage3_A", "                RET", ""])
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -2529,7 +2554,7 @@ def main() -> int:
         object_payload.append(0)
     object_payload.extend(palette_argb4444_red(palette))
     hero_sprite = append_overlay_sprite(object_payload, agg_data, entries, palette, "MINIHERO.ICN", 8)
-    cursor_sprites = append_cursor_sprites(object_payload, agg_data, entries, palette)
+    cursor_sprites, cursor_payload = append_cursor_sprites(agg_data, entries, palette)
     ui_sprites = append_adventure_ui_sprites(object_payload, agg_data, entries, palette, ground_tiles, width, height, map_data)
 
     # Анимация adventure-объектов: упаковать кадры-дельты (PALETTED) в object_payload
@@ -2612,12 +2637,13 @@ def main() -> int:
         )
     upload_chunks = write_chunks(root / "Assets/Converted/Viewports", "SKIRMISH_COMPOSITE_UPLOAD_p{:02d}.bin", COMPOSITE_UPLOAD_PAGE_BASE, upload_payload)
     write_terrain_inc(root / "Source/ASM/generated_terrain.inc", terrain_chunks, object_chunks, viewport_chunks, width, height, object_view_page_base)
-    write_objects_inc(root / "Source/ASM/generated_objects.inc", object_chunks, len(object_payload), hero_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page, route_red_palette_addr)
+    cursor_chunks = write_chunks(root / "Assets/Converted/Cursor", "SKIRMISH_CURSOR_p{:02d}.bin", CURSOR_RESIDENT_PAGE, bytes(cursor_payload))
+    write_objects_inc(root / "Source/ASM/generated_objects.inc", object_chunks, len(object_payload), hero_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page, route_red_palette_addr, cursor_chunks)
     write_runtime_map_inc(root / "Source/ASM/generated_runtime_map.inc", width, height, tiles, terrain_remap, object_view_page_base, runtime_map_cells_page, object_view_entries, composite_upload_entries, palette)
     write_map_anim_inc(root / "Source/ASM/generated_map_anim.inc", map_anim_table)
     write_background_inc(root / "Source/ASM/generated_background.inc")
     write_empty_adventure_dl(root / "Source/ASM/generated_adventure_dl.inc")
-    update_spgbld(root / "spgbld_vdac2.ini", terrain_chunks + object_chunks + route_table_chunks + runtime_map_cells_chunks + object_view_chunks + upload_chunks + viewport_chunks)
+    update_spgbld(root / "spgbld_vdac2.ini", terrain_chunks + object_chunks + route_table_chunks + runtime_map_cells_chunks + object_view_chunks + upload_chunks + viewport_chunks + cursor_chunks)
 
     if COMPOSITE_STATIC_TILEMAP:
         write_composite_view_preview(root / "Diagnostics/terrain_ground32_preview.png", terrain_payload, palette, width, height, 0, 0)
