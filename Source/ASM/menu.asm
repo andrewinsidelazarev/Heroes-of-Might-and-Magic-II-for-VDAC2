@@ -20,7 +20,31 @@ Menu_Enter:
                 LD   (GameMode), A
                 XOR  A
                 LD   (MenuClickLatch), A
-                CALL Menu_LoadAssets             ; залить фон/кнопки/палитры в RAM_G
+                CALL Menu_LoadFromPak            ; стрим HMM2MENU.PAK с SD → RAM_G
+                RET
+
+; --- Загрузка HMM2MENU.PAK с SD в RAM_G через загрузчик ---
+; Mount → OpenFile → пропустить HPAK header → стрим payload в RAM_G[0].
+; Сам стрим-цикл (Loader_StreamToRamG) лежит в SLOT1: он ремапит slot2 под буфер для
+; FT.WriteMem, и код в slot2 (menu.asm) исчез бы во время ремапа. Здесь — только
+; подготовка (имя в slot1-буфер, Mount/OpenFile/skip) и один вызов стримера.
+Menu_LoadFromPak:
+                LD   HL, MenuPakName             ; имя → slot1-буфер (raw_pak ремапит slot2)
+                LD   DE, MenuNameBuf
+                LD   BC, 13
+                LDIR
+                CALL Loader_Init                 ; sd_init
+                CALL Loader_Mount                ; CF=1 = ok
+                RET  NC
+                LD   HL, MenuNameBuf
+                CALL Loader_OpenFile             ; CF=1 = ok
+                RET  NC
+                LD   C, RAWPAK_BUF_PAGE          ; пропустить HPAK header (сектор 0)
+                LD   HL, 0
+                LD   B, MENU_BODY_SECTOR
+                CALL Loader_ReadSectors
+                LD   BC, MENU_PAYLOAD_SECTORS    ; стрим payload → RAM_G[0]
+                CALL Loader_StreamToRamG
                 RET
 
 ; Опрос ввода меню. LMB с latch: один клик = одно действие; hit-test New Game.

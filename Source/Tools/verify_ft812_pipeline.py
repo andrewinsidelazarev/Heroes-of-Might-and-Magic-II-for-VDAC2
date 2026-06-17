@@ -73,8 +73,8 @@ def main() -> int:
         print("ОШИБКА: FMADDR mapping не включён. Перед SetPage* нужен FMapAddrInit.")
         return 1
     print("OK: FMADDR mapping включён")
-    emu.call(emu.sym["Game_Init"], max_steps=12_000_000)
-    # Game_Init теперь стартует в ГЛАВНОМ МЕНЮ (диспетчер сцен) и Menu_LoadAssets
+    emu.call(emu.sym["Game_Init"], max_steps=250_000_000)  # включает стрим HMM2MENU.PAK с SD
+    # Game_Init теперь стартует в ГЛАВНОМ МЕНЮ (диспетчер сцен) и Menu_LoadFromPak
     # заливает меню-ассеты в RAM_G[0..]. Они перекрывают область composite-кэша
     # (2 банка). Этот верификатор проверяет adventure-пайплайн, поэтому очищаем RAM_G
     # (эквивалент чистого первого входа в adventure; в рантайме неактивный банк

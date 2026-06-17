@@ -71,6 +71,7 @@ ResSulfur      EQU #4251        ; 2б
 ResCrystal     EQU #4253        ; 2б
 ResGems        EQU #4255        ; 2б  (до #4257)
 MenuClickLatch EQU #4258        ; latch LMB в меню (1 клик = 1 действие)
+MenuNameBuf    EQU #4259        ; slot1-буфер имени PAK (14б, #4259..#4266) для loader
 HeroPathXBuf   EQU #4300
 HeroPathYBuf   EQU #4360
 PathDebugXBuf  EQU #EF30
@@ -136,6 +137,121 @@ MainLoop:
                 CALL Render_Frame
                 JP   MainLoop
 
+                ; --- Резидентные trampolines к PAK-loader (В SLOT1, #5xxx) ----------
+                ; Загрузчик (sd_zc+raw_pak) в overlay-странице HMM2_LOADER_PAGE (slot3).
+                ; Trampolines: мапят overlay в slot3, переключают SP на локальный стек
+                ; загрузчика (slot1 — raw_pak ремапит slot2 и сломал бы основной стек на
+                ; #BFFF), вызывают RawPak_*, восстанавливают Core. ОБЯЗАНЫ быть в slot1:
+                ; raw_pak ремапит slot2, и код трамплина в slot2 исчез бы во время вызова
+                ; (RET ушёл бы в мусор-страницу буфера — корень «висло до FT812»).
+Loader_Init:                                     ; sd_init (byte addressing + dummy clocks)
+                LD   (LdSavedSP), SP
+                LD   SP, LdStackTop
+                CALL Loader_MapIn
+                CALL sd_init
+                JR   Loader_Leave
+Loader_Mount:
+                LD   (LdSavedSP), SP
+                LD   SP, LdStackTop
+                CALL Loader_MapIn
+                CALL RawPak_Mount
+                JR   Loader_Leave
+Loader_OpenFile:                                 ; HL = имя файла (zero-term)
+                LD   (LdSavedSP), SP
+                LD   SP, LdStackTop
+                CALL Loader_MapIn
+                CALL RawPak_OpenFile
+                JR   Loader_Leave
+Loader_ReadSectors:                              ; C=dst page, HL=dst off, B=count
+                LD   (LdSavedSP), SP
+                LD   SP, LdStackTop
+                CALL Loader_MapIn
+                CALL RawPak_ReadSectors
+                JR   Loader_Leave
+Loader_Leave:                                    ; CF результата raw_pak сохранён
+                PUSH AF
+                LD   A, CorePage + 1
+                SetPage2_A                       ; raw_pak менял slot2 → вернуть Core
+Loader_SavedP3 EQU $+1
+                LD   A, #00
+                SetPage3_A
+                POP  AF
+                LD   SP, (LdSavedSP)             ; вернуть основной стек (slot2 #BFFF)
+                RET
+Loader_MapIn:
+                ; SetPage3_A (через A), НЕ SetPage3 (через HL) — Loader_OpenFile передаёт
+                ; имя файла в HL, а макрос SetPage3 портит HL (LD HL,FMADDR_REGS...).
+                GetPage3
+                LD   (Loader_SavedP3), A
+                LD   A, HMM2_LOADER_PAGE
+                SetPage3_A
+                RET
+
+; Loader_StreamToRamG — стрим открытого файла (с текущей позиции) в RAM_G[0] чанками
+; по 32 сектора. Вход: BC = число секторов. ДОЛЖНА быть в slot1: цикл делает
+; SetPage2_A(buffer) под FT.WriteMem, и код в slot2 исчез бы во время ремапа.
+; Состояние тоже в slot1. КРИТИЧНО (Zuma): весь чанк сначала с SD, потом весь DMA.
+Loader_StreamToRamG:
+                LD   (LdStreamRemain), BC
+                LD   HL, 0
+                LD   (LdStreamRamgLo), HL
+                XOR  A
+                LD   (LdStreamRamgHi), A
+.loop:          LD   BC, (LdStreamRemain)
+                LD   A, B
+                OR   C
+                RET  Z                           ; всё перелито
+                LD   A, B                        ; chunk = min(32, remain) → B
+                OR   A
+                JR   NZ, .full
+                LD   A, C
+                CP   32
+                JR   NC, .full
+                LD   B, C
+                JR   .read
+.full:          LD   B, 32
+.read:          PUSH BC
+                LD   C, RAWPAK_BUF_PAGE
+                LD   HL, 0
+                CALL Loader_ReadSectors          ; чанк с SD в buffer-page (восстанавливает slot2)
+                POP  BC
+                LD   A, RAWPAK_BUF_PAGE
+                SetPage2_A                       ; buffer-page в slot2 для FT.WriteMem
+                PUSH BC
+                LD   H, B
+                LD   L, 0
+                ADD  HL, HL                      ; HL = B*512 (байт чанка)
+                LD   B, H
+                LD   C, L
+                LD   HL, #8000
+                LD   A, (LdStreamRamgHi)
+                LD   DE, (LdStreamRamgLo)
+                CALL FT.WriteMem
+                LD   A, CorePage + 1
+                SetPage2_A                       ; вернуть Core
+                POP  BC                          ; B = sector count
+                LD   H, B                        ; advance RAM_G dst += B*512
+                LD   L, 0
+                ADD  HL, HL
+                LD   DE, (LdStreamRamgLo)
+                ADD  HL, DE
+                LD   (LdStreamRamgLo), HL
+                JR   NC, .nocy
+                LD   A, (LdStreamRamgHi)
+                INC  A
+                LD   (LdStreamRamgHi), A
+.nocy:          LD   HL, (LdStreamRemain)        ; remain -= B
+                LD   A, L
+                SUB  B
+                LD   L, A
+                JR   NC, .nobor
+                DEC  H
+.nobor:         LD   (LdStreamRemain), HL
+                JR   .loop
+LdStreamRemain: DEFW 0
+LdStreamRamgLo: DEFW 0
+LdStreamRamgHi: DEFB 0
+
                 include "platform_tsconf.asm"
                 include "Init_Video.asm"
                 include "input.asm"
@@ -152,50 +268,22 @@ MainLoop:
                 include "generated_map_anim.inc"
                 include "menu.asm"          ; после module FT (нужны FT_* макросы)
 
-                ; --- Резидентные trampolines к PAK-loader (ОТКЛЮЧЕНО) -------------
-                ; Loader пассивен (диспетчер сцен не готов) и не должен быть в SPG, пока
-                ; не интегрирован: отключён через if 0, чтобы не влиять на рабочую сборку
-                ; (бисект глюков на unreal). Код sd_zc/raw_pak готов, включить при шаге
-                ; «диспетчер сцен».
-HMM2_LOADER_PAGE EQU #A0
-RAWPAK_BUF_PAGE  EQU #A1
-
-                if 0
-Loader_Mount:
-                CALL Loader_MapIn
-                CALL RawPak_Mount
-                JR   Loader_MapOutCF
-Loader_OpenFile:                                 ; HL = имя файла (zero-term, резидент)
-                CALL Loader_MapIn
-                CALL RawPak_OpenFile
-                JR   Loader_MapOutCF
-Loader_ReadSectors:                              ; C=dst page, HL=dst off, B=count
-                CALL Loader_MapIn
-                CALL RawPak_ReadSectors
-                JR   Loader_MapOutCF
-Loader_MapIn:
-                GetPage3
-                LD   (Loader_SavedP3), A
-                SetPage3 HMM2_LOADER_PAGE
-                RET
-Loader_MapOutCF:
-                PUSH AF                          ; сохранить CF результата loader
-                LD   A, CorePage + 1
-                SetPage2_A                       ; raw_pak менял slot2 → вернуть Core
-Loader_SavedP3 EQU $+1
-                LD   A, #00
-                SetPage3_A
-                POP  AF
-                RET
-                endif
+                ; Trampolines загрузчика перенесены ВЫШЕ (после MainLoop) — должны быть в
+                ; slot1 (#5000-#7FFF): они вызывают raw_pak, который ремапит slot2; если бы
+                ; сами лежали в slot2 (Core перерос #8000), код трамплина исчез бы во время
+                ; ремапа и RET ушёл бы в мусор-страницу. EQU-константы — здесь:
+HMM2_LOADER_PAGE EQU #A0                          ; overlay-страница загрузчика (slot3)
+RAWPAK_BUF_PAGE  EQU #A1                          ; dir/sector buffer raw_pak (slot2)
+LdSavedSP       EQU #4278                         ; slot1: сохранённый основной SP (2б)
+LdStackTop      EQU #4300                         ; slot1: вершина стека загрузчика (#4280..#42FF)
 
 CoreEnd:
                 ASSERT CoreEnd <= CMD_ADDRESS_PTR
                 ASSERT CMD_ADDRESS_PTR + RUNTIME_CMD_FRAME_MAX <= StackTop
                 SAVEBIN "Build/Core.bin", EntryPoint, CoreEnd - EntryPoint
 
-                ; --- Loader overlay (ОТКЛЮЧЕНО, см. выше) ---
-                if 0
+                ; --- Loader overlay (АКТИВНО): sd_zc + raw_pak в page #A0 @ #C000 ---
+                if 1
                 SLOT 3
                 PAGE HMM2_LOADER_PAGE
                 ORG  #C000

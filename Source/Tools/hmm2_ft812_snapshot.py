@@ -101,6 +101,10 @@ class HMM2FullZ80Emulator(TSConfFT812Machine):
             fmaddr_requires_enable=True,
         )
         self.input.mouse_buttons = 0x01
+        # Подключить SD-образ (для PAK-загрузчика). Diagnostics/sd.img = копия wc.img.
+        sd_img = Path(root) / "Diagnostics" / "sd.img"
+        if sd_img.exists():
+            self.load_sd_image(sd_img)
 
 
 def attach_hmm2_shadow(emu: HMM2FullZ80Emulator):
@@ -529,7 +533,7 @@ def main() -> int:
     if args.scroll_right_frames:
         emu.call(emu.sym["Input.Mouse.Initialize"], max_steps=200_000)
         emu.call(emu.sym["Input_Init"], max_steps=200_000)
-    emu.call(emu.sym["Game_Init"], max_steps=12_000_000)
+    emu.call(emu.sym["Game_Init"], max_steps=250_000_000)  # включает стрим HMM2MENU.PAK с SD
     if args.seed_origin0_then_viewport_x is not None:
         _seed_composite_cache_origin0(emu)
         emu.set_byte(emu.sym["RuntimeLastOriginX"], 0)
