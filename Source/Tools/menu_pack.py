@@ -23,6 +23,7 @@ from pathlib import Path
 
 from agg_tools import read_agg_index_with_expansion
 from object_atlas import agg_entry, read_icn, read_palette
+from pak_builder import build_pak, TYPE_RAMG_BLOB, SECTOR
 from viewport_pack import (
     align,
     crop_indices,
@@ -32,28 +33,19 @@ from viewport_pack import (
     scaled_screen_pixels,
     scaled_vertex2f_units,
     split_ui_blits,
-    write_chunks,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
 AGG_PATH = ROOT / "Assets" / "Original" / "DATA" / "HEROES2.AGG"
 MENU_INC = ROOT / "Source" / "ASM" / "generated_menu.inc"
-MENU_BIN_DIR = ROOT / "Assets" / "Converted" / "Menu"
-MENU_BIN_PATTERN = "SKIRMISH_MENU_p{:02d}.bin"
-MENU_SPGBLD = ROOT / "spgbld_vdac2.ini"
-MENU_SPGBLD_MARKER = "; Главное меню (menu_pack) — фон HEROES + кнопки BTNSHNGL → RAM_G."
+MENU_PAK_PATH = ROOT / "Build" / "HMM2MENU.PAK"   # грузится загрузчиком с SD (не SPG)
 
 MENU_BG_ICN = "HEROES.ICN"
 MENU_BTN_ICN = "BTNSHNGL.ICN"
 MENU_BTN_RELEASED = [1, 5, 9, 13, 17]           # released; pressed = +2
 MENU_BTN_NAME = ["NEW_GAME", "LOAD_GAME", "HIGH_SCORES", "CREDITS", "QUIT"]
 TRANSPARENT = 0                                  # OBJECT_TRANSPARENT_INDEX
-MENU_RAMG_BASE = 0x000000
-# Страницы СРАЗУ после рабочего composite (0xC4): adventure на железе доходит до 0xC4,
-# поэтому 0xC5+ заведомо в физ. RAM. Прежний 0xE0-0xF4 включал 0xF1-0xF4 ВЫШЕ предела
-# рабочего Zuma VDAC2 (#F0) → SPG-загрузчик висел до включения FT812. Object-view
-# де-факто занимает только до 0x99, поэтому 0xC5-0xD9 свободны.
-MENU_PAGE_BASE = 0xC5
+MENU_RAMG_BASE = 0x000000                        # меню-payload грузится в RAM_G base 0
 PALETTE_BYTES = 512                              # 256 цветов × ARGB4444
 
 
@@ -105,7 +97,7 @@ def build_payload(palette, tiles, buttons):
     return payload, {"transparent": transparent_addr, "opaque": opaque_addr}
 
 
-def emit_inc(addrs, tiles, buttons, chunks):
+def emit_inc(addrs, tiles, buttons, pak):
     L = []
     L.append("; Сгенерировано Source/Tools/menu_pack.py — ассеты главного меню.")
     L.append("                ifndef _HMM2_GENERATED_MENU_")
@@ -164,39 +156,16 @@ def emit_inc(addrs, tiles, buttons, chunks):
         L.append(f"                DEFW {x0}, {y0}, {x1}, {y1}   ; [{b['index']:2d}] {b['name']}")
     L.append("")
 
-    # --- загрузчик ассетов меню в RAM_G (DMA из SPG-страниц), как Objects_Upload ---
-    L.append("Menu_LoadAssets:")
-    L.append("                GetPage3")
-    L.append("                LD   (.RestorePage), A")
-    ramg = MENU_RAMG_BASE
-    for _path, page, real_size in chunks:
-        L.append(f"                SetPage3 #{page:02X}")
-        L.append("                LD   HL, #C000")
-        L.append(f"                LD   A, #{(ramg >> 16) & 0xFF:02X}")
-        L.append(f"                LD   DE, #{ramg & 0xFFFF:04X}")
-        L.append(f"                LD   BC, {real_size}")
-        L.append("                CALL FT.WriteMem")
-        ramg += real_size
-    L.append(".RestorePage    EQU $+1")
-    L.append("                LD   A, #00")
-    L.append("                SetPage3_A")
-    L.append("                RET")
+    # --- метаданные HMM2MENU.PAK (грузится загрузчиком с SD в Menu_Enter) ---
+    # PAK: сектор 0 = HPAK header+каталог (1 RAM_G-blob @ MENU_RAMG_BASE); далее payload.
+    L.append(f"MENU_RAMG_BASE       EQU #{MENU_RAMG_BASE:06X}")
+    L.append(f"MENU_PAYLOAD_BYTES   EQU {pak['payload_bytes']}")
+    L.append(f"MENU_PAYLOAD_SECTORS EQU {pak['payload_sectors']}")
+    L.append(f"MENU_BODY_SECTOR     EQU {pak['body_start_sector']}   ; payload начинается с этого сектора файла")
+    L.append('MenuPakName:         DEFB "HMM2MENU.PAK", 0')
     L.append("")
     L.append("                endif")
     MENU_INC.write_text("\n".join(L), encoding="utf-8")
-
-
-def append_menu_to_ini(chunks) -> None:
-    """Идемпотентно дописывает меню-страницы в КОНЕЦ spgbld ini (удаляя прошлую
-    меню-секцию). Должно идти ПОСЛЕ viewport_pack/dxt — оба регенерируют ini вокруг
-    terrain-секции и стирают всё, что добавлено после неё."""
-    text = MENU_SPGBLD.read_text(encoding="utf-8")
-    head = text.split(MENU_SPGBLD_MARKER, 1)[0].rstrip()
-    lines = [head, "", MENU_SPGBLD_MARKER]
-    for path, page, _size in chunks:
-        lines.append(f"Block = #0000, #{page:02X}, Assets/Converted/Menu/{path.name}")
-    lines.append("")
-    MENU_SPGBLD.write_text("\n".join(lines), encoding="utf-8")
 
 
 def render_preview(palette, bg, buttons, out_path: Path) -> None:
@@ -235,15 +204,21 @@ def main() -> int:
         return 0
 
     payload, addrs = build_payload(palette, tiles, buttons)
-    chunks = write_chunks(MENU_BIN_DIR, MENU_BIN_PATTERN, MENU_PAGE_BASE, bytes(payload))
-    emit_inc(addrs, tiles, buttons, chunks)
-    append_menu_to_ini(chunks)
-
-    last_page = chunks[-1][1] if chunks else MENU_PAGE_BASE
-    if last_page > 0xDF:
-        raise ValueError(f"меню вышло за безопасный блок 0xC5..0xDF (последняя #{last_page:02X})")
-    print(f"menu pack: фон {len(tiles)} кусков + {len(buttons)} кнопок, "
-          f"payload={len(payload)} байт, страницы #{MENU_PAGE_BASE:02X}..#{last_page:02X} ({len(chunks)})")
+    # HMM2MENU.PAK: сектор 0 = HPAK header+каталог (1 RAM_G-blob @ MENU_RAMG_BASE),
+    # payload — с сектора body_start. Грузится загрузчиком с SD в Menu_Enter (НЕ SPG).
+    summary = build_pak(
+        [{"type": TYPE_RAMG_BLOB, "target": MENU_RAMG_BASE, "data": bytes(payload)}],
+        MENU_PAK_PATH,
+    )
+    pak = {
+        "payload_bytes": len(payload),
+        "payload_sectors": (len(payload) + SECTOR - 1) // SECTOR,
+        "body_start_sector": summary["body_start_sector"],
+    }
+    emit_inc(addrs, tiles, buttons, pak)
+    print(f"menu pack -> {MENU_PAK_PATH.name}: фон {len(tiles)} кусков + {len(buttons)} кнопок, "
+          f"payload={len(payload)} байт ({pak['payload_sectors']} сект), "
+          f"PAK={summary['total_bytes']} байт, blob с сектора {pak['body_start_sector']}")
     print(f"  inc: {MENU_INC}")
     return 0
 

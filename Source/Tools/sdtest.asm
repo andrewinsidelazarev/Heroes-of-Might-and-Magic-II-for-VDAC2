@@ -61,8 +61,31 @@ SdReadData:
                 LD   (TestResult), A
                 RET
 
+; SdReadMenuPak — открыть HMM2MENU.PAK, прочитать 3 сектора (0=header, 1-2=blob)
+; в page #07 off 0 (#8000). Проверяем, что blob (сектор 1) = начало payload.
+SdReadMenuPak:
+                FMapAddrInit
+                CALL sd_init
+                CALL RawPak_Mount
+                JR   NC, .fail
+                LD   HL, MenuPakName2
+                CALL RawPak_OpenFile
+                JR   NC, .fail
+                LD   C, #07
+                LD   HL, 0
+                LD   B, 3
+                CALL RawPak_ReadSectors
+                JR   C, .fail
+                XOR  A
+                LD   (TestResult), A
+                RET
+.fail:          LD   A, #FF
+                LD   (TestResult), A
+                RET
+
 TestResult:     DEFB #AA
 PakName:        DEFB "HMM2_VD2.SPG", 0
+MenuPakName2:   DEFB "HMM2MENU.PAK", 0
 
                 include "../ASM/sd_zc.asm"
                 include "../ASM/raw_pak.asm"

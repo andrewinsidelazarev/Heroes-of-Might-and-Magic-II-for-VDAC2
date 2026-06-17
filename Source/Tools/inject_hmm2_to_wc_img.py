@@ -344,7 +344,8 @@ def prepare_host_package(root: Path) -> list[Path]:
     package_dir.mkdir(parents=True, exist_ok=True)
     files = [
         (root / "Build" / "hmm2_vdac2.spg", package_dir / "HMM2_VD2.SPG"),
-        # PAK-файлы появятся, когда заработает PAK-loader (копируются если есть):
+        (root / "Build" / "HMM2MENU.PAK", package_dir / "HMM2MENU.PAK"),
+        # остальные PAK по мере волны (копируются если есть):
         (root / "Build" / "HMM2UI.PAK", package_dir / "HMM2UI.PAK"),
         (root / "Build" / "HMM2MAP.PAK", package_dir / "HMM2MAP.PAK"),
     ]

@@ -79,7 +79,29 @@ def main() -> int:
         print(f"  real: {real[lo:lo+16].hex()}")
         return 1
     print("[шаг3] PASS: данные файла прочитаны через run-table корректно")
-    print("=== test_sd_read: PASS (sd_zc + raw_pak: mount+open+read работают) ===")
+
+    # --- шаг 4: открыть HMM2MENU.PAK и проверить blob (gate PAK-генератора) ---
+    emu.call(emu.sym["SdReadMenuPak"], max_steps=200_000_000)
+    res4 = emu.get_byte(emu.sym["TestResult"])
+    PAGE = 0x07
+    base = PAGE * 0x4000
+    header = bytes(emu.mem.physical[base: base + 16])
+    blob = bytes(emu.mem.physical[base + 512: base + 1024])   # сектор 1 = начало payload
+    pak = (ROOT / "Build" / "HMM2MENU.PAK").read_bytes()
+    pak_blob = pak[512:1024]                                  # body с сектора 1
+    print(f"[шаг4] TestResult={res4:#04x} (0=ok), HPAK magic={header[:4]!r}")
+    print(f"[шаг4] blob[0:16]={blob[:16].hex()}  pak[512:528]={pak_blob[:16].hex()}")
+    if res4 != 0:
+        print("ОШИБКА: RawPak не открыл/прочитал HMM2MENU.PAK")
+        return 1
+    if header[:4] != b"HPAK":
+        print("ОШИБКА: сектор 0 PAK не HPAK header")
+        return 1
+    if blob != pak_blob:
+        print("ОШИБКА: blob HMM2MENU.PAK прочитан неверно")
+        return 1
+    print("[шаг4] PASS: HMM2MENU.PAK открыт, HPAK header + blob читаются корректно")
+    print("=== test_sd_read: PASS (загрузчик читает HMM2MENU.PAK с SD) ===")
     return 0
 
 
