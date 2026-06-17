@@ -1,4 +1,0 @@
-[submodule "OpenHMM2"]
-	path = OpenHMM2
-	url = https://github.com/ihhub/fheroes2.git
-	branch = master
