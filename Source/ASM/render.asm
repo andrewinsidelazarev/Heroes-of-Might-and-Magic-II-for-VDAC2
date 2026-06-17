@@ -161,6 +161,35 @@ Render_SubmitFrameDMA:
                 FT_WR_REG8 FT_REG_DLSWAP, FT_DLSWAP_FRAME
                 RET
 
+; ----------------------------------------------------------------------------
+; Render_BlackFrame — ГЛОБАЛЬНЫЙ межсценный чёрный кадр.
+; ПРАВИЛО: любой переход между сценами (смена GameMode + загрузка ассетов в RAM_G)
+; ОБЯЗАН начинаться с Render_BlackFrame. Свопает DL БЕЗ ссылок на RAM_G (чистый CLEAR)
+; и ДОЖИДАЕТСЯ фактического показа (REG_DLSWAP==0), чтобы FT812 перестал читать старый
+; RAM_G ДО того, как новая сцена начнёт его перезаписывать. Иначе — яркий мусор
+; перерисовки (старый DL по уже частично перезаписанным битмапам). См. Чат.txt
+; 2026-06-11 («свопни кадр-без-ссылок и дождись показа ДО загрузки»).
+; Ждём REG_DLSWAP==0, а НЕ FT_INT_SWAP (clear-on-read нельзя поллить вторым местом,
+; Чат.txt 2026-06-17 DrawBlackTransitionFrame).
+Render_BlackFrame:
+                FT_CMD_Start
+                LD   HL, #FFFF                    ; CMD_DLSTART (0xFFFFFF00)
+                LD   DE, #FF00
+                CALL Render_CmdBufWrite32
+                LD   HL, BlackScene_DL
+                LD   BC, BlackScene_DL_SIZE
+                CALL Render_CmdBufCopy
+                CALL Render_SubmitFrameDMA       ; DMA + WaitFlush + DLSWAP_FRAME
+.waitShown:    FT_RD_REG8 FT_REG_DLSWAP          ; дождаться ФАКТИЧЕСКОГО показа чёрного
+                AND  3
+                JR   NZ, .waitShown
+                RET
+
+BlackScene_DL:  FT_CLEAR_COLOR_RGB 0, 0, 0
+                FT_CLEAR 1, 1, 1
+                FT_DISPLAY
+BlackScene_DL_SIZE EQU $ - BlackScene_DL
+
 Render_CMD_Write_DMA:
                 FT_CMD_Count
                 LD   A, B

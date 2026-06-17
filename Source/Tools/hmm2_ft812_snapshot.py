@@ -520,6 +520,10 @@ def main() -> int:
     parser.add_argument("--viewport-y", type=int, default=None, help="Перед снимком выставить ViewportPixelY напрямую.")
     parser.add_argument("--after-initial-viewport-x", type=int, default=None, help="Сначала отрисовать стартовый кадр, затем выставить ViewportPixelX и снять следующий кадр.")
     parser.add_argument("--seed-origin0-then-viewport-x", type=int, default=None, help="Засеять RAM_G стартовым кэшем фона, затем снять один кадр с заданным ViewportPixelX.")
+    parser.add_argument("--mouse-x", type=int, default=None, help="Меню: выставить позицию мыши (логич.) и вызвать Game_Update перед снимком (hover).")
+    parser.add_argument("--mouse-y", type=int, default=None, help="Меню: Y позиции мыши (логич.).")
+    parser.add_argument("--mouse-press", action="store_true", help="Меню: ЛКМ нажата (pressed-кадр) при снимке hover.")
+    parser.add_argument("--menu-frames", type=int, default=0, help="Меню: прогнать N Game_Update перед снимком (фаза анимации фонаря).")
     args = parser.parse_args()
 
     emu = HMM2FullZ80Emulator(ROOT)
@@ -533,7 +537,20 @@ def main() -> int:
     if args.scroll_right_frames:
         emu.call(emu.sym["Input.Mouse.Initialize"], max_steps=200_000)
         emu.call(emu.sym["Input_Init"], max_steps=200_000)
-    emu.call(emu.sym["Game_Init"], max_steps=250_000_000)  # включает стрим HMM2MENU.PAK с SD
+    emu.call(emu.sym["Game_Init"], max_steps=600_000_000)  # включает стрим HMM2MENU.PAK с SD (payload ~730КБ)
+    if args.mouse_x is not None:
+        # Меню: hover/pressed — позиция мыши + один Game_Update (Menu_Update) перед рендером.
+        emu.input.mouse_buttons = 0x00 if args.mouse_press else 0x01   # 0x00=нажата, 0x01=отпущена
+        emu.set_word(emu.sym["Input.Mouse.PositionX"], args.mouse_x)
+        emu.set_word(emu.sym["Input.Mouse.PositionY"], args.mouse_y or 0)
+        if args.mouse_press:                       # сначала отпустить (сброс latch), затем нажать
+            emu.input.mouse_buttons = 0x01
+            emu.call(emu.sym["Game_Update"], max_steps=2_000_000)
+            emu.input.mouse_buttons = 0x00
+        emu.call(emu.sym["Game_Update"], max_steps=2_000_000)
+    if args.menu_frames:                           # прогон кадров (анимация фонаря)
+        for _ in range(args.menu_frames):
+            emu.call(emu.sym["Game_Update"], max_steps=2_000_000)
     if args.seed_origin0_then_viewport_x is not None:
         _seed_composite_cache_origin0(emu)
         emu.set_byte(emu.sym["RuntimeLastOriginX"], 0)

@@ -48,6 +48,10 @@ Game_Init:
                 LD   (FrameCounter), A
                 LD   (FrameCounter + 1), A
                 LD   (MenuClickLatch), A
+                LD   (MenuLmbDown), A             ; pressed-состояние кнопок меню
+                LD   (MenuLanternIdx), A          ; кадр анимации фонаря
+                LD   A, #FF
+                LD   (MenuHoverIndex), A          ; нет наведённой кнопки
                 CALL Cursor_GlobalUpload          ; глобальный курсор в постоянную RAM_G (раз)
                 CALL Menu_Enter
                 RET
@@ -55,8 +59,9 @@ Game_Init:
 ; Вход в adventure-сцену: загрузка карты в RAM_G + инициализация состояния.
 ; Вызывается из Menu_Update по клику New Game (ленивая загрузка карты).
 Adventure_Enter:
-                CALL Background_Upload
-                CALL Objects_Upload
+                CALL Render_BlackFrame            ; межсценный чёрный кадр ДО перезаписи RAM_G
+                CALL Background_Upload            ; (иначе старый меню-DL покажет мусор поверх
+                CALL Objects_Upload              ;  частично загруженных adventure-битмапов)
                 LD   A, GAME_MODE_ADVENTURE
                 LD   (GameMode), A
                 ; стартовый вьюпорт на замок (origin 16,5 → видно замок 22-26,11-13

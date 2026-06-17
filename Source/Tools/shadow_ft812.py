@@ -391,6 +391,14 @@ class FT812Registers:
         off = addr - REG_BASE
         if not (0 <= off < REG_SIZE):
             return 0
+        if addr in (REG_DLSWAP, REG_DLSWAP + 1, REG_DLSWAP + 2, REG_DLSWAP + 3) and self.swap_pending:
+            # Поллинг REG_DLSWAP после DLSWAP_FRAME = ожидание реального swap (vsync). К моменту
+            # чтения FT812 уже выполнил swap и сбросил регистр в 0 (на железе — аппаратно). Без
+            # этого busy-loop «ждать REG_DLSWAP==0» в межсценном Render_BlackFrame завис бы вне
+            # tick_frame (вызов в Game_Update-фазе, без внешнего тика кадра).
+            self.swap_pending = False
+            self.swap_count += 1
+            self._set32(REG_DLSWAP, DLSWAP_DONE)
         b = self.bytes[off]
         if addr == REG_INT_FLAGS:
             self.int_flags_reads += 1

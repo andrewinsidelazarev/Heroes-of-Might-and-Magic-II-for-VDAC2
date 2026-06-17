@@ -40,7 +40,7 @@ def main() -> int:
     emu.call(emu.sym["Platform_Init"], max_steps=4_000_000)
     emu.call(emu.sym["Input.Mouse.Initialize"], max_steps=200_000)
     emu.call(emu.sym["Input_Init"], max_steps=200_000)
-    emu.call(emu.sym["Game_Init"], max_steps=250_000_000)  # включает стрим HMM2MENU.PAK с SD
+    emu.call(emu.sym["Game_Init"], max_steps=600_000_000)  # включает стрим HMM2MENU.PAK с SD (payload ~730КБ)
 
     gm = emu.get_byte(emu.sym["GameMode"])
     if gm != GAME_MODE_MENU:

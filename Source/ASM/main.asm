@@ -72,6 +72,10 @@ ResCrystal     EQU #4253        ; 2б
 ResGems        EQU #4255        ; 2б  (до #4257)
 MenuClickLatch EQU #4258        ; latch LMB в меню (1 клик = 1 действие)
 MenuNameBuf    EQU #4259        ; slot1-буфер имени PAK (14б, #4259..#4266) для loader
+MenuHoverIndex EQU #4267        ; индекс кнопки под мышью (#FF=нет) — hover-подсветка по оригиналу
+MenuLmbDown    EQU #4268        ; 1=LMB зажат над hover-кнопкой → pressed-кадр (base+2)
+MenuLanternIdx EQU #4269        ; текущий кадр анимации фонаря SHNGANIM (0..MENU_LANTERN_FRAMES-1)
+MenuDoorHover  EQU #426A        ; 1=мышь над зоной настроек → подсветка двери (SHNGANIM[18]+пал.8)
 HeroPathXBuf   EQU #4300
 HeroPathYBuf   EQU #4360
 PathDebugXBuf  EQU #EF30
@@ -83,10 +87,11 @@ TSLibPage       EQU #00
 CorePage        EQU #05
 ScaleTablePage  EQU #12
 PathWorkPage    EQU #13
-                define CMD_ADDRESS_PTR #A700    ; DL-staging буфер (frame_max #0F90=3984Б).
-                ; Сдвинут до #A700: резидент дорос (диспетчер + menu.asm + generated_menu.inc:
-                ; MenuScene_DL/Menu_LoadAssets/зоны). Потолок ~#B06F (+3984<#BFFF, не пересекает
-                ; #C000). TODO: меню-DL/загрузчик в overlay при упоре в потолок.
+                define CMD_ADDRESS_PTR #AA00    ; DL-staging буфер (frame_max #0F90=3984Б).
+                ; Сдвинут до #AA00: резидент дорос (диспетчер + menu.asm hover/pressed/фонарь +
+                ; generated_menu.inc: MenuBg_DL/кнопки×3/13 кадров фонаря/таблицы/зоны). Потолок
+                ; #B070 (+#0F90 = #B990 < #C000, не пересекает slot3). TODO: меню-DL/загрузчик в
+                ; overlay при упоре в потолок.
                 ; TODO: вынести MinimapTileColorTable (1296Б)/PickupList в paged при упоре.
 HMM2_SIGNAL_CANARY EQU 0                         ; 1 = только Init_Video и чёрный экран для проверки сигнала
 
