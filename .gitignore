@@ -1,0 +1,22 @@
+Build/*
+!Build/.gitkeep
+Assets/Converted/*
+!Assets/Converted/.gitkeep
+*.lst
+*.sym
+*.spg
+*.bin
+*.tap
+*.trd
+*.scl
+*.hob
+*.tmp
+*.bak
+*.zip
+
+# Тяжёлое/нестандартное — вне истории кода (сырьё, снимки, диагностика, мусор)
+Assets/Original/
+releases/
+Diagnostics/
+*.png
+/111
