@@ -82,9 +82,10 @@ TSLibPage       EQU #00
 CorePage        EQU #05
 ScaleTablePage  EQU #12
 PathWorkPage    EQU #13
-                define CMD_ADDRESS_PTR #A400    ; DL-staging буфер (frame_max #0F90=3984Б).
-                ; Сдвинут #A200→#A400: резидент дорос (диспетчер сцен + menu.asm).
-                ; Потолок буфера ~#B06F (#A400+3984<#BFFF, не пересекает #C000). Loader отключён.
+                define CMD_ADDRESS_PTR #A700    ; DL-staging буфер (frame_max #0F90=3984Б).
+                ; Сдвинут до #A700: резидент дорос (диспетчер + menu.asm + generated_menu.inc:
+                ; MenuScene_DL/Menu_LoadAssets/зоны). Потолок ~#B06F (+3984<#BFFF, не пересекает
+                ; #C000). TODO: меню-DL/загрузчик в overlay при упоре в потолок.
                 ; TODO: вынести MinimapTileColorTable (1296Б)/PickupList в paged при упоре.
 HMM2_SIGNAL_CANARY EQU 0                         ; 1 = только Init_Video и чёрный экран для проверки сигнала
 

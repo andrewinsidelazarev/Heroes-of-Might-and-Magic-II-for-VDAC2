@@ -20,6 +20,12 @@ echo === disable DXT L4 scroll background ===
 python Source\Tools\dxt_l4_scroll_buffer.py --disable
 if errorlevel 1 goto :err
 
+echo === generate menu pack ===
+rem ПОСЛЕ viewport_pack/dxt: оба регенерируют spgbld ini вокруг terrain-секции,
+rem поэтому меню-страницы дописываются последними, иначе стираются.
+python Source\Tools\menu_pack.py
+if errorlevel 1 goto :err
+
 if "%HMM2_DYNAMIC_ACTOR%"=="1" (
   echo === generate dynamic actor ===
   python Source\Tools\dynamic_actor.py

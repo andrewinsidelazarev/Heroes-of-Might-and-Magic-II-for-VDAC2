@@ -74,10 +74,12 @@ def main() -> int:
         return 1
     print("OK: FMADDR mapping включён")
     emu.call(emu.sym["Game_Init"], max_steps=12_000_000)
-    # Game_Init теперь стартует в ГЛАВНОМ МЕНЮ (диспетчер сцен). Этот верификатор
-    # проверяет adventure-пайплайн (composite RAM_G + DL), поэтому явно входим в
-    # adventure-сцену — эквивалент клика New Game (Background/Objects_Upload,
-    # GameMode=ADVENTURE).
+    # Game_Init теперь стартует в ГЛАВНОМ МЕНЮ (диспетчер сцен) и Menu_LoadAssets
+    # заливает меню-ассеты в RAM_G[0..]. Они перекрывают область composite-кэша
+    # (2 банка). Этот верификатор проверяет adventure-пайплайн, поэтому очищаем RAM_G
+    # (эквивалент чистого первого входа в adventure; в рантайме неактивный банк
+    # перезаливается при скролле до показа) и явно входим в adventure-сцену.
+    emu.ft.ram_g[:] = b"\x00" * len(emu.ft.ram_g)
     emu.call(emu.sym["Adventure_Enter"], max_steps=12_000_000)
 
     bg_inc = ROOT / "Source" / "ASM" / "generated_dxt_background.inc"
