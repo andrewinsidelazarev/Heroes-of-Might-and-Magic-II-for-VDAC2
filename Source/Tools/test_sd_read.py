@@ -23,27 +23,63 @@ def main() -> int:
         emu.mem.write(0x6000 + i, b)
     emu.load_sd_image(ROOT / "Diagnostics" / "sd.img")
 
-    emu.call(emu.sym["SdTest"], max_steps=20_000_000)
-
+    # --- шаг 1: чтение сектора 0 (BPB) ---
+    emu.call(emu.sym["SdReadSector"], max_steps=20_000_000)
     buf = emu.get_memory(0x8000, 512)
     sig = buf[510:512]
     bps = buf[0x0B] | (buf[0x0C] << 8)
     spc = buf[0x0D]
-    print(f"sector0[0:16]: {buf[:16].hex()}")
-    print(f"OEM/jump:      {buf[:3].hex()} ('{bytes(buf[3:11]).decode(chr(39)+'ascii'+chr(39),'replace')}')")
-    print(f"boot signature [510:512]: {sig.hex()} (ожид 55aa)")
-    print(f"bytes/sector: {bps}, sectors/cluster: {spc}")
+    print(f"[шаг1] sector0[0:16]: {buf[:16].hex()}")
+    print(f"[шаг1] boot sig: {sig.hex()} (ожид 55aa), bps={bps}, spc={spc}")
+    if sig != b"\x55\xaa" or bps != 512 or spc == 0:
+        print("ОШИБКА: невалидный BPB — SD-чтение не сработало")
+        return 1
+    print("[шаг1] PASS: сектор 0 прочитан, BPB валиден")
 
-    if sig != b"\x55\xaa":
-        print("ОШИБКА: нет boot-подписи 0x55AA — SD-чтение не сработало")
+    # --- шаг 2: RawPak_Mount + RawPak_OpenFile(HMM2_VD2.SPG) ---
+    emu.call(emu.sym["SdMountOpen"], max_steps=200_000_000)
+    res = emu.get_byte(emu.sym["TestResult"])
+    fsz = emu.get_memory(emu.sym["RawPak_FoundSize"], 4)
+    found_size = fsz[0] | (fsz[1] << 8) | (fsz[2] << 16) | (fsz[3] << 24)
+    clus = emu.get_memory(emu.sym["RawPak_FileStartClus"], 4)
+    start_clus = clus[0] | (clus[1] << 8) | (clus[2] << 16) | (clus[3] << 24)
+    def u32(name):
+        b = emu.get_memory(emu.sym[name], 4)
+        return b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)
+    stage = {0: "OK", 1: "MOUNT FAIL", 2: "OPENFILE FAIL"}.get(res, f"?{res:#04x}")
+    print(f"[шаг2] стадия={stage}, FoundSize={found_size}, startClus={start_clus}")
+    print(f"[шаг2] raw_pak: Spc={emu.get_byte(emu.sym['RawPak_Spc'])} "
+          f"RootClus={u32('RawPak_RootClus')} FatStart={u32('RawPak_FatStart')} "
+          f"DataStart={u32('RawPak_DataStart')}")
+    if res != 0:
+        print(f"ОШИБКА: RawPak шаг2 не прошёл (стадия={stage})")
         return 1
-    if bps != 512:
-        print(f"ОШИБКА: bytes/sector={bps} != 512")
+    if found_size == 0:
+        print("ОШИБКА: FoundSize=0 — файл найден, но размер нулевой")
         return 1
-    if spc == 0:
-        print("ОШИБКА: sectors/cluster=0 — не похоже на валидный BPB")
+    print("[шаг2] PASS: HMM2_VD2.SPG найден, run-table построена")
+
+    # --- шаг 3: RawPak_ReadSectors — прочитать данные файла через run-table ---
+    emu.call(emu.sym["SdReadData"], max_steps=200_000_000)
+    res3 = emu.get_byte(emu.sym["TestResult"])
+    PAGE = 0x07
+    data = bytes(emu.mem.physical[PAGE * 0x4000: PAGE * 0x4000 + 2048])
+    real = (ROOT / "Build" / "hmm2_vdac2.spg").read_bytes()[:2048]
+    match = data == real
+    print(f"[шаг3] TestResult={res3:#04x} (0=ok), первые 2КБ совпадают с SPG: {match}")
+    print(f"[шаг3] data[0:16]={data[:16].hex()}  spg[0:16]={real[:16].hex()}")
+    if res3 != 0:
+        print("ОШИБКА: RawPak_ReadSectors вернул ошибку")
         return 1
-    print("=== test_sd_read: PASS (сектор 0 прочитан, BPB валиден) ===")
+    if not match:
+        diff = next((i for i in range(2048) if data[i] != real[i]), -1)
+        print(f"ОШИБКА: данные расходятся с offset {diff} (сектор {diff//512}, в секторе {diff%512})")
+        lo = (diff // 16) * 16
+        print(f"  got : {data[lo:lo+16].hex()}")
+        print(f"  real: {real[lo:lo+16].hex()}")
+        return 1
+    print("[шаг3] PASS: данные файла прочитаны через run-table корректно")
+    print("=== test_sd_read: PASS (sd_zc + raw_pak: mount+open+read работают) ===")
     return 0
 
 
