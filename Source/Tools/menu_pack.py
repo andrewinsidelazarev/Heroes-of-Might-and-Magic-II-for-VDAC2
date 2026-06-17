@@ -49,7 +49,11 @@ MENU_BTN_RELEASED = [1, 5, 9, 13, 17]           # released; pressed = +2
 MENU_BTN_NAME = ["NEW_GAME", "LOAD_GAME", "HIGH_SCORES", "CREDITS", "QUIT"]
 TRANSPARENT = 0                                  # OBJECT_TRANSPARENT_INDEX
 MENU_RAMG_BASE = 0x000000
-MENU_PAGE_BASE = 0xE0                            # свободный блок SPG-страниц (0xE0..0xF7)
+# Страницы СРАЗУ после рабочего composite (0xC4): adventure на железе доходит до 0xC4,
+# поэтому 0xC5+ заведомо в физ. RAM. Прежний 0xE0-0xF4 включал 0xF1-0xF4 ВЫШЕ предела
+# рабочего Zuma VDAC2 (#F0) → SPG-загрузчик висел до включения FT812. Object-view
+# де-факто занимает только до 0x99, поэтому 0xC5-0xD9 свободны.
+MENU_PAGE_BASE = 0xC5
 PALETTE_BYTES = 512                              # 256 цветов × ARGB4444
 
 
@@ -236,8 +240,8 @@ def main() -> int:
     append_menu_to_ini(chunks)
 
     last_page = chunks[-1][1] if chunks else MENU_PAGE_BASE
-    if last_page > 0xF7:
-        raise ValueError(f"меню вышло за страницы 0xE0..0xF7 (последняя #{last_page:02X})")
+    if last_page > 0xDF:
+        raise ValueError(f"меню вышло за безопасный блок 0xC5..0xDF (последняя #{last_page:02X})")
     print(f"menu pack: фон {len(tiles)} кусков + {len(buttons)} кнопок, "
           f"payload={len(payload)} байт, страницы #{MENU_PAGE_BASE:02X}..#{last_page:02X} ({len(chunks)})")
     print(f"  inc: {MENU_INC}")

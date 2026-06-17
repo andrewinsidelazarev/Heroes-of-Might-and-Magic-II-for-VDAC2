@@ -193,6 +193,61 @@ class TSConfigMemory:
         self.load_page_block(page, offset, data)
 
 
+class SDCardModel:
+    """SPI SD-карта в SPI-режиме (Z-Controller TS-Conf). На железе SD и FT812 висят на
+    одной SPI-шине (порт #57 = данные), различаются CS через порт #77 (SPI_CTRL):
+    0x01 = выбрать SD, 0x07 = выбрать FT812, 0x03 = deselect. Эмулирует CMD17
+    (single-block read) поверх backing-образа: ответ R1=00 → токен #FE → 512 байт
+    сектора → 2 байта CRC. Прочее CMD → только R1=00. byte addressing (arg = LBA*512),
+    как делает sd_zc.asm под Unreal.
+    """
+
+    def __init__(self, image=b"") -> None:
+        # image — любой sliceable (bytes/bytearray/mmap): mmap даёт ленивый доступ к
+        # секторам без загрузки всего образа (wc.img = 100МБ) в память.
+        self.image = image
+        self.cmd: list[int] = []
+        self.resp: list[int] = []     # FIFO байтов ответа на чтение через #57
+        self.reads = 0
+
+    def select(self) -> None:
+        self.cmd = []                 # CS low: ждём новую команду
+
+    def deselect(self) -> None:
+        self.cmd = []
+        self.resp = []                # CS high: ответ должен быть исчерпан
+
+    def spi_out(self, value: int) -> None:
+        value &= 0xFF
+        if not self.cmd:
+            # начало команды: bit7=0, bit6=1 (0x40..0x7F). 0xFF/clock — игнор.
+            if (value & 0xC0) == 0x40:
+                self.cmd = [value]
+            return
+        self.cmd.append(value)
+        if len(self.cmd) == 6:
+            self._exec(self.cmd)
+            self.cmd = []
+
+    def _exec(self, c: list[int]) -> None:
+        cmd = c[0] & 0x3F
+        arg = (c[1] << 24) | (c[2] << 16) | (c[3] << 8) | c[4]
+        if cmd == 17:                 # CMD17 single-block read; byte addressing
+            lba = arg // 512
+            off = lba * 512
+            sec = bytes(self.image[off:off + 512])
+            if len(sec) < 512:
+                sec = sec + bytes(512 - len(sec))
+            self.resp = [0x00, 0xFE, *sec, 0x00, 0x00]   # R1, token, data, CRC16
+        else:
+            self.resp = [0x00]        # R1=ok для CMD0/прочих
+
+    def spi_in(self) -> int:
+        if self.resp:
+            return self.resp.pop(0)
+        return 0xFF                   # idle/ready
+
+
 class TSConfFT812Machine:
     """Project-agnostic Z80 + TS-Config paging/DMA + FT812 memory model.
 
@@ -229,6 +284,9 @@ class TSConfFT812Machine:
         self.tstates = 0
         self.fmaddr_enabled = False
         self.fmaddr_requires_enable = fmaddr_requires_enable
+        # SPI-шина: SD-карта и FT812 различаются по CS (порт #77). По умолчанию FT812.
+        self.sd = SDCardModel()
+        self.spi_target = "ft"
 
         if load_spg:
             if self.spgbld_path is None:
@@ -272,6 +330,13 @@ class TSConfFT812Machine:
 
     def get_memory(self, addr: int, length: int) -> bytes:
         return self.mem.read_block(addr, length)
+
+    def load_sd_image(self, path: Path) -> None:
+        """Подключить FAT32-образ как backing SD-карты (mmap, ленивое чтение секторов)."""
+        import mmap
+        self._sd_file = open(Path(path), "rb")
+        self._sd_mm = mmap.mmap(self._sd_file.fileno(), 0, access=mmap.ACCESS_READ)
+        self.sd.image = self._sd_mm
 
     def step(self) -> int:
         if self.reg is None or self.ins is None:
@@ -371,6 +436,8 @@ class TSConfFT812Machine:
                 return self.dma.status & 0xFF
             return 0x07 if high == 0x00 else 0x00
         if low == 0x57:
+            if self.spi_target == "sd":
+                return self.sd.spi_in()
             return self._read_ft_spi()
         if port == 0xBFF7:
             return self.input.rtc_seconds_bcd & 0xFF
@@ -392,8 +459,24 @@ class TSConfFT812Machine:
         value &= 0xFF
         if low == 0xAF:
             self._write_tsconf_register(high, value)
-        elif low in (0x57, 0x77):
-            self._write_ft_spi(low, value)
+        elif low == 0x77:
+            # SPI CS control (#77): выбор устройства на общей SPI-шине.
+            if value == 0x01:                 # SD_CS1 → выбрать SD
+                self.spi_target = "sd"
+                self.sd.select()
+            elif value == 0x07:               # SPI_FT_CS_ON → выбрать FT812
+                self.spi_target = "ft"
+                self._write_ft_spi(0x77, value)
+            else:                             # 0x03 SPI_FT_CS_OFF / deselect
+                if self.spi_target == "sd":
+                    self.sd.deselect()
+                self.spi_target = "idle"
+                self._write_ft_spi(0x77, value)
+        elif low == 0x57:
+            if self.spi_target == "sd":
+                self.sd.spi_out(value)
+            else:
+                self._write_ft_spi(0x57, value)
 
     def _write_tsconf_register(self, reg: int, value: int) -> None:
         value &= 0xFF

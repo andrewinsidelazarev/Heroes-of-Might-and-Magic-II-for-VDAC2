@@ -87,127 +87,127 @@ MenuButtonZones:
 Menu_LoadAssets:
                 GetPage3
                 LD   (.RestorePage), A
-                SetPage3 #E0
+                SetPage3 #C5
                 LD   HL, #C000
                 LD   A, #00
                 LD   DE, #0000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #E1
+                SetPage3 #C6
                 LD   HL, #C000
                 LD   A, #00
                 LD   DE, #4000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #E2
+                SetPage3 #C7
                 LD   HL, #C000
                 LD   A, #00
                 LD   DE, #8000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #E3
+                SetPage3 #C8
                 LD   HL, #C000
                 LD   A, #00
                 LD   DE, #C000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #E4
+                SetPage3 #C9
                 LD   HL, #C000
                 LD   A, #01
                 LD   DE, #0000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #E5
+                SetPage3 #CA
                 LD   HL, #C000
                 LD   A, #01
                 LD   DE, #4000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #E6
+                SetPage3 #CB
                 LD   HL, #C000
                 LD   A, #01
                 LD   DE, #8000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #E7
+                SetPage3 #CC
                 LD   HL, #C000
                 LD   A, #01
                 LD   DE, #C000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #E8
+                SetPage3 #CD
                 LD   HL, #C000
                 LD   A, #02
                 LD   DE, #0000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #E9
+                SetPage3 #CE
                 LD   HL, #C000
                 LD   A, #02
                 LD   DE, #4000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #EA
+                SetPage3 #CF
                 LD   HL, #C000
                 LD   A, #02
                 LD   DE, #8000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #EB
+                SetPage3 #D0
                 LD   HL, #C000
                 LD   A, #02
                 LD   DE, #C000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #EC
+                SetPage3 #D1
                 LD   HL, #C000
                 LD   A, #03
                 LD   DE, #0000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #ED
+                SetPage3 #D2
                 LD   HL, #C000
                 LD   A, #03
                 LD   DE, #4000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #EE
+                SetPage3 #D3
                 LD   HL, #C000
                 LD   A, #03
                 LD   DE, #8000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #EF
+                SetPage3 #D4
                 LD   HL, #C000
                 LD   A, #03
                 LD   DE, #C000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #F0
+                SetPage3 #D5
                 LD   HL, #C000
                 LD   A, #04
                 LD   DE, #0000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #F1
+                SetPage3 #D6
                 LD   HL, #C000
                 LD   A, #04
                 LD   DE, #4000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #F2
+                SetPage3 #D7
                 LD   HL, #C000
                 LD   A, #04
                 LD   DE, #8000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #F3
+                SetPage3 #D8
                 LD   HL, #C000
                 LD   A, #04
                 LD   DE, #C000
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #F4
+                SetPage3 #D9
                 LD   HL, #C000
                 LD   A, #05
                 LD   DE, #0000
