@@ -1341,9 +1341,14 @@ def append_adventure_ui_sprites(payload: bytearray, agg_data: bytes, entries, pa
 
     button_icn = read_icn(agg_entry(agg_data, entries, "ADVBTNS.ICN"))
     buttons = []
+    buttons_pressed = []
     for index in UI_BUTTON_INDICES:
         header, encoded = button_icn[index]
         buttons.append(append_paletted_sprite(payload, decode_icn_indices(header, encoded), header["w"], header["h"], "ADVBTNS.ICN", index))
+        # pressed-кадр = released+1 (как в оригинале fheroes2: ADVBTNS released/pressed пара),
+        # рисуется поверх нажатой кнопки пока ЛКМ зажата.
+        ph, pe = button_icn[index + 1]
+        buttons_pressed.append(append_paletted_sprite(payload, decode_icn_indices(ph, pe), ph["w"], ph["h"], "ADVBTNS.ICN", index + 1))
 
     # Иконки ресурсов RESOURCE.ICN[0..6]: wood, mercury, ore, sulfur, crystal, gems, gold.
     resource_icn = read_icn(agg_entry(agg_data, entries, "RESOURCE.ICN"))
@@ -1376,7 +1381,7 @@ def append_adventure_ui_sprites(payload: bytearray, agg_data: bytes, entries, pa
     radar["tile_colors"] = radar_tile_colors   # индекс цвета палитры на тайл (для рантайм-раскрытия тумана)
     radar["map_w"] = width
     radar["map_h"] = height
-    return {"border_w": border_w, "border_h": border_h, "background_blits": background_blits, "border_blits": border_blits, "buttons": buttons, "radar": radar, "resource_icons": resource_icons, "digits": digits, "resource_panel_ramg": resource_panel_ramg}
+    return {"border_w": border_w, "border_h": border_h, "background_blits": background_blits, "border_blits": border_blits, "buttons": buttons, "buttons_pressed": buttons_pressed, "radar": radar, "resource_icons": resource_icons, "digits": digits, "resource_panel_ramg": resource_panel_ramg}
 
 
 def append_cursor_sprites(agg_data: bytes, entries, palette):
@@ -1429,6 +1434,16 @@ def append_cursor_sprites(agg_data: bytes, entries, palette):
                 base=CURSOR_RAMG_BASE,
             )
         )
+
+    # Scroll-курсоры краёв карты (ADVMCO кадры 0x20..0x27, порядок по enum fheroes2
+    # Cursor::SCROLL_*): TOP, TOPRIGHT, RIGHT, BOTTOMRIGHT, BOTTOM, BOTTOMLEFT, LEFT,
+    # TOPLEFT. Показываются, когда мышь в кромочной зоне экрана (как в оригинале).
+    if len(sprites) <= 0x27:
+        raise ValueError("ADVMCO.ICN: отсутствуют scroll-курсоры (кадры 0x20..0x27)")
+    for frame in range(0x20, 0x28):
+        s = original_sprite(frame)
+        sox, soy = cursor_default_draw_offset(s)
+        cursor_sprites.append(append_argb4_sprite(payload, s["raw"], s["w"], s["h"], sox, soy, "ADVMCO.ICN", frame, base=CURSOR_RAMG_BASE))
     return cursor_sprites, payload
 
 
@@ -2262,6 +2277,7 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
         f"CURSOR_SPRITE_COUNT     EQU {len(cursor_sprites)}",
         f"CURSOR_POINTER_INDEX    EQU {CURSOR_POINTER_INDEX}",
         f"CURSOR_MOVE_BASE_INDEX  EQU {CURSOR_MOVE_BASE_INDEX}",
+        f"CURSOR_SCROLL_BASE_INDEX EQU {len(cursor_sprites) - 8}",
         "CURSOR_TABLE_ENTRY_SIZE EQU 12",
         f"UI_BORDER_W             EQU {ui_sprites['border_w']}",
         f"UI_BORDER_H             EQU {ui_sprites['border_h']}",
@@ -2359,8 +2375,11 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
             "                FT_BITMAP_HANDLE 3",
             "                FT_CELL 0",
             "                FT_BITMAP_TRANSFORM_A 160",
-            "                FT_BITMAP_TRANSFORM_E 160",
+            "                FT_BITMAP_TRANSFORM_B 0",
             "                FT_BITMAP_TRANSFORM_C 0",
+            "                FT_BITMAP_TRANSFORM_D 0",
+            "                FT_BITMAP_TRANSFORM_E 160",
+            "                FT_BITMAP_TRANSFORM_F 0",
             "                FT_VERTEX_TRANSLATE_X 0",
             "                FT_VERTEX_TRANSLATE_Y 0",
             "                FT_BLEND_FUNC FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA",
@@ -2374,10 +2393,8 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
         sprite = item["sprite"]
         add_paletted_blit(sprite, 0, 0, sprite["w"], sprite["h"], item["dx"], item["dy"])
     lines.extend(["                FT_END", "                FT_PALETTE_SOURCE OBJECT_PALETTE_RAMG", "                FT_BEGIN FT_BITMAPS"])
-    for button_index, button in enumerate(ui_sprites["buttons"]):
-        bx = UI_BUTTON_X + (button_index % 4) * UI_BUTTON_W
-        by = UI_BUTTON_Y + (button_index // 4) * UI_BUTTON_H
-        add_paletted_blit(button, 0, 0, button["w"], button["h"], bx, by)
+    # Кнопки панели приключений теперь отрисовываются динамически в Render_AdvButtonsCmd
+    # в зависимости от их логического состояния (Normal/Inactive/Disabled/Pressed).
     lines.extend(
         [
             "                FT_END",
@@ -2400,6 +2417,22 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
         sprite = item["sprite"]
         add_paletted_blit(sprite, 0, 0, sprite["w"], sprite["h"], item["dx"], item["dy"])
     lines.extend(["                FT_END", "                FT_BITMAP_LAYOUT_H 0, 0", "                FT_BITMAP_SIZE_H 0, 0", "AdventureUI_DL_SIZE EQU $ - AdventureUI_DL", ""])
+
+    def generate_btn_dl(prefix: str, sprites: list):
+        lines.append(f"@{prefix}Tab:")
+        for i in range(len(sprites)):
+            lines.append(f"                DEFW {prefix}_{i}_DL")
+        for i, sprite in enumerate(sprites):
+            bx = UI_BUTTON_X + (i % 4) * UI_BUTTON_W
+            by = UI_BUTTON_Y + (i // 4) * UI_BUTTON_H
+            lines.append(f"{prefix}_{i}_DL:")
+            add_paletted_blit(sprite, 0, 0, sprite["w"], sprite["h"], bx, by)
+        lines.append(f"@{prefix}_DL_SIZE EQU {prefix}_1_DL - {prefix}_0_DL")
+
+    generate_btn_dl("UI_BtnNormal", ui_sprites["buttons"])
+    generate_btn_dl("UI_BtnPressed", ui_sprites["buttons_pressed"])
+
+    lines.append("")
     lines.extend(
         [
         "Objects_Upload:",

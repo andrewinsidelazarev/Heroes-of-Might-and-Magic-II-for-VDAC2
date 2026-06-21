@@ -6,8 +6,8 @@ OBJECT_OPAQUE_PALETTE_RAMG EQU #079200
 OBJECT_PALETTE_SIZE     EQU 512
 OBJECT_OPAQUE_PALETTE_SIZE EQU 512
 OBJECT_ATLAS_PAGE_BASE  EQU #07
-OBJECT_ATLAS_PAGE_COUNT EQU 23
-OBJECT_ATLAS_SIZE       EQU 376046
+OBJECT_ATLAS_PAGE_COUNT EQU 24
+OBJECT_ATLAS_SIZE       EQU 386414
 HERO_SPRITE_RAMG        EQU #0B3E0C
 HERO_SPRITE_W           EQU 32
 HERO_SPRITE_H           EQU 50
@@ -21,14 +21,15 @@ CURSOR_SPRITE_OY        EQU 0
 CURSOR_SPRITE_STRIDE    EQU 30
 CURSOR_SPRITE_SIZE_W    EQU 24
 CURSOR_SPRITE_SIZE_H    EQU 34
-CURSOR_SPRITE_COUNT     EQU 9
+CURSOR_SPRITE_COUNT     EQU 17
 CURSOR_POINTER_INDEX    EQU 0
 CURSOR_MOVE_BASE_INDEX  EQU 1
+CURSOR_SCROLL_BASE_INDEX EQU 9
 CURSOR_TABLE_ENTRY_SIZE EQU 12
 UI_BORDER_W             EQU 640
 UI_BORDER_H             EQU 480
-UI_RADAR_RAMG           EQU #0C9174
-UI_RADAR_PALETTE_RAMG   EQU #0CE274
+UI_RADAR_RAMG           EQU #0CB9F4
+UI_RADAR_PALETTE_RAMG   EQU #0D0AF4
 UI_RADAR_W              EQU 144
 UI_RADAR_H              EQU 144
 UI_RADAR_STRIDE         EQU 144
@@ -53,7 +54,7 @@ UI_STATUS_H             EQU 72
 ROUTE_SPRITE_COUNT      EQU 145
 ROUTE_PALETTE_RAMG      EQU OBJECT_PALETTE_RAMG
 ROUTE_RED_PALETTE_RAMG  EQU #0B3C0C
-ROUTE_TABLE_PAGE        EQU #89
+ROUTE_TABLE_PAGE        EQU #8A
 ROUTE_TABLE_ADDR        EQU #0000
 ROUTE_TABLE_ENTRY_SIZE  EQU 12
 
@@ -84,6 +85,30 @@ CursorSpriteTable:
                 DEFW #FFF4
                 DEFB #0E, #C4, #31, 26, 76, 61, 42, 0
                 DEFW #FFF1
+                DEFW #FFF4
+                DEFB #0E, #7C, #39, 32, 16, 13, 52, 0
+                DEFW #FFFC
+                DEFW #FFF0
+                DEFB #0E, #7C, #3B, 24, 48, 39, 39, 0
+                DEFW #FFF4
+                DEFW #FFF4
+                DEFB #0E, #FC, #3F, 8, 64, 52, 13, 0
+                DEFW #FFF0
+                DEFW #FFFC
+                DEFB #0E, #FC, #41, 24, 48, 39, 39, 0
+                DEFW #FFF4
+                DEFW #FFF4
+                DEFB #0E, #7C, #46, 32, 16, 13, 52, 0
+                DEFW #FFFC
+                DEFW #FFF0
+                DEFB #0E, #7C, #48, 24, 48, 39, 39, 0
+                DEFW #FFF4
+                DEFW #FFF4
+                DEFB #0E, #FC, #4C, 8, 64, 52, 13, 0
+                DEFW #FFF0
+                DEFW #FFFC
+                DEFB #0E, #FC, #4E, 24, 48, 39, 39, 0
+                DEFW #FFF4
                 DEFW #FFF4
 
 MINIMAP_MAP_W           EQU 36
@@ -134,25 +159,25 @@ MinimapTileColorTable:
 RESOURCE_ICON_ENTRY     EQU 5
 DIGIT_ENTRY             EQU 5
 ResourceIconTable:
-                DEFB #8C, #6C, #0C, 39, 23
-                DEFB #10, #70, #0C, 37, 30
-                DEFB #68, #74, #0C, 39, 25
-                DEFB #38, #78, #0C, 39, 26
-                DEFB #30, #7C, #0C, 39, 32
-                DEFB #10, #81, #0C, 36, 27
-                DEFB #DC, #84, #0C, 68, 25
+                DEFB #0C, #95, #0C, 39, 23
+                DEFB #90, #98, #0C, 37, 30
+                DEFB #E8, #9C, #0C, 39, 25
+                DEFB #B8, #A0, #0C, 39, 26
+                DEFB #B0, #A4, #0C, 39, 32
+                DEFB #90, #A9, #0C, 36, 27
+                DEFB #5C, #AD, #0C, 68, 25
 DigitTable:
-                DEFB #80, #8B, #0C, 5, 10
-                DEFB #B4, #8B, #0C, 3, 10
-                DEFB #D4, #8B, #0C, 5, 10
-                DEFB #08, #8C, #0C, 5, 10
-                DEFB #3C, #8C, #0C, 5, 10
-                DEFB #70, #8C, #0C, 5, 10
-                DEFB #A4, #8C, #0C, 5, 10
-                DEFB #D8, #8C, #0C, 5, 10
-                DEFB #0C, #8D, #0C, 5, 10
-                DEFB #40, #8D, #0C, 5, 10
-RESOURCE_PANEL_RAMG     EQU #0C8D74
+                DEFB #00, #B4, #0C, 5, 10
+                DEFB #34, #B4, #0C, 3, 10
+                DEFB #54, #B4, #0C, 5, 10
+                DEFB #88, #B4, #0C, 5, 10
+                DEFB #BC, #B4, #0C, 5, 10
+                DEFB #F0, #B4, #0C, 5, 10
+                DEFB #24, #B5, #0C, 5, 10
+                DEFB #58, #B5, #0C, 5, 10
+                DEFB #8C, #B5, #0C, 5, 10
+                DEFB #C0, #B5, #0C, 5, 10
+RESOURCE_PANEL_RAMG     EQU #0CB5F4
 
 AdventureUI_DL:
                 FT_SCISSOR_XY 0, 0
@@ -162,8 +187,11 @@ AdventureUI_DL:
                 FT_BITMAP_HANDLE 3
                 FT_CELL 0
                 FT_BITMAP_TRANSFORM_A 160
-                FT_BITMAP_TRANSFORM_E 160
+                FT_BITMAP_TRANSFORM_B 0
                 FT_BITMAP_TRANSFORM_C 0
+                FT_BITMAP_TRANSFORM_D 0
+                FT_BITMAP_TRANSFORM_E 160
+                FT_BITMAP_TRANSFORM_F 0
                 FT_VERTEX_TRANSLATE_X 0
                 FT_VERTEX_TRANSLATE_Y 0
                 FT_BLEND_FUNC FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA
@@ -210,42 +238,10 @@ AdventureUI_DL:
                 FT_END
                 FT_PALETTE_SOURCE OBJECT_PALETTE_RAMG
                 FT_BEGIN FT_BITMAPS
-                FT_BITMAP_SOURCE #0C440C
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
-                FT_VERTEX2F 12288, 8192
-                FT_BITMAP_SOURCE #0C491C
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
-                FT_VERTEX2F 13210, 8192
-                FT_BITMAP_SOURCE #0C4E2C
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
-                FT_VERTEX2F 14131, 8192
-                FT_BITMAP_SOURCE #0C533C
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
-                FT_VERTEX2F 15053, 8192
-                FT_BITMAP_SOURCE #0C584C
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
-                FT_VERTEX2F 12288, 9114
-                FT_BITMAP_SOURCE #0C5D5C
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
-                FT_VERTEX2F 13210, 9114
-                FT_BITMAP_SOURCE #0C626C
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
-                FT_VERTEX2F 14131, 9114
-                FT_BITMAP_SOURCE #0C677C
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
-                FT_VERTEX2F 15053, 9114
                 FT_END
                 FT_BLEND_FUNC FT_ONE, FT_ZERO
                 FT_PALETTE_SOURCE UI_RADAR_PALETTE_RAMG
-                FT_BITMAP_SOURCE #0C9174
+                FT_BITMAP_SOURCE #0CB9F4
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 144, 144
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 231, 231
                 FT_BEGIN FT_BITMAPS
@@ -409,6 +405,107 @@ AdventureUI_DL:
                 FT_BITMAP_SIZE_H 0, 0
 AdventureUI_DL_SIZE EQU $ - AdventureUI_DL
 
+@UI_BtnNormalTab:
+                DEFW UI_BtnNormal_0_DL
+                DEFW UI_BtnNormal_1_DL
+                DEFW UI_BtnNormal_2_DL
+                DEFW UI_BtnNormal_3_DL
+                DEFW UI_BtnNormal_4_DL
+                DEFW UI_BtnNormal_5_DL
+                DEFW UI_BtnNormal_6_DL
+                DEFW UI_BtnNormal_7_DL
+UI_BtnNormal_0_DL:
+                FT_BITMAP_SOURCE #0C440C
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 12288, 8192
+UI_BtnNormal_1_DL:
+                FT_BITMAP_SOURCE #0C4E2C
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 13210, 8192
+UI_BtnNormal_2_DL:
+                FT_BITMAP_SOURCE #0C584C
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 14131, 8192
+UI_BtnNormal_3_DL:
+                FT_BITMAP_SOURCE #0C626C
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 15053, 8192
+UI_BtnNormal_4_DL:
+                FT_BITMAP_SOURCE #0C6C8C
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 12288, 9114
+UI_BtnNormal_5_DL:
+                FT_BITMAP_SOURCE #0C76AC
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 13210, 9114
+UI_BtnNormal_6_DL:
+                FT_BITMAP_SOURCE #0C80CC
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 14131, 9114
+UI_BtnNormal_7_DL:
+                FT_BITMAP_SOURCE #0C8AEC
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 15053, 9114
+@UI_BtnNormal_DL_SIZE EQU UI_BtnNormal_1_DL - UI_BtnNormal_0_DL
+@UI_BtnPressedTab:
+                DEFW UI_BtnPressed_0_DL
+                DEFW UI_BtnPressed_1_DL
+                DEFW UI_BtnPressed_2_DL
+                DEFW UI_BtnPressed_3_DL
+                DEFW UI_BtnPressed_4_DL
+                DEFW UI_BtnPressed_5_DL
+                DEFW UI_BtnPressed_6_DL
+                DEFW UI_BtnPressed_7_DL
+UI_BtnPressed_0_DL:
+                FT_BITMAP_SOURCE #0C491C
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 12288, 8192
+UI_BtnPressed_1_DL:
+                FT_BITMAP_SOURCE #0C533C
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 13210, 8192
+UI_BtnPressed_2_DL:
+                FT_BITMAP_SOURCE #0C5D5C
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 14131, 8192
+UI_BtnPressed_3_DL:
+                FT_BITMAP_SOURCE #0C677C
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 15053, 8192
+UI_BtnPressed_4_DL:
+                FT_BITMAP_SOURCE #0C719C
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 12288, 9114
+UI_BtnPressed_5_DL:
+                FT_BITMAP_SOURCE #0C7BBC
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 13210, 9114
+UI_BtnPressed_6_DL:
+                FT_BITMAP_SOURCE #0C85DC
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 14131, 9114
+UI_BtnPressed_7_DL:
+                FT_BITMAP_SOURCE #0C8FFC
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
+                FT_VERTEX2F 15053, 9114
+@UI_BtnPressed_DL_SIZE EQU UI_BtnPressed_1_DL - UI_BtnPressed_0_DL
+
 Objects_Upload:
                 GetPage3
                 LD   (.RestorePage), A
@@ -548,7 +645,13 @@ Objects_Upload:
                 LD   HL, #C000
                 LD   A, #0D
                 LD   DE, #1000
-                LD   BC, 15598
+                LD   BC, 16384
+                CALL FT.WriteMem
+                SetPage3 #89
+                LD   HL, #C000
+                LD   A, #0D
+                LD   DE, #5000
+                LD   BC, 9582
                 CALL FT.WriteMem
 .RestorePage    EQU $+1
                 LD   A, #00
@@ -562,7 +665,13 @@ Cursor_GlobalUpload:
                 LD   HL, #C000
                 LD   A, #0E
                 LD   DE, #0000
-                LD   BC, 14716
+                LD   BC, 16384
+                CALL FT.WriteMem
+                SetPage3 #A3
+                LD   HL, #C000
+                LD   A, #0E
+                LD   DE, #4000
+                LD   BC, 4988
                 CALL FT.WriteMem
 .CurRestore     EQU $+1
                 LD   A, #00

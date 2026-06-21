@@ -105,7 +105,7 @@ def add8(a, b, registers, S=True, Z=True, H=True,
 def add16(a, b, registers):
     """ add a and b,  return result and set flags """
     res = a + b
-    print (a, "+",b,"=",res)
+    # print (a, "+",b,"=",res)
     registers.condition.S = (res >> 15) &  0x01
     registers.condition.Z = (res == 0)
     if ((a & 0xFFF) + (b & 0xFFF)) > 0xFFF :

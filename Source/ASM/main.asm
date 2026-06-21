@@ -80,6 +80,12 @@ MusicActive    EQU #426B        ; 1=играет MIDI-трек (SAM2695 чере
 MusicWait      EQU #426C        ; кадров до следующего MIDI-события
 MusicPtr       EQU #426D        ; текущая позиция в покадровом потоке (2б)
 MusicStart     EQU #426F        ; начало потока — для зацикливания (2б)
+UI_ActiveButton  EQU #4272       ; индекс кнопки, на которой было начато нажатие ЛКМ (#FF=нет)
+UI_ButtonPressed EQU #4273       ; индекс кнопки, которая визуально нажата в данный момент (#FF=нет)
+UI_ButtonStates  EQU #4274       ; 8 байт (состояния кнопок панели: 0=Normal, 2=Inactive, 3=Disabled)
+UI_HeroMoveButtonState EQU UI_ButtonStates + 1
+UI_EndTurnButtonState  EQU UI_ButtonStates + 4
+HeroWalkActive   EQU #427C       ; 1 = герой шагает по маршруту, 0 = ждёт команды (клик/кнопка)
 HeroPathXBuf   EQU #4300
 HeroPathYBuf   EQU #4360
 PathDebugXBuf  EQU #EF30
@@ -91,7 +97,7 @@ TSLibPage       EQU #00
 CorePage        EQU #05
 ScaleTablePage  EQU #12
 PathWorkPage    EQU #13
-                define CMD_ADDRESS_PTR #AA00    ; DL-staging буфер (frame_max #0F90=3984Б).
+                define CMD_ADDRESS_PTR #AD00    ; DL-staging буфер (frame_max #0FAC≈4012Б).
                 ; Сдвинут до #AA00: резидент дорос (диспетчер + menu.asm hover/pressed/фонарь +
                 ; generated_menu.inc: MenuBg_DL/кнопки×3/13 кадров фонаря/таблицы/зоны). Потолок
                 ; #B070 (+#0F90 = #B990 < #C000, не пересекает slot3). TODO: меню-DL/загрузчик в
@@ -284,9 +290,53 @@ LdStreamRamgHi: DEFB 0
                 ; ремапа и RET ушёл бы в мусор-страницу. EQU-константы — здесь:
 HMM2_LOADER_PAGE EQU #A0                          ; overlay-страница загрузчика (slot3)
 RAWPAK_BUF_PAGE  EQU #A1                          ; dir/sector buffer raw_pak (slot2)
-HMM2_MUSIC_PAGE  EQU #A3                          ; overlay-страница покадрового MIDI-потока (slot3)
+HMM2_MUSIC_PAGE  EQU #A4                          ; overlay-страница покадрового MIDI-потока (slot3); #A3 занят 2-й страницей курсора
+HMM2_HISCORES_PAGE EQU #A5                        ; metadata для high scores
 LdSavedSP       EQU #4278                         ; slot1: сохранённый основной SP (2б)
 LdStackTop      EQU #4300                         ; slot1: вершина стека загрузчика (#4280..#42FF)
+
+; ============================================================================
+; Trampolines для High Scores и музыки
+; ============================================================================
+Music_Tick_Tramp:
+                GetPage3
+                PUSH AF
+                LD   A, HMM2_MUSIC_PAGE
+                SetPage3_A
+                CALL Music_Tick
+                POP  AF
+                SetPage3_A
+                RET
+
+HiScores_EnterStandard_Tramp:
+                GetPage3
+                PUSH AF
+                LD   A, HMM2_HISCORES_PAGE
+                SetPage3_A
+                CALL HiScores_EnterStandard
+                POP  AF
+                SetPage3_A
+                RET
+
+HiScores_Update_Tramp:
+                GetPage3
+                PUSH AF
+                LD   A, HMM2_HISCORES_PAGE
+                SetPage3_A
+                CALL HiScores_Update
+                POP  AF
+                SetPage3_A
+                RET
+
+Render_HiScores_Tramp:
+                GetPage3
+                PUSH AF
+                LD   A, HMM2_HISCORES_PAGE
+                SetPage3_A
+                CALL Render_HiScores
+                POP  AF
+                SetPage3_A
+                RET
 
 CoreEnd:
                 ASSERT CoreEnd <= CMD_ADDRESS_PTR
@@ -318,4 +368,14 @@ MusicOvl_Start:
 MusicOvl_End:
                 ASSERT MusicOvl_End <= #FFFF
                 SAVEBIN "Build/music_ovl.bin", MusicOvl_Start, MusicOvl_End - MusicOvl_Start
+                endif
+                if 1
+                SLOT 3
+                PAGE HMM2_HISCORES_PAGE
+                ORG  #C000
+HiScoresOvl_Start:
+                include "hiscores.asm"
+HiScoresOvl_End:
+                ASSERT HiScoresOvl_End <= #FFFF
+                SAVEBIN "Build/hiscores_ovl.bin", HiScoresOvl_Start, HiScoresOvl_End - HiScoresOvl_Start
                 endif

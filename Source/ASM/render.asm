@@ -12,6 +12,10 @@ Render_Frame:
                 LD   A, (GameMode)
                 CP   GAME_MODE_MENU
                 JP   Z, Render_Menu
+                CP   GAME_MODE_HIGHSCORES_STANDARD
+                JP   Z, Render_HiScores_Tramp
+                CP   GAME_MODE_HIGHSCORES_CAMPAIGN
+                JP   Z, Render_HiScores_Tramp
                 if RUNTIME_TILEMAP_RENDER
                 CALL Render_RuntimeFrameCmd
                 else
@@ -102,6 +106,7 @@ Render_RuntimeFrameCmd:
                 CALL Render_ResourcePanelCmd
                 CALL Render_MinimapRectCmd
                 CALL Render_MinimapHeroDotCmd
+                CALL Render_AdvButtonsCmd          ; все кнопки поверх UI
                 CALL Render_CursorCmd
                 ; БЕЗ CMD_SWAP в потоке! Свап — ТОЛЬКО ручным REG_DLSWAP после
                 ; WaitFlush (как в Zuma VDAC2). CMD_SWAP + ручной DLSWAP = два
@@ -1590,6 +1595,115 @@ Render_AdventureUICmd:
                 CALL Render_CmdBufCopy
                 RET
 
+Render_AdvButtonsCmd:
+                LD   HL, UI_BtnStateInit_DL
+                LD   BC, UI_BtnStateInit_DL_SIZE
+                CALL Render_CmdBufCopy
+
+                LD   B, 8
+                LD   C, 0                       ; индекс кнопки (0..7)
+.loop:
+                PUSH BC
+                ; Проверка, нажата ли эта кнопка сейчас
+                LD   A, (UI_ButtonPressed)
+                CP   C
+                JR   Z, .is_pressed
+                
+                ; Не нажата, проверяем состояние логики
+                LD   HL, UI_ButtonStates
+                LD   B, 0
+                ADD  HL, BC                     ; HL = UI_ButtonStates + i
+                LD   A, (HL)
+                JR   .get_color
+
+.is_pressed:
+                ; Кнопка визуально зажата
+                LD   HL, UI_ButtonStates
+                LD   B, 0
+                ADD  HL, BC
+                LD   A, (HL)
+                CP   2
+                JR   Z, .inactive_pressed
+                CP   3
+                JR   Z, .get_color               ; Disabled кнопки не получают pressed-стейт
+                LD   A, 1
+                JR   .get_color
+
+.inactive_pressed:
+                LD   A, 4
+
+.get_color:
+                PUSH AF
+                LD   HL, UI_BtnColors
+                LD   B, 0
+                LD   C, A
+                ADD  HL, BC
+                ADD  HL, BC
+                ADD  HL, BC
+                LD   A, (HL)
+                INC  HL
+                LD   D, (HL)
+                INC  HL
+                LD   E, (HL)
+                LD   L, A
+                LD   H, 4       ; FT_COLOR_RGB
+                CALL Render_CmdBufWrite32
+                POP  AF
+                
+                POP  BC
+                PUSH BC
+                CP   1
+                JR   Z, .use_pressed
+                CP   4
+                JR   Z, .use_pressed
+
+.use_normal:
+                LD   HL, UI_BtnNormalTab
+                LD   B, UI_BtnNormal_DL_SIZE
+                JR   .draw
+
+.use_pressed:
+                LD   HL, UI_BtnPressedTab
+                LD   B, UI_BtnPressed_DL_SIZE
+
+.draw:
+                ; HL = Tab_Base, B = size
+                LD   A, C
+                ADD  A, A
+                LD   E, A
+                LD   D, 0
+                ADD  HL, DE
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)
+                EX   DE, HL                     ; HL = адрес DL-блока
+                LD   C, B
+                LD   B, 0
+                CALL Render_CmdBufCopy
+                
+                POP  BC
+                INC  C
+                DJNZ .loop
+                
+                LD   DE, 0
+                LD   HL, #2100                  ; FT_END
+                CALL Render_CmdBufWrite32
+                RET
+
+UI_BtnColors:
+                DEFB 255, 255, 255 ; 0: normal
+                DEFB 255, 255, 255 ; 1: pressed
+                DEFB 160, 160, 160 ; 2: inactive
+                DEFB  96,  96,  96 ; 3: disabled
+                DEFB 160, 160, 160 ; 4: inactive_pressed
+
+UI_BtnStateInit_DL:
+                FT_BITMAP_TRANSFORM_A 160
+                FT_BITMAP_TRANSFORM_E 160
+                FT_PALETTE_SOURCE OBJECT_PALETTE_RAMG
+                FT_BEGIN FT_BITMAPS
+UI_BtnStateInit_DL_SIZE EQU $ - UI_BtnStateInit_DL
+
 ; Глобальный курсор мыши (резидент, для ЛЮБОЙ сцены) — настоящий POINTER-спрайт
 ; (ADVMCO[0], ARGB4444) из ПОСТОЯННОЙ зоны RAM_G (#0E0000), резидентно загруженной
 ; Cursor_GlobalUpload. Позиция из мыши; спрайт 0 = pointer. Переиспользует тот же
@@ -2996,9 +3110,9 @@ FOG_CMD_BYTES EQU RuntimeDL_ObjectTranslate_SIZE + 24 + (GAME_VIEW_TILE_W + 1) *
 MAP_ANIM_MAX_PER_FRAME EQU 10         ; целиком вмещает мельницу (10 частей)
 MAP_ANIM_CMD_BYTES EQU 44 + MAP_ANIM_MAX_PER_FRAME * 16
                 if BG_DXT_RAW_SIZE
-RUNTIME_CMD_FRAME_MAX EQU 4 + BackgroundDxt_DL_SIZE + RuntimeDL_ObjectTranslate_SIZE + 12 + RuntimeDL_ObjectTranslate_SIZE + 12 + HERO_PATH_CMD_MAX + (HERO_MARKER_DL_SIZE - 4) + MAP_ANIM_CMD_BYTES + FOG_CMD_BYTES + AdventureUI_DL_SIZE + MINIMAP_RECT_CMD_BYTES + RESOURCE_PANEL_CMD_BYTES + CURSOR_DL_SIZE
+RUNTIME_CMD_FRAME_MAX EQU 4 + BackgroundDxt_DL_SIZE + RuntimeDL_ObjectTranslate_SIZE + 12 + RuntimeDL_ObjectTranslate_SIZE + 12 + HERO_PATH_CMD_MAX + (HERO_MARKER_DL_SIZE - 4) + MAP_ANIM_CMD_BYTES + FOG_CMD_BYTES + AdventureUI_DL_SIZE + 180 + MINIMAP_RECT_CMD_BYTES + RESOURCE_PANEL_CMD_BYTES + CURSOR_DL_SIZE
                 else
-RUNTIME_CMD_FRAME_MAX EQU 4 + RuntimeDL_Header_SIZE + 12 + RuntimeDL_RightBand_SIZE + 12 + (RuntimeDL_Tail_SIZE - 4) + RuntimeDL_ObjectTranslate_SIZE + 12 + RuntimeDL_ObjectTranslate_SIZE + 12 + HERO_PATH_CMD_MAX + (HERO_MARKER_DL_SIZE - 4) + MAP_ANIM_CMD_BYTES + FOG_CMD_BYTES + AdventureUI_DL_SIZE + MINIMAP_RECT_CMD_BYTES + RESOURCE_PANEL_CMD_BYTES + CURSOR_DL_SIZE
+RUNTIME_CMD_FRAME_MAX EQU 4 + RuntimeDL_Header_SIZE + 12 + RuntimeDL_RightBand_SIZE + 12 + (RuntimeDL_Tail_SIZE - 4) + RuntimeDL_ObjectTranslate_SIZE + 12 + RuntimeDL_ObjectTranslate_SIZE + 12 + HERO_PATH_CMD_MAX + (HERO_MARKER_DL_SIZE - 4) + MAP_ANIM_CMD_BYTES + FOG_CMD_BYTES + AdventureUI_DL_SIZE + 180 + MINIMAP_RECT_CMD_BYTES + RESOURCE_PANEL_CMD_BYTES + CURSOR_DL_SIZE
                 endif
                 ifdef DYNAMIC_ACTOR_RAMG
 RUNTIME_CMD_FRAME_MAX_WITH_ACTOR EQU RUNTIME_CMD_FRAME_MAX + (ACTOR_DL_SIZE - 4)

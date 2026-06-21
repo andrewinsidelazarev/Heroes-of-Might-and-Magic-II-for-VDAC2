@@ -106,8 +106,15 @@ Menu_Update:
                 CP   #FF
                 RET  Z                           ; клик мимо кнопок
                 OR   A                           ; индекс 0 = New Game
-                RET  NZ                          ; Load/HighScores/Credits/Quit — пока заглушка
+                JR   Z, .new_game
+                CP   2                           ; индекс 2 = High Scores (internal [9])
+                JR   Z, .high_scores
+                RET                              ; Load/Credits/Quit — пока заглушка
+.new_game:
                 CALL Adventure_Enter             ; New Game → запустить adventure
+                RET
+.high_scores:
+                CALL HiScores_EnterStandard_Tramp
                 RET
 .released:      XOR  A
                 LD   (MenuLmbDown), A

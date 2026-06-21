@@ -1,5 +1,59 @@
 # Память проекта HMM2 TS-Config / VDAC2
 
+## Запись 2026-06-18: v017 reference - scroll-курсоры, LMB active-HIGH, pressed-кнопки
+
+По команде пользователя текущий собранный build сохранён как новая опорная:
+
+```text
+releases\v017-2026-06-18-scroll-cursors-buttons-reference
+```
+
+Состояние reference:
+
+- формат как у последних project releases: `Source`, `Build`, `Docs`, `Music`,
+  `build.cmd`, `spgbld_vdac2.ini`, `PROJECT_MEMORY.md`, `REFERENCE.md`;
+- edge-scroll приведён к fheroes2-геометрии 16 px у края логического экрана 640x480;
+- добавлены scroll-курсоры ADVMCO на 8 направлений кромки;
+- LMB Kempston Mouse теперь active-HIGH через `Input.Mouse.KeyState` без старого инвертора;
+- adventure buttons получили pressed overlay поверх UI, пока ЛКМ зажата над кнопкой;
+- cursor sprites разнесены на страницы `#A2/#A3`, MIDI menu overlay перенесён на `#A4`;
+- object atlas вырос до page `#89`, route table = `#8A`, runtime cells = `#8B`.
+
+Проверено перед сохранением:
+
+```text
+.\build.cmd
+python -u Source\Tools\test_menu_transition.py
+```
+
+Build/verify зелёный: sjasmplus 0 errors/0 warnings, RAM_G calculator OK,
+Core split p05=12288 bytes / p06=11102 bytes, RAM_DL max 7832/8192,
+FT812/RAM_G/DL verify OK.
+
+Не закрыто: старые профильные тесты `test_cursor_input.py`, `test_menu_hover.py`,
+`test_hero_command.py` сейчас не зелёные после смены semantics LMB/cursor state;
+`test_adventure_cursor.py` был остановлен по timeout. Их надо обновить отдельно под
+новый input/cursor contract. На железе v017 отдельно ещё не подтверждён.
+
+SHA256:
+
+```text
+Build\hmm2_vdac2.spg
+2D3C5A1786E3C7CAAD860AA27EF12A356715F492CB56F7D367A2917F42CBD235
+
+Build\Core.bin
+895655E29C509BD9CB9A6FE90CE0583490D475C49A582569D115ACE9B45C08A6
+
+Build\Core_p05.bin
+3A16DAE233F7133FD95C524B88D9199A964C52AF2F9E44E6DC2A4B639BC877B7
+
+Build\Core_p06.bin
+50CB7AFC1CAF2C40212881771F3B60F9F30AD7C4B1FBBB0812AED7AF385371E2
+
+Build\HMM2MENU.PAK
+F043972576EC4AD2B1D2F032D1D1FE16FF6532D22B18CE7752F7A7E47E65D3AB
+```
+
 ## Architecture 2026-06-13: project-agnostic Z80/TS-Config/FT812 simulator
 
 После повторных регрессий со scroll нельзя считать достаточными тесты,

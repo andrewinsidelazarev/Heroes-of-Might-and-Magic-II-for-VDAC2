@@ -120,7 +120,7 @@ def parse_spg_blocks(ini: Path) -> List[SPGBlock]:
 class InputState:
     mouse_x: int = 0
     mouse_y: int = 0
-    mouse_buttons: int = 0x03
+    mouse_buttons: int = 0x00       # Kempston-mouse active-HIGH: покой=0 (кнопки отпущены), бит=1 при нажатии
     kempston: int = 0x00
     keyboard_rows: Dict[int, int] = field(default_factory=dict)
     rtc_seconds_bcd: int = 0x17

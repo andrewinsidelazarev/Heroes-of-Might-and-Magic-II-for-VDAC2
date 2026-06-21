@@ -5,12 +5,19 @@ GAME_MODE_ADVENTURE EQU 0
 GAME_MODE_TOWN      EQU 1
 GAME_MODE_COMBAT    EQU 2
 GAME_MODE_MENU      EQU 3
+GAME_MODE_HIGHSCORES_STANDARD EQU 4
+GAME_MODE_HIGHSCORES_CAMPAIGN EQU 5
 
 CURSOR_STEP_PIXELS  EQU 5
 ; Логический viewport игры: 640×480, поверх физического FT812 1024×768.
 ; Не пересчитывать эти границы под физический режим.
 CURSOR_MAX_X        EQU 624
 CURSOR_MAX_Y        EQU 464
+; Edge-scroll по оригиналу fheroes2 (interface_base.h isScrollLeft/Right/Top/Bottom):
+; scroll-зона = бордюр borderWidthPx=16 у самого края ЭКРАНА, НЕ у края game area.
+; left: x<16, right: x>=640-16=624, top: y<16, bottom: y>=480-16=464. Radar/кнопки
+; (480..624) внутри → наведение на них (вкл. End Turn) НЕ скроллит карту.
+SCROLL_EDGE_BORDER  EQU 16
 ; Старт как в ОРИГИНАЛЕ: герой рекрутируется в ПЕРВОМ замке (startWithHeroInFirstCastle),
 ; ставится на гейт замка (GetCenter). Первый замок игрока — OBJNTOWN-гейт (24,13).
 ; Гейт сделан проходимым (CASTLE_ENTRANCE_OBJECTS) → герой выходит вниз.
@@ -106,10 +113,113 @@ Game_Update:
                 LD   A, (GameMode)
                 CP   GAME_MODE_MENU
                 JP   Z, Menu_Update
+                CP   GAME_MODE_HIGHSCORES_STANDARD
+                JP   Z, HiScores_Update_Tramp
+                CP   GAME_MODE_HIGHSCORES_CAMPAIGN
+                JP   Z, HiScores_Update_Tramp
                 CALL Cursor_Update
                 CALL Viewport_UpdateScroll
                 CALL Hero_Update
+                CALL UI_ButtonsStateUpdate
+                CALL UI_ButtonsPressedUpdate      ; pressed-кадр пока ЛКМ реально зажата
                 CALL Cursor_UpdateTheme
+                RET
+
+; Возвращает в A индекс кнопки под мышью (row*4+col) или #FF.
+UI_GetHoveredButton:
+                CALL Input_MouseX                ; HL = x
+                LD   DE, UI_BUTTON_X
+                OR   A
+                SBC  HL, DE
+                JR   C, .none                    ; x < панели
+                LD   A, H
+                OR   A
+                JR   NZ, .none                   ; x далеко справа
+                LD   A, L
+                LD   B, UI_BUTTON_W
+                CALL UI_DivAB                    ; A = col
+                CP   4
+                JR   NC, .none
+                PUSH AF                           ; save col
+                CALL Input_MouseY                ; HL = y
+                LD   DE, UI_BUTTON_Y
+                OR   A
+                SBC  HL, DE
+                JR   C, .none_pop                ; y выше панели
+                LD   A, H
+                OR   A
+                JR   NZ, .none_pop
+                LD   A, L
+                LD   B, UI_BUTTON_H
+                CALL UI_DivAB                    ; A = row
+                CP   2
+                JR   NC, .none_pop
+                ADD  A, A
+                ADD  A, A                         ; row*4
+                LD   C, A
+                POP  AF                           ; restore col
+                ADD  A, C                         ; + col
+                RET
+.none_pop:      POP  AF
+.none:          LD   A, #FF
+                RET
+
+; Пока ЛКМ зажата над активной кнопкой — UI_ButtonPressed = её индекс (row*4+col),
+; иначе #FF. Геометрия как в UI_ButtonClick (сетка 4×2 от UI_BUTTON_X/Y).
+UI_ButtonsPressedUpdate:
+                LD   A, (UI_ActiveButton)
+                CP   #FF
+                JR   Z, .none
+                CALL Input_MouseLMB
+                JR   Z, .none                    ; ЛКМ отпущена
+                CALL UI_GetHoveredButton
+                LD   B, A
+                LD   A, (UI_ActiveButton)
+                CP   B
+                JR   NZ, .none
+                
+                ; Проверяем, не является ли кнопка Disabled (3)
+                LD   C, A
+                LD   HL, UI_ButtonStates
+                LD   B, 0
+                ADD  HL, BC
+                LD   A, (HL)
+                CP   3
+                JR   Z, .none                    ; Disabled-кнопки не нажимаются
+                
+                LD   A, C
+                LD   (UI_ButtonPressed), A
+                RET
+.none:          LD   A, #FF
+                LD   (UI_ButtonPressed), A
+                RET
+
+; Пересчитывает логические состояния всех кнопок на панели
+UI_ButtonsStateUpdate:
+                ; 1. Hero Movement (индекс 1)
+                ; Если нет активного героя (пока упрощенно), то Disabled (3)
+                ; Если HeroPathLen == 0, то Disabled (3)
+                ; Если HeroPathLen > 0, но HeroMovePoints == 0, то Inactive (2)
+                ; Иначе Move (0)
+                LD   A, (HeroPathLen)
+                OR   A
+                JR   Z, .hero_move_disabled
+                LD   A, (HeroMovePoints)
+                OR   A
+                JR   Z, .hero_move_inactive
+                LD   A, 0                       ; 0 = Normal
+                JR   .hero_move_done
+.hero_move_inactive:
+                LD   A, 2                       ; 2 = Inactive
+                JR   .hero_move_done
+.hero_move_disabled:
+                LD   A, 3                       ; 3 = Disabled
+.hero_move_done:
+                LD   (UI_HeroMoveButtonState), A
+
+                ; End Turn (индекс 4) - пока всегда 0
+                XOR  A
+                LD   (UI_EndTurnButtonState), A
                 RET
 
 Hero_InitPosition:
@@ -138,6 +248,9 @@ Hero_InitPosition:
                 LD   (PathState), A
                 LD   (PathDebugLen), A
                 LD   (PathDebugLen + 1), A
+                LD   A, #FF
+                LD   (UI_ActiveButton), A
+                LD   (UI_ButtonPressed), A
                 RET
 
 Hero_Update:
@@ -169,10 +282,24 @@ Hero_CommandFromFire:
                 RET  NZ
                 LD   A, 1
                 LD   (HeroFireLatch), A
+                CALL UI_GetHoveredButton
+                CP   #FF
+                JR   NZ, .do_btn
                 CALL UI_DispatchClick
                 RET
-.released:      XOR  A
+.do_btn:
+                LD   (UI_ActiveButton), A
+                LD   (UI_ButtonPressed), A
+                CALL UI_ButtonClick_Index
+                RET
+.released:      LD   A, (HeroFireLatch)
+                OR   A
+                JR   Z, .clear_latch
+.clear_latch:   XOR  A
                 LD   (HeroFireLatch), A
+                LD   A, #FF
+                LD   (UI_ActiveButton), A
+                LD   (UI_ButtonPressed), A
                 RET
 
 ; Диспетчер клика LMB по зонам экрана:
@@ -281,29 +408,23 @@ UI_TileToPixelHL:
 ;   0 NextHero 1 HeroMovement 2 Kingdom 3 Spell / 4 EndTurn 5 Adventure 6 File 7 System.
 ; Реализован End Turn (4); остальные требуют подсистем (стоп).
 UI_ButtonClick:
-                LD   HL, (UIClickX)
-                LD   DE, UI_BUTTON_X
-                OR   A
-                SBC  HL, DE
-                LD   A, L
-                LD   B, UI_BUTTON_W
-                CALL UI_DivAB                  ; A = col (0..3)
-                PUSH AF
-                LD   HL, (UIClickY)
-                LD   DE, UI_BUTTON_Y
-                OR   A
-                SBC  HL, DE
-                LD   A, L
-                LD   B, UI_BUTTON_H
-                CALL UI_DivAB                  ; A = row (0..1)
-                ADD  A, A
-                ADD  A, A                       ; row*4
-                LD   B, A
-                POP  AF                          ; col
-                ADD  A, B                        ; индекс кнопки
+                CALL UI_GetHoveredButton
+                CP   #FF
+                RET  Z
+UI_ButtonClick_Index:
                 CP   4                           ; End Turn?
                 JP   Z, Game_EndTurn
-                RET                              ; прочие кнопки — нет подсистемы
+                CP   1                           ; Hero Movement?
+                JR   Z, .hero_move
+                RET
+
+.hero_move:
+                LD   A, (HeroPathLen)
+                OR   A
+                RET  Z
+                LD   A, 1
+                LD   (HeroWalkActive), A
+                RET
 
 ; A = A / B (B>0, малые значения), беззнаково.
 UI_DivAB:       LD   C, 0
@@ -389,10 +510,34 @@ Hero_CommandTargetFromMouse:
                 CALL Cursor_WordDiv32ClampY
                 endif
                 LD   C, A
+
+                LD   A, (HeroTargetX)
+                CP   B
+                JR   NZ, .new_target
+                LD   A, (HeroTargetY)
+                CP   C
+                JR   NZ, .new_target
+                
+                LD   A, (HeroPathLen)
+                OR   A
+                RET  Z                  ; маршрута нет (или 0), ничего не делаем
+                
+                LD   A, 1
+                LD   (HeroWalkActive), A
+                RET
+                
+.new_target:
+                XOR  A
+                LD   (HeroWalkActive), A
+                
                 CALL Hero_SetTargetIfPassable
                 RET
 
 Hero_MoveTowardTarget:
+                LD   A, (HeroWalkActive)
+                OR   A
+                RET  Z
+
                 LD   A, (PathState)
                 CP   PATH_STATE_SEARCH
                 RET  Z
@@ -456,6 +601,7 @@ Hero_SelectStepIfArrived:
                 XOR  A
                 LD   (HeroPathLen), A
                 LD   (HeroPathIndex), A
+                LD   (HeroWalkActive), A
                 RET
 
 .need_step:     LD   A, (HeroMovePoints)
@@ -476,6 +622,7 @@ Hero_SelectStepIfArrived:
                 XOR  A
                 LD   (HeroPathLen), A
                 LD   (HeroPathIndex), A
+                LD   (HeroWalkActive), A
                 RET
 
 ; Подбор ресурсов: линейный поиск тайла героя в PickupList (из generated_runtime_map).
@@ -1108,7 +1255,7 @@ Viewport_AutoEdgeScroll:
                 if VIEWPORT_DL_PACK
                 LD   B, 0
                 LD   HL, (CursorPixelX)
-                LD   DE, GAME_VIEW_X + 1
+                LD   DE, SCROLL_EDGE_BORDER          ; left: x < 16
                 OR   A
                 SBC  HL, DE
                 JR   NC, .right
@@ -1126,7 +1273,7 @@ Viewport_AutoEdgeScroll:
                 JR   .up
 
 .right:         LD   HL, (CursorPixelX)
-                LD   DE, GAME_VIEW_CURSOR_MAX_X
+                LD   DE, CURSOR_MAX_X   ; right: x >= 624
                 OR   A
                 SBC  HL, DE
                 JR   C, .up
@@ -1139,7 +1286,7 @@ Viewport_AutoEdgeScroll:
                 LD   B, 1
 
 .up:            LD   HL, (CursorPixelY)
-                LD   DE, GAME_VIEW_Y + 1
+                LD   DE, SCROLL_EDGE_BORDER          ; top: y < 16
                 OR   A
                 SBC  HL, DE
                 JR   NC, .down
@@ -1157,7 +1304,7 @@ Viewport_AutoEdgeScroll:
                 JR   .done_axes
 
 .down:          LD   HL, (CursorPixelY)
-                LD   DE, GAME_VIEW_CURSOR_MAX_Y
+                LD   DE, CURSOR_MAX_Y   ; bottom: y >= 464
                 OR   A
                 SBC  HL, DE
                 JR   C, .done_axes
@@ -1254,6 +1401,8 @@ Cursor_UpdateTileFromPixel:
                 RET
 
 Cursor_UpdateTheme:
+                CALL Cursor_ScrollTheme          ; стрелка скролла на кромке экрана
+                RET  C                            ; выставлена — приоритет над pointer/move
                 LD   A, (CursorInGameArea)
                 OR   A
                 JR   Z, .pointer
@@ -1286,6 +1435,81 @@ Cursor_UpdateTheme:
                 RET
 .pointer:       XOR  A
                 LD   (CursorSpriteIndex), A
+                RET
+
+; Курсор-стрелка скролла на кромке экрана (по оригиналу Interface::GameArea::
+; GetScrollCursor). Зоны те же, что у Viewport_AutoEdgeScroll: left x<16, right
+; x>=624, top y<16, bottom y>=464. C-флаги краёв: bit0 left, bit1 right, bit2 top,
+; bit3 bottom. Возврат CF=1 + CursorSpriteIndex, если мышь в кромке; иначе CF=0.
+Cursor_ScrollTheme:
+                LD   C, 0
+                LD   HL, (CursorPixelX)
+                LD   DE, SCROLL_EDGE_BORDER          ; left
+                OR   A
+                SBC  HL, DE
+                JR   NC, .chk_right
+                SET  0, C
+                JR   .chk_top
+.chk_right:     LD   HL, (CursorPixelX)
+                LD   DE, CURSOR_MAX_X             ; right
+                OR   A
+                SBC  HL, DE
+                JR   C, .chk_top
+                SET  1, C
+.chk_top:       LD   HL, (CursorPixelY)
+                LD   DE, SCROLL_EDGE_BORDER       ; top
+                OR   A
+                SBC  HL, DE
+                JR   NC, .chk_bottom
+                SET  2, C
+                JR   .decide
+.chk_bottom:    LD   HL, (CursorPixelY)
+                LD   DE, CURSOR_MAX_Y             ; bottom
+                OR   A
+                SBC  HL, DE
+                JR   C, .decide
+                SET  3, C
+.decide:        LD   A, C
+                OR   A
+                JR   Z, .no_edge                  ; не в кромке → CF=0
+                ; flags → offset кадра (порядок ADVMCO 0x20..0x27):
+                ; 0 TOP,1 TOPRIGHT,2 RIGHT,3 BOTTOMRIGHT,4 BOTTOM,5 BOTTOMLEFT,6 LEFT,7 TOPLEFT
+                CP   %00000100                    ; top
+                JR   Z, .o0
+                CP   %00000110                    ; top+right
+                JR   Z, .o1
+                CP   %00000010                    ; right
+                JR   Z, .o2
+                CP   %00001010                    ; bottom+right
+                JR   Z, .o3
+                CP   %00001000                    ; bottom
+                JR   Z, .o4
+                CP   %00001001                    ; bottom+left
+                JR   Z, .o5
+                CP   %00000001                    ; left
+                JR   Z, .o6
+                CP   %00000101                    ; top+left
+                JR   Z, .o7
+.no_edge:       OR   A                            ; CF=0
+                RET
+.o0:            LD   A, 0
+                JR   .set
+.o1:            LD   A, 1
+                JR   .set
+.o2:            LD   A, 2
+                JR   .set
+.o3:            LD   A, 3
+                JR   .set
+.o4:            LD   A, 4
+                JR   .set
+.o5:            LD   A, 5
+                JR   .set
+.o6:            LD   A, 6
+                JR   .set
+.o7:            LD   A, 7
+.set:           ADD  A, CURSOR_SCROLL_BASE_INDEX
+                LD   (CursorSpriteIndex), A
+                SCF
                 RET
 
 Cursor_CheckGameArea:

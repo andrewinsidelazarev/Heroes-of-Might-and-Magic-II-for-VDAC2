@@ -212,11 +212,12 @@ Input_MouseX:   LD   HL, (Input.Mouse.PositionX) : RET
 Input_MouseY:   LD   HL, (Input.Mouse.PositionY) : RET
 
 ; Input_MouseLMB -> NZ = ЛКМ нажата, Z = отпущена.
-; На текущем VDAC2/Kempston mouse линия кнопки приходит инверсно к TSLib-комменту.
+; Kempston-mouse кнопка active-HIGH (TSLib KeyState: бит порта #FADF=1 → нажата).
+; KeyState = AND маски с портом → NZ если бит выставлен (нажата), Z если сброшен.
+; РАНЬШЕ тут стоял `CP SVK_LBUTTON` — инвертор под active-low: он и давал «вечно
+; нажато» на железе (в покое линия 0) → красный pressed-кадр везде + клики не ловились.
 Input_MouseLMB: LD   A, Input.Mouse.SVK_LBUTTON
-                CALL Input.Mouse.KeyState
-                CP   Input.Mouse.SVK_LBUTTON
-                RET
+                JP   Input.Mouse.KeyState
 
 ; ----------------------------------------------------------------------------
 ; Input_Poll — компактное состояние для HMM2 adventure map.

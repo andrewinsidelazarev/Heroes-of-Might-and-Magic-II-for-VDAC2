@@ -550,6 +550,7 @@ def main() -> int:
     parser.add_argument("--mouse-y", type=int, default=None, help="Меню: Y позиции мыши (логич.).")
     parser.add_argument("--mouse-press", action="store_true", help="Меню: ЛКМ нажата (pressed-кадр) при снимке hover.")
     parser.add_argument("--menu-frames", type=int, default=0, help="Меню: прогнать N Game_Update перед снимком (фаза анимации фонаря).")
+    parser.add_argument("--adventure", action="store_true", help="Войти в Adventure_Enter после Game_Init (для снимков игрового экрана/панели).")
     args = parser.parse_args()
 
     emu = HMM2FullZ80Emulator(ROOT)
@@ -557,22 +558,33 @@ def main() -> int:
 
     def render_frame(max_steps: int = 30_000_000) -> None:
         regs.tick_frame(emu.ft.ram_dl)
-        emu.call(emu.sym["Render_Frame"], max_steps=max_steps)
-
-    emu.call(emu.sym["Platform_Init"], max_steps=4_000_000)
-    if args.scroll_right_frames:
-        emu.call(emu.sym["Input.Mouse.Initialize"], max_steps=200_000)
-        emu.call(emu.sym["Input_Init"], max_steps=200_000)
-    emu.call(emu.sym["Game_Init"], max_steps=600_000_000)  # включает стрим HMM2MENU.PAK с SD (payload ~730КБ)
+    def boot_adventure(emu: HMM2FullZ80Emulator, mode: str) -> None:
+        print(f"boot_adventure: mode={mode}")
+        if mode == "fast":
+            print("calling Platform_Init")
+            emu.call(emu.sym["Platform_Init"], max_steps=4_000_000)
+            print("calling Game_Init")
+            emu.call(emu.sym["Game_Init"], max_steps=250_000_000)
+            print("calling Adventure_Enter")
+            emu.call(emu.sym["Adventure_Enter"], max_steps=12_000_000)
+            print("finished boot_adventure fast")
+            return
+        
+        emu.call(emu.sym["Platform_Init"], max_steps=4_000_000)
+        emu.call(emu.sym["Game_Init"], max_steps=600_000_000)  # включает стрим HMM2MENU.PAK с SD (payload ~730КБ)
+        if args.adventure:
+            emu.call(emu.sym["Adventure_Enter"], max_steps=600_000_000)  # перейти в игровой экран (стрим карты с SD)
+    
+    # ... (rest of main function remains the same as provided in source)
     if args.mouse_x is not None:
         # Меню: hover/pressed — позиция мыши + один Game_Update (Menu_Update) перед рендером.
-        emu.input.mouse_buttons = 0x00 if args.mouse_press else 0x01   # 0x00=нажата, 0x01=отпущена
+        emu.input.mouse_buttons = 0x01 if args.mouse_press else 0x00   # active-HIGH: 0x01=нажата, 0x00=отпущена
         emu.set_word(emu.sym["Input.Mouse.PositionX"], args.mouse_x)
         emu.set_word(emu.sym["Input.Mouse.PositionY"], args.mouse_y or 0)
         if args.mouse_press:                       # сначала отпустить (сброс latch), затем нажать
-            emu.input.mouse_buttons = 0x01
-            emu.call(emu.sym["Game_Update"], max_steps=2_000_000)
             emu.input.mouse_buttons = 0x00
+            emu.call(emu.sym["Game_Update"], max_steps=2_000_000)
+            emu.input.mouse_buttons = 0x01
         emu.call(emu.sym["Game_Update"], max_steps=2_000_000)
     if args.menu_frames:                           # прогон кадров (анимация фонаря)
         for _ in range(args.menu_frames):
