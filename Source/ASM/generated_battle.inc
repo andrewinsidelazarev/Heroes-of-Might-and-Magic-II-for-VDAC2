@@ -3,8 +3,8 @@
                 define _HMM2_GENERATED_BATTLE_
 
 BATTLE_PAL_RAMG      EQU #000000
-BATTLE_TOP_RAMG      EQU #0459F0
-BATTLE_BOT_RAMG      EQU #06B1F0
+BATTLE_TOP_RAMG      EQU #045D20
+BATTLE_BOT_RAMG      EQU #06B520
 BATTLE_SHADOW_PAL_RAMG EQU #000580
 BATTLE_SHADOW_RAMG   EQU #0005A0
 BATTLE_CONTOUR_PAL_RAMG EQU #000E90
@@ -429,7 +429,7 @@ BattleEvtDigitTab:                     ; «0».. «9» (тот же шрифт, 
                 DEFB #74, #81, #01, 13, 22
                 DEFB #94, #82, #01, 13, 22
 
-BATTLE_YELLOW_PAL_RAMG EQU #0418A8
+BATTLE_YELLOW_PAL_RAMG EQU #041BD8
 Battle_WinTitle_Begin_DL:              ; пролог заголовка победы (жёлтая палитра, нативно)
                 FT_BITMAP_TRANSFORM_A 256
                 FT_BITMAP_TRANSFORM_E 256
@@ -439,43 +439,43 @@ Battle_WinTitle_Begin_DL_SIZE EQU $ - Battle_WinTitle_Begin_DL
 WIN_TEXT_REC EQU 11
 BATTLE_WIN_TEXT_COUNT EQU 13
 BattleWinTextTab:
-                DEFB #A8, #1A, #04, 34, 22, 1
+                DEFB #D8, #1D, #04, 34, 22, 1
                 DEFW 6224, 4812
                 DEFB 1      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #94, #1D, #04, 114, 27, 1
+                DEFB #C4, #20, #04, 114, 27, 1
                 DEFW 6768, 4812
                 DEFB 1      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #9C, #29, #04, 99, 27, 1
+                DEFB #CC, #2C, #04, 99, 27, 1
                 DEFW 8592, 4812
                 DEFB 1      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #10, #34, #04, 54, 14, 0
+                DEFB #40, #37, #04, 54, 14, 0
                 DEFW 5600, 4812
                 DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #04, #37, #04, 64, 14, 0
+                DEFB #34, #3A, #04, 64, 14, 0
                 DEFW 6464, 4812
                 DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #84, #3A, #04, 66, 14, 0
+                DEFB #B4, #3D, #04, 66, 14, 0
                 DEFW 7488, 4812
                 DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #20, #3E, #04, 18, 14, 0
+                DEFB #50, #41, #04, 18, 14, 0
                 DEFW 8544, 4812
                 DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #1C, #3F, #04, 61, 14, 0
+                DEFB #4C, #42, #04, 61, 14, 0
                 DEFW 8832, 4812
                 DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #74, #42, #04, 61, 14, 0
+                DEFB #A4, #45, #04, 61, 14, 0
                 DEFW 9808, 4812
                 DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #CC, #45, #04, 102, 14, 0
+                DEFB #FC, #48, #04, 102, 14, 0
                 DEFW 6608, 7270
                 DEFB 0      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #60, #4B, #04, 96, 14, 0
+                DEFB #90, #4E, #04, 96, 14, 0
                 DEFW 8240, 7270
                 DEFB 0      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #A0, #50, #04, 85, 14, 0
+                DEFB #D0, #53, #04, 85, 14, 0
                 DEFW 7520, 7654
                 DEFB 0      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #48, #55, #04, 85, 14, 0
+                DEFB #78, #58, #04, 85, 14, 0
                 DEFW 7520, 9190
                 DEFB 0      ; видимость: 0=всегда, 1=победа, 2=поражение
 
@@ -505,70 +505,70 @@ Battle_Units_End_DL:
 Battle_Units_End_DL_SIZE EQU $ - Battle_Units_End_DL
 BATTLE_UNIT_FRAME_COUNT EQU 16
 BattleUnitSrcTab:                       ; [вариант*N+кадр] → FT_BITMAP_SOURCE (4Б)
-                FT_BITMAP_SOURCE #0909F0
-                FT_BITMAP_SOURCE #092034
-                FT_BITMAP_SOURCE #093678
-                FT_BITMAP_SOURCE #094CBC
-                FT_BITMAP_SOURCE #096300
-                FT_BITMAP_SOURCE #097944
-                FT_BITMAP_SOURCE #098F88
-                FT_BITMAP_SOURCE #09A5CC
-                FT_BITMAP_SOURCE #09BC10
-                FT_BITMAP_SOURCE #09D254
-                FT_BITMAP_SOURCE #09E898
-                FT_BITMAP_SOURCE #09FEDC
-                FT_BITMAP_SOURCE #0A1520
-                FT_BITMAP_SOURCE #0A2B64
-                FT_BITMAP_SOURCE #0A41A8
-                FT_BITMAP_SOURCE #0A57EC
-                FT_BITMAP_SOURCE #0A6E30
-                FT_BITMAP_SOURCE #0A8474
-                FT_BITMAP_SOURCE #0A9AB8
-                FT_BITMAP_SOURCE #0AB0FC
-                FT_BITMAP_SOURCE #0AC740
-                FT_BITMAP_SOURCE #0ADD84
-                FT_BITMAP_SOURCE #0AF3C8
-                FT_BITMAP_SOURCE #0B0A0C
-                FT_BITMAP_SOURCE #0B2050
-                FT_BITMAP_SOURCE #0B3694
-                FT_BITMAP_SOURCE #0B4CD8
-                FT_BITMAP_SOURCE #0B631C
-                FT_BITMAP_SOURCE #0B7960
-                FT_BITMAP_SOURCE #0B8FA4
-                FT_BITMAP_SOURCE #0BA5E8
-                FT_BITMAP_SOURCE #0BBC2C
-                FT_BITMAP_SOURCE #0BD270
-                FT_BITMAP_SOURCE #0BE780
-                FT_BITMAP_SOURCE #0BFC90
-                FT_BITMAP_SOURCE #0C11A0
-                FT_BITMAP_SOURCE #0C26B0
-                FT_BITMAP_SOURCE #0C3BC0
-                FT_BITMAP_SOURCE #0C50D0
-                FT_BITMAP_SOURCE #0C65E0
-                FT_BITMAP_SOURCE #0C7AF0
-                FT_BITMAP_SOURCE #0C9000
-                FT_BITMAP_SOURCE #0CA510
-                FT_BITMAP_SOURCE #0CBA20
-                FT_BITMAP_SOURCE #0CCF30
-                FT_BITMAP_SOURCE #0CE440
-                FT_BITMAP_SOURCE #0CF950
-                FT_BITMAP_SOURCE #0D0E60
-                FT_BITMAP_SOURCE #0D2370
-                FT_BITMAP_SOURCE #0D3880
-                FT_BITMAP_SOURCE #0D4D90
-                FT_BITMAP_SOURCE #0D62A0
-                FT_BITMAP_SOURCE #0D77B0
-                FT_BITMAP_SOURCE #0D8CC0
-                FT_BITMAP_SOURCE #0DA1D0
-                FT_BITMAP_SOURCE #0DB6E0
-                FT_BITMAP_SOURCE #0DCBF0
-                FT_BITMAP_SOURCE #0DE100
-                FT_BITMAP_SOURCE #0DF610
-                FT_BITMAP_SOURCE #0E0B20
-                FT_BITMAP_SOURCE #0E2030
-                FT_BITMAP_SOURCE #0E3540
-                FT_BITMAP_SOURCE #0E4A50
-                FT_BITMAP_SOURCE #0E5F60
+                FT_BITMAP_SOURCE #090D20
+                FT_BITMAP_SOURCE #092364
+                FT_BITMAP_SOURCE #0939A8
+                FT_BITMAP_SOURCE #094FEC
+                FT_BITMAP_SOURCE #096630
+                FT_BITMAP_SOURCE #097C74
+                FT_BITMAP_SOURCE #0992B8
+                FT_BITMAP_SOURCE #09A8FC
+                FT_BITMAP_SOURCE #09BF40
+                FT_BITMAP_SOURCE #09D584
+                FT_BITMAP_SOURCE #09EBC8
+                FT_BITMAP_SOURCE #0A020C
+                FT_BITMAP_SOURCE #0A1850
+                FT_BITMAP_SOURCE #0A2E94
+                FT_BITMAP_SOURCE #0A44D8
+                FT_BITMAP_SOURCE #0A5B1C
+                FT_BITMAP_SOURCE #0A7160
+                FT_BITMAP_SOURCE #0A87A4
+                FT_BITMAP_SOURCE #0A9DE8
+                FT_BITMAP_SOURCE #0AB42C
+                FT_BITMAP_SOURCE #0ACA70
+                FT_BITMAP_SOURCE #0AE0B4
+                FT_BITMAP_SOURCE #0AF6F8
+                FT_BITMAP_SOURCE #0B0D3C
+                FT_BITMAP_SOURCE #0B2380
+                FT_BITMAP_SOURCE #0B39C4
+                FT_BITMAP_SOURCE #0B5008
+                FT_BITMAP_SOURCE #0B664C
+                FT_BITMAP_SOURCE #0B7C90
+                FT_BITMAP_SOURCE #0B92D4
+                FT_BITMAP_SOURCE #0BA918
+                FT_BITMAP_SOURCE #0BBF5C
+                FT_BITMAP_SOURCE #0BD5A0
+                FT_BITMAP_SOURCE #0BEAB0
+                FT_BITMAP_SOURCE #0BFFC0
+                FT_BITMAP_SOURCE #0C14D0
+                FT_BITMAP_SOURCE #0C29E0
+                FT_BITMAP_SOURCE #0C3EF0
+                FT_BITMAP_SOURCE #0C5400
+                FT_BITMAP_SOURCE #0C6910
+                FT_BITMAP_SOURCE #0C7E20
+                FT_BITMAP_SOURCE #0C9330
+                FT_BITMAP_SOURCE #0CA840
+                FT_BITMAP_SOURCE #0CBD50
+                FT_BITMAP_SOURCE #0CD260
+                FT_BITMAP_SOURCE #0CE770
+                FT_BITMAP_SOURCE #0CFC80
+                FT_BITMAP_SOURCE #0D1190
+                FT_BITMAP_SOURCE #0D26A0
+                FT_BITMAP_SOURCE #0D3BB0
+                FT_BITMAP_SOURCE #0D50C0
+                FT_BITMAP_SOURCE #0D65D0
+                FT_BITMAP_SOURCE #0D7AE0
+                FT_BITMAP_SOURCE #0D8FF0
+                FT_BITMAP_SOURCE #0DA500
+                FT_BITMAP_SOURCE #0DBA10
+                FT_BITMAP_SOURCE #0DCF20
+                FT_BITMAP_SOURCE #0DE430
+                FT_BITMAP_SOURCE #0DF940
+                FT_BITMAP_SOURCE #0E0E50
+                FT_BITMAP_SOURCE #0E2360
+                FT_BITMAP_SOURCE #0E3870
+                FT_BITMAP_SOURCE #0E4D80
+                FT_BITMAP_SOURCE #0E6290
 BATTLE_UNIT_SRC_SIZE EQU 4
 BattleUnitLayTab:                       ; [вариант] → LAYOUT+SIZE (общий канвас кадров, 8Б)
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 77, 74
@@ -1029,6 +1029,9 @@ BattleNoneSprite:                      ; «None» ×1.6 бел. [lo,mid,hi,w,h] 
                 DEFB #08, #16, #04, 48, 14
 BATTLE_CAS_ATK_Y     EQU 8140
 BATTLE_CAS_DEF_Y     EQU 9676
+BattleArrowSrcTab:                     ; стрела ARCH_MSL[4] ×1.6 [lo,mid,hi,w,h]; [0]=вправо [1]=влево
+                DEFB #A8, #18, #04, 51, 8
+                DEFB #40, #1A, #04, 51, 8
 BattleCountBarVerts:                   ; 99 ячеек × 2 FT_VERTEX2F (тёмный бар под числом)
                 FT_VERTEX2F 2508, 2508
                 FT_VERTEX2F 3174, 2841
@@ -1442,8 +1445,8 @@ BattleUnitStateInit:                   ; read-only старт; Battle_Enter → 
                 DEFW 2
 
 BATTLE_RAMG_BASE     EQU #000000
-BATTLE_PAYLOAD_BYTES EQU 947310
-BATTLE_PAYLOAD_SECTORS EQU 1851
+BATTLE_PAYLOAD_BYTES EQU 948126
+BATTLE_PAYLOAD_SECTORS EQU 1852
 BATTLE_BODY_SECTOR   EQU 1
 BattlePakName:       DEFB "HMM2BATL.PAK", 0
 

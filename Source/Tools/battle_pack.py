@@ -497,6 +497,15 @@ def build_payload(palette, img, units, agg, ent):
         casualty_icons.append((put(bytes(decode_icn_indices(ih, ie))), ih["w"], ih["h"]))
     none_m, none_w, none_h = render_text_mask(agg, ent, "None", font="SMALFONT.ICN")  # ×1.6 бел., статус-пал.
     none_sprite = (put(none_m), none_w, none_h)
+    # Стрела лучника (faithful ICN::ARCH_MSL[4] = горизонтальный снаряд; RedrawMissileAnimation).
+    # Пред-масштаб ×1.6 NEAREST (как поле/юниты), палитра ЮНИТОВ. Нормаль (выстрел вправо) + зеркало (влево).
+    from PIL import Image as _Img
+    _amh, _ame = read_icn(agg_entry(agg, ent, "ARCH_MSL.ICN"))[4]
+    _abase = _Img.frombytes("L", (_amh["w"], _amh["h"]), bytes(decode_icn_indices(_amh, _ame)))
+    _asw, _ash = round(_amh["w"] * 1.6), round(_amh["h"] * 1.6)
+    _ascaled = _abase.resize((_asw, _ash), _Img.NEAREST)
+    arrow_sprites = [(put(_ascaled.tobytes()), _asw, _ash),
+                     (put(_ascaled.transpose(_Img.FLIP_LEFT_RIGHT).tobytes()), _asw, _ash)]
     # Y линий потерь в vertex 1/16px (×1.6): wty = верх окна на экране 480 (ниже).
     # Жёлтая палитра заголовка победы (антиалиас): idx i = ЖЁЛТЫЙ (0x0FF0) с альфой i.
     yellow_pal = bytearray(2 * 256)
@@ -510,7 +519,7 @@ def build_payload(palette, img, units, agg, ent):
     wty = (480 - wdh) // 2
     cas_atk_vy = (wty + cas_atk_ly) * 256 // 10        # Y линий потерь (×1.6, 1/16px)
     cas_def_vy = (wty + cas_def_ly) * 256 // 10
-    casualties = (casualty_icons, none_sprite, cas_atk_vy, cas_def_vy)
+    casualties = (casualty_icons, none_sprite, cas_atk_vy, cas_def_vy, arrow_sprites)
     win_texts = []
     for text, color, ly, font, result in wtexts:
         words = text.split(" ")
@@ -831,7 +840,7 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     L.append("Battle_Count_End_DL_SIZE EQU $ - Battle_Count_End_DL")
     # --- Потери боя (faithful battle_dialogs.cpp): иконы MONS32 типов (нативно, палитра юнитов) + ---
     # --- «None» (×1.6 бел., статус-палитра). Y линий потерь — vertex 1/16px. ---
-    cas_icons, none_spr, cas_atk_vy, cas_def_vy = casualties
+    cas_icons, none_spr, cas_atk_vy, cas_def_vy, arrow_spr = casualties
     L.append("BattleCasualtyIconTab:                 ; иконы MONS32 type 0/1 [lo,mid,hi,w,h] (палитра юнитов)")
     for (addr, w, h) in cas_icons:
         L.append(f"                DEFB #{addr & 0xFF:02X}, #{(addr >> 8) & 0xFF:02X}, "
@@ -842,6 +851,10 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
              f"#{(na >> 16) & 0xFF:02X}, {nw}, {nh}")
     L.append(f"BATTLE_CAS_ATK_Y     EQU {cas_atk_vy}")
     L.append(f"BATTLE_CAS_DEF_Y     EQU {cas_def_vy}")
+    L.append("BattleArrowSrcTab:                     ; стрела ARCH_MSL[4] ×1.6 [lo,mid,hi,w,h]; [0]=вправо [1]=влево")
+    for (addr, w, h) in arrow_spr:
+        L.append(f"                DEFB #{addr & 0xFF:02X}, #{(addr >> 8) & 0xFF:02X}, "
+                 f"#{(addr >> 16) & 0xFF:02X}, {w}, {h}")
     L.append("BattleCountBarVerts:                   ; 99 ячеек × 2 FT_VERTEX2F (тёмный бар под числом)")
     for idx in range(WIDTH_IN_CELLS * 9):
         row, col = idx // WIDTH_IN_CELLS, idx % WIDTH_IN_CELLS
