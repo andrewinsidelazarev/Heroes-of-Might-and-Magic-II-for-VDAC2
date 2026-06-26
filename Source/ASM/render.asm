@@ -11,11 +11,15 @@ HERO_SPRITE_MIRROR_C   EQU (HERO_SPRITE_W - 1) * 256
 Render_Frame:
                 LD   A, (GameMode)
                 CP   GAME_MODE_MENU
-                JP   Z, Render_Menu
+                JP   Z, Render_Menu_Tramp
                 CP   GAME_MODE_HIGHSCORES_STANDARD
                 JP   Z, Render_HiScores_Tramp
                 CP   GAME_MODE_HIGHSCORES_CAMPAIGN
                 JP   Z, Render_HiScores_Tramp
+                CP   GAME_MODE_TOWN
+                JP   Z, Render_Town_Tramp
+                CP   GAME_MODE_COMBAT
+                JP   Z, Render_Battle_Tramp
                 if RUNTIME_TILEMAP_RENDER
                 CALL Render_RuntimeFrameCmd
                 else
@@ -107,6 +111,7 @@ Render_RuntimeFrameCmd:
                 CALL Render_MinimapRectCmd
                 CALL Render_MinimapHeroDotCmd
                 CALL Render_AdvButtonsCmd          ; все кнопки поверх UI
+                CALL Render_RightPanelCmd
                 CALL Render_CursorCmd
                 ; БЕЗ CMD_SWAP в потоке! Свап — ТОЛЬКО ручным REG_DLSWAP после
                 ; WaitFlush (как в Zuma VDAC2). CMD_SWAP + ручной DLSWAP = два
@@ -1595,6 +1600,48 @@ Render_AdventureUICmd:
                 CALL Render_CmdBufCopy
                 RET
 
+Render_RightPanelCmd:
+                LD   A, (ActiveHeroIndex)
+                ; TODO: выбор MINIPORT в зависимости от героя. Пока статичный 0-й кадр
+
+                ; Вычисление кадра MOBILITY (0..25)
+                ; В Z80 HeroMovePoints = 0..16.
+                ; Кадр = HeroMovePoints * 1.5 (A + A/2). Для 16 будет 24 (макс 25).
+                LD   A, (HeroMovePoints)
+                SRL  A
+                LD   B, A
+                LD   A, (HeroMovePoints)
+                ADD  A, B
+                CP   26
+                JR   C, .ok
+                LD   A, 25
+.ok:
+                ; A содержит индекс кадра (0..25)
+                ; Читаем адрес из MobilityFrameTable (3 байта на запись)
+                LD   B, A
+                ADD  A, A                      ; A = A * 2
+                ADD  A, B                      ; A = A * 3
+                LD   C, A
+                LD   B, 0
+                LD   HL, MobilityFrameTable
+                ADD  HL, BC                    ; HL указывает на 3 байта адреса
+                
+                ; Читаем 3 байта адреса
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)
+                INC  HL
+                LD   A, (HL)
+                
+                ; Пишем в DL (младшие 3 байта FT_BITMAP_SOURCE)
+                LD   (UI_RightPanelMobilityAddr + 0), DE
+                LD   (UI_RightPanelMobilityAddr + 2), A
+
+                LD   HL, UI_RightPanel_DL
+                LD   BC, UI_RightPanel_DL_SIZE
+                CALL Render_CmdBufCopy
+                RET
+
 Render_AdvButtonsCmd:
                 LD   HL, UI_BtnStateInit_DL
                 LD   BC, UI_BtnStateInit_DL_SIZE
@@ -1633,23 +1680,11 @@ Render_AdvButtonsCmd:
                 LD   A, 4
 
 .get_color:
+                ; Затемнить disabled/inactive кнопки как в оригинале: FT_COLOR_RGB UI_BtnColors[A]
+                ; перед отрисовкой (A = индекс состояния 0..4). +4Б/кнопку CMD-FIFO.
                 PUSH AF
-                LD   HL, UI_BtnColors
-                LD   B, 0
-                LD   C, A
-                ADD  HL, BC
-                ADD  HL, BC
-                ADD  HL, BC
-                LD   A, (HL)
-                INC  HL
-                LD   D, (HL)
-                INC  HL
-                LD   E, (HL)
-                LD   L, A
-                LD   H, 4       ; FT_COLOR_RGB
-                CALL Render_CmdBufWrite32
+                CALL Render_AdvBtnColor
                 POP  AF
-                
                 POP  BC
                 PUSH BC
                 CP   1
@@ -1690,6 +1725,28 @@ Render_AdvButtonsCmd:
                 CALL Render_CmdBufWrite32
                 RET
 
+; A = индекс состояния (0..4) → эмит FT_COLOR_RGB UI_BtnColors[A] в CMD-буфер.
+; Затемняет disabled(3)/inactive(2/4) кнопки как в оригинале (active/pressed = белый).
+Render_AdvBtnColor:
+                LD   L, A
+                LD   H, 0
+                LD   E, L
+                LD   D, H
+                ADD  HL, HL                     ; 2A
+                ADD  HL, DE                     ; 3A
+                LD   DE, UI_BtnColors
+                ADD  HL, DE                     ; HL → {r,g,b}
+                LD   A, (HL)                    ; r
+                INC  HL
+                LD   B, (HL)                    ; g
+                INC  HL
+                LD   C, (HL)                    ; b
+                LD   H, #04
+                LD   L, A                        ; HL = #0400|r  (FT_COLOR_RGB high16)
+                LD   D, B
+                LD   E, C                        ; DE = (g<<8)|b (low16)
+                JP   Render_CmdBufWrite32        ; эмит 32-бит COLOR_RGB + RET
+
 UI_BtnColors:
                 DEFB 255, 255, 255 ; 0: normal
                 DEFB 255, 255, 255 ; 1: pressed
@@ -1697,10 +1754,61 @@ UI_BtnColors:
                 DEFB  96,  96,  96 ; 3: disabled
                 DEFB 160, 160, 160 ; 4: inactive_pressed
 
+Math_Div8:
+                ; A = A / C
+                ; Возвращает A = частное
+                ; Простейшее деление вычитанием (A < 255)
+                LD   B, 0
+.div_loop:
+                CP   C
+                JR   C, .div_done
+                SUB  C
+                INC  B
+                JR   .div_loop
+.div_done:
+                LD   A, B
+                RET
+
+UI_RightPanel_DL:
+                FT_BITMAP_TRANSFORM_A 160
+                FT_BITMAP_TRANSFORM_E 160
+                FT_PALETTE_SOURCE OBJECT_PALETTE_RAMG
+                FT_COLOR_RGB 255, 255, 255
+                FT_COLOR_A 255
+                FT_BEGIN FT_BITMAPS
+
+                ; 1. Подложка-рамка hero-иконки (PORTXTRA, 46×22): слоты mobility(лев)/портрет/mana(прав).
+                ; Сажаем в ячейку 0 героев: фон ячейки ADVBORD @ (480,176), контент инсет +5,+5 → (485,181).
+                ; (Было (488,168) — на 13px выше ячейки, налезало на ICON-border разделитель.)
+                FT_BITMAP_SOURCE UI_PORTXTRA_RAMG
+                FT_BITMAP_LAYOUT FT_PALETTED4444, UI_PORTXTRA_STRIDE, UI_PORTXTRA_H
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, UI_PORTXTRA_W * 16 / 10, UI_PORTXTRA_H * 16 / 10
+                FT_VERTEX2F 485 * 256 / 10, 181 * 256 / 10
+
+                ; 2. Портрет героя (MINIPORT, 30×22) — инсет +7 от левого края PORTXTRA-бара (heroes.cpp barw=7):
+                ; X = 485 + 7 = 492; Y = 181 (выровнен по верху рамки).
+                FT_BITMAP_SOURCE UI_MINIPORT_RAMG
+                FT_BITMAP_LAYOUT FT_PALETTED4444, UI_MINIPORT_STRIDE, UI_MINIPORT_H
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, UI_MINIPORT_W * 16 / 10, UI_MINIPORT_H * 16 / 10
+                FT_VERTEX2F 492 * 256 / 10, 181 * 256 / 10
+
+                ; 3. Мана (MANA) — убрана из покадрового DL (всегда пустой 0-кадр, ел бюджет
+                ;    CMD-FIFO). Вернуть при реализации очков заклинаний.
+
+                ; 4. Мувпоинты (MOBILITY, 7×22) — левый слот PORTXTRA-рамки, тот же сдвиг → (485,181).
+UI_RightPanelMobilityAddr:
+                FT_BITMAP_SOURCE UI_MOBILITY_RAMG
+                FT_BITMAP_LAYOUT FT_PALETTED4444, UI_MOBILITY_STRIDE, UI_MOBILITY_H
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, UI_MOBILITY_W * 16 / 10, UI_MOBILITY_H * 16 / 10
+                FT_VERTEX2F 485 * 256 / 10, 181 * 256 / 10
+
+UI_RightPanel_DL_SIZE EQU $ - UI_RightPanel_DL
+
 UI_BtnStateInit_DL:
                 FT_BITMAP_TRANSFORM_A 160
                 FT_BITMAP_TRANSFORM_E 160
                 FT_PALETTE_SOURCE OBJECT_PALETTE_RAMG
+                FT_COLOR_RGB 255, 255, 255      ; белый один раз (per-button COLOR_RGB убран — бюджет FIFO)
                 FT_BEGIN FT_BITMAPS
 UI_BtnStateInit_DL_SIZE EQU $ - UI_BtnStateInit_DL
 
@@ -1838,9 +1946,9 @@ Render_MinimapHeroDotCmd:
                 CALL Render_ScaleHL_8_5_ToVertex
                 LD   (MinimapRectY1), HL
 
-                LD   HL, #04FF
-                LD   DE, #3030
-                CALL Render_CmdBufWrite32     ; COLOR_RGB 255,48,48 (player)
+                LD   HL, #04A8
+                LD   DE, #2020
+                CALL Render_CmdBufWrite32     ; COLOR_RGB 168,32,32 = RED 0xBD (палитра владельца, interface_radar.cpp)
                 LD   HL, #1F00
                 LD   DE, #0009
                 CALL Render_CmdBufWrite32     ; BEGIN RECTS
@@ -2000,17 +2108,143 @@ Render_Number16:
                 XOR  A
                 JP   Render_DrawDigit          ; число было 0 → нарисовать "0"
 
+; Число значащих цифр HL → A (минимум 1). Портит NumVal/IX/HL/DE/BC.
+Num_DigitCount: LD   (NumVal), HL
+                LD   IX, NumDivisors
+                LD   C, 0                     ; счётчик
+                LD   B, 0                     ; флаг started
+.dc_loop:       LD   E, (IX+0)
+                LD   D, (IX+1)
+                LD   A, D
+                OR   E
+                JR   Z, .dc_end
+                LD   HL, (NumVal)
+                XOR  A
+.dc_sub:        SBC  HL, DE                   ; (carry=0 после XOR A)
+                JR   C, .dc_done
+                INC  A
+                OR   A                         ; сброс carry для след. SBC
+                JR   .dc_sub
+.dc_done:       ADD  HL, DE
+                LD   (NumVal), HL
+                OR   A
+                JR   NZ, .dc_count
+                LD   A, B
+                OR   A
+                JR   Z, .dc_next              ; ведущий ноль
+.dc_count:      LD   B, 1
+                INC  C
+.dc_next:       INC  IX
+                INC  IX
+                JR   .dc_loop
+.dc_end:        LD   A, C
+                OR   A
+                RET  NZ
+                LD   A, 1
+                RET
+
+; Нарисовать HL центрированным относительно ResPenX (≈ как оригинал x − width/2).
+; Прибл. ширина = digit_count × 5px native → сдвиг ResPenX влево на count×40 vertex-units.
+Render_Number16C:
+                PUSH HL
+                CALL Num_DigitCount           ; A = число цифр
+                LD   L, A
+                LD   H, 0
+                LD   D, H
+                LD   E, L                     ; DE = count
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, DE                   ; HL = count*5
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL                   ; HL = count*40
+                EX   DE, HL                   ; DE = смещение
+                LD   HL, (ResPenX)
+                OR   A
+                SBC  HL, DE
+                LD   (ResPenX), HL
+                POP  HL
+                JP   Render_Number16
+
 ; Ресурсная панель — RAM_G-композит (правило компромисса: панель статична, динамика
 ; не важна). Полный DL панели собирается в RAM_G ОДИН раз при изменении ресурсов
 ; (Resources_BuildPanelDL), а в кадре добавляется ОДНИМ CMD_APPEND (малый FIFO).
 ResourcePanelDLSize: DEFW 0
-ResBaseX:       DEFW 0
-ResBaseY:       DEFW 0
-ResCellX:       DEFW 0
-ResCellY:       DEFW 0
-ResColOffsets:  DEFW 0, 640, 1280, 1920    ; col*40px → vertex-units (×16)
-ResRowOffsets:  DEFW 0, 704                ; row*44px → vertex-units (иконка+цифра не режут след. ряд)
 ResourceValueAddrs: DEFW ResWood, ResMercury, ResOre, ResSulfur, ResCrystal, ResGems, ResGold
+; Kingdom-вид (interface_status.cpp _drawKingdomInfo): логич. X/Y чисел в окне статуса.
+; Порядок = ResourceValueAddrs: wood/mercury/ore/sulfur/crystal/gems (нижний ряд) + gold (верхний).
+ResKPosX:       DEFW 495, 517, 540, 564, 588, 610, 602
+ResKPosY:       DEFW 452, 452, 452, 452, 452, 452, 422
+; Метки даты (SMALFONT-спрайты) + вычисленные день-недели/неделя/месяц.
+DateGap:        LD   HL, (ResPenX)
+                LD   DE, 80                   ; ~5px пробел между словом и числом
+                ADD  HL, DE
+                LD   (ResPenX), HL
+                RET
+; HL = запись метки [lo,mid,hi,w,h], A = число-байт → метка + пробел + число пером.
+DrawLblNum:     PUSH AF
+                CALL Render_DrawSpriteEntry
+                CALL DateGap
+                POP  AF
+                LD   L, A
+                LD   H, 0
+                JP   Render_Number16
+DateLblTable:   DEFB UI_LBL_MONTH_RAMG & #FF, (UI_LBL_MONTH_RAMG >> 8) & #FF, (UI_LBL_MONTH_RAMG >> 16) & #FF, UI_LBL_MONTH_W, UI_LBL_MONTH_H
+                DEFB UI_LBL_WEEK_RAMG & #FF, (UI_LBL_WEEK_RAMG >> 8) & #FF, (UI_LBL_WEEK_RAMG >> 16) & #FF, UI_LBL_WEEK_W, UI_LBL_WEEK_H
+                DEFB UI_LBL_DAY_RAMG & #FF, (UI_LBL_DAY_RAMG >> 8) & #FF, (UI_LBL_DAY_RAMG >> 16) & #FF, UI_LBL_DAY_W, UI_LBL_DAY_H
+DateDow:        DEFB 0
+DateWeek:       DEFB 0
+DateMonth:      DEFB 0
+; Блоки статус-окна (×1.6) для RAM_G-композита (НЕ покадровый DL — бюджет 4096).
+; STONBACK — общий фон 144×72 @ (480,392). Оставляет TRANSFORM A=160,E=160 для следующего блока.
+UI_StatusStone_DL:
+                FT_BITMAP_TRANSFORM_A 160
+                FT_BITMAP_TRANSFORM_E 160
+                FT_BEGIN FT_BITMAPS
+                FT_BITMAP_SOURCE UI_STONBACK_RAMG
+                FT_BITMAP_LAYOUT FT_PALETTED4444, UI_STONBACK_STRIDE, UI_STONBACK_H
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, UI_STONBACK_W * 16 / 10, UI_STONBACK_H * 16 / 10
+                FT_VERTEX2F 480 * 256 / 10, 392 * 256 / 10
+                FT_END
+UI_StatusStone_DL_SIZE EQU $ - UI_StatusStone_DL
+; FUNDS: иконки RESSMALL 133×56 @ (486,395). A уже 160 от stone; в конце вернуть native A=256.
+UI_StatusRessmall_DL:
+                FT_BEGIN FT_BITMAPS
+                FT_BITMAP_SOURCE UI_RESSMALL_RAMG
+                FT_BITMAP_LAYOUT FT_PALETTED4444, UI_RESSMALL_STRIDE, UI_RESSMALL_H
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, UI_RESSMALL_W * 16 / 10, UI_RESSMALL_H * 16 / 10
+                FT_VERTEX2F 486 * 256 / 10, 395 * 256 / 10
+                FT_END
+                FT_BITMAP_TRANSFORM_A 256
+UI_StatusRessmall_DL_SIZE EQU $ - UI_StatusRessmall_DL
+; DATE: баннер солнца/луны SUNMOON 144×25 @ (480,393). A уже 160; в конце native A=256.
+UI_StatusSun_DL:
+                FT_BEGIN FT_BITMAPS
+                FT_BITMAP_SOURCE UI_SUNMOON_RAMG
+                FT_BITMAP_LAYOUT FT_PALETTED4444, UI_SUNMOON_STRIDE, UI_SUNMOON_H
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, UI_SUNMOON_W * 16 / 10, UI_SUNMOON_H * 16 / 10
+                FT_VERTEX2F 480 * 256 / 10, 393 * 256 / 10
+                FT_END
+                FT_BITMAP_TRANSFORM_A 256
+UI_StatusSun_DL_SIZE EQU $ - UI_StatusSun_DL
+; ARMY: спрайты монстров армии фокус-героя (MONS32 ×1.6). A уже 160 от stone; в конце native A=256.
+; Раскладка ПИКСЕЛЬ-В-ПИКСЕЛЬ по fheroes2 drawMultipleMonsterLines→drawMiniMonsters (compact):
+; pos=(480,392), army@(484,393,w=138); 2 стека (<3): chunk=46, cy=409; стеки posX=507(Peasant)/553(Archer);
+; фигура left=posX+offset, top=cy+(37-h); общий baseline y=446. Спрайт 32×32 padded (content@ox,oy):
+; Peasant w17 ox1 → box vertex (514,417); Archer w22 ox0 → box vertex (562,415). Счётчики — в .nums_army.
+UI_StatusArmy_DL:
+                FT_BEGIN FT_BITMAPS
+                FT_BITMAP_SOURCE UI_ARMY0_RAMG
+                FT_BITMAP_LAYOUT FT_PALETTED4444, UI_ARMY0_STRIDE, UI_ARMY0_H
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, UI_ARMY0_W * 16 / 10, UI_ARMY0_H * 16 / 10
+                FT_VERTEX2F 515 * 256 / 10, 417 * 256 / 10
+                FT_BITMAP_SOURCE UI_ARMY1_RAMG
+                FT_BITMAP_LAYOUT FT_PALETTED4444, UI_ARMY1_STRIDE, UI_ARMY1_H
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, UI_ARMY1_W * 16 / 10, UI_ARMY1_H * 16 / 10
+                FT_VERTEX2F 562 * 256 / 10, 415 * 256 / 10
+                FT_END
+                FT_BITMAP_TRANSFORM_A 256
+UI_StatusArmy_DL_SIZE EQU $ - UI_StatusArmy_DL
 
 ; В кадре: добавить готовый DL панели (иконки + числа SMALFONT) из RAM_G композита.
 Render_ResourcePanelCmd:
@@ -2042,76 +2276,87 @@ Resources_BuildPanelDL:
                 LD   HL, #2A00 | ((OBJECT_PALETTE_RAMG >> 16) & #FF)
                 LD   DE, OBJECT_PALETTE_RAMG & #FFFF
                 CALL Render_CmdBufWrite32     ; PALETTE_SOURCE object
+                ; Общий каменный фон STONBACK (×1.6).
+                LD   HL, UI_StatusStone_DL
+                LD   BC, UI_StatusStone_DL_SIZE
+                CALL Render_CmdBufCopy
+                ; Иконки по виду: ARMY → MONS32-спрайты, FUNDS → RESSMALL, DATE → SUNMOON.
+                LD   A, (StatusState)
+                CP   STATUS_DATE
+                JR   Z, .icons_date
+                CP   STATUS_FUNDS
+                JR   Z, .icons_funds
+                LD   HL, UI_StatusArmy_DL          ; ARMY (дефолт)
+                LD   BC, UI_StatusArmy_DL_SIZE
+                JR   .icons_copy
+.icons_funds:   LD   HL, UI_StatusRessmall_DL
+                LD   BC, UI_StatusRessmall_DL_SIZE
+                JR   .icons_copy
+.icons_date:    LD   HL, UI_StatusSun_DL
+                LD   BC, UI_StatusSun_DL_SIZE
+.icons_copy:    CALL Render_CmdBufCopy
+                ; TRANSFORM native + BEGIN (числа поверх).
                 LD   HL, #1500
                 LD   DE, #0100
-                CALL Render_CmdBufWrite32     ; TRANSFORM_A 256 (native, без апскейла)
+                CALL Render_CmdBufWrite32     ; TRANSFORM_A 256
                 LD   HL, #1700
                 LD   DE, #0100
-                CALL Render_CmdBufWrite32     ; TRANSFORM_E 256
+                CALL Render_CmdBufWrite32     ; (как было)
                 LD   HL, #1600
                 LD   DE, #0000
-                CALL Render_CmdBufWrite32     ; TRANSFORM_C 0
+                CALL Render_CmdBufWrite32     ; (как было)
                 LD   HL, #1F00
                 LD   DE, #0001
                 CALL Render_CmdBufWrite32     ; BEGIN BITMAPS
-                ; база панели (vertex-units) = верхний-левый угол статус-области
-                LD   HL, UI_STATUS_X + 2
+                LD   A, (StatusState)
+                CP   STATUS_DATE
+                JP   Z, .nums_date
+                CP   STATUS_FUNDS
+                JP   Z, .nums_funds
+                ; ARMY (дефолт): счётчики войск у правого края чанка, baseline y=432 (по drawMiniMonsters).
+                ; «40» центр≈539 (чанк Peasant правый край), «4» центр≈587 (чанк Archer). Render_Number16C центрирует.
+                LD   HL, 432
                 CALL Render_ScaleHL_8_5_ToVertex
-                LD   (ResBaseX), HL
-                LD   HL, UI_STATUS_Y + 2
+                LD   (ResPenY), HL
+                LD   HL, 538
                 CALL Render_ScaleHL_8_5_ToVertex
-                LD   (ResBaseY), HL
-                ; 7 ресурсов сеткой 4×2 (native): иконка + число под ней
+                LD   (ResPenX), HL
+                LD   HL, UI_ARMY0_COUNT
+                CALL Render_Number16C
+                LD   HL, 587
+                CALL Render_ScaleHL_8_5_ToVertex
+                LD   (ResPenX), HL
+                LD   HL, UI_ARMY1_COUNT
+                CALL Render_Number16C
+                JP   .panel_end
+.nums_funds:    ; FUNDS: 7 чисел ресурсов/золота на позициях ResKPos.
                 LD   B, 0
 .res_loop:      PUSH BC
                 LD   A, B
-                AND  3
                 ADD  A, A
                 LD   L, A
                 LD   H, 0
-                LD   DE, ResColOffsets
+                LD   DE, ResKPosX
                 ADD  HL, DE
                 LD   E, (HL)
                 INC  HL
                 LD   D, (HL)
-                LD   HL, (ResBaseX)
-                ADD  HL, DE
-                LD   (ResCellX), HL
+                EX   DE, HL
+                CALL Render_ScaleHL_8_5_ToVertex
+                LD   (ResPenX), HL
+                POP  BC
+                PUSH BC
                 LD   A, B
-                SRL  A
-                SRL  A
                 ADD  A, A
                 LD   L, A
                 LD   H, 0
-                LD   DE, ResRowOffsets
+                LD   DE, ResKPosY
                 ADD  HL, DE
                 LD   E, (HL)
                 INC  HL
                 LD   D, (HL)
-                LD   HL, (ResBaseY)
-                ADD  HL, DE
-                LD   (ResCellY), HL
-                ; иконка ResourceIconTable[B]
-                LD   HL, (ResCellX)
-                LD   (ResPenX), HL
-                LD   HL, (ResCellY)
-                LD   (ResPenY), HL
-                LD   A, B
-                LD   L, A
-                LD   H, 0
-                LD   D, 0
-                LD   E, A
-                ADD  HL, HL
-                ADD  HL, HL
-                ADD  HL, DE                   ; B*5
-                LD   DE, ResourceIconTable
-                ADD  HL, DE
-                CALL Render_DrawSpriteEntry
-                LD   HL, (ResCellX)
-                LD   (ResPenX), HL
-                LD   HL, (ResCellY)
-                LD   DE, 448
-                ADD  HL, DE
+                EX   DE, HL
+                CALL Render_ScaleHL_8_5_ToVertex
                 LD   (ResPenY), HL
                 POP  BC
                 PUSH BC
@@ -2129,13 +2374,80 @@ Resources_BuildPanelDL:
                 INC  DE
                 LD   A, (DE)
                 LD   H, A
-                CALL Render_Number16
+                CALL Render_Number16C
                 POP  BC
                 INC  B
                 LD   A, B
                 CP   7
                 JP   C, .res_loop
-                LD   HL, #2100
+                ; Замки/города (верхний ряд RESSMALL, центрировано). Старт: 1 замок, 0 городов.
+                LD   HL, 506
+                CALL Render_ScaleHL_8_5_ToVertex
+                LD   (ResPenX), HL
+                LD   HL, 422
+                CALL Render_ScaleHL_8_5_ToVertex
+                LD   (ResPenY), HL
+                LD   HL, 1                    ; замков (TODO: счётчик замков королевства)
+                CALL Render_Number16C
+                LD   HL, 558
+                CALL Render_ScaleHL_8_5_ToVertex
+                LD   (ResPenX), HL
+                LD   HL, 0                    ; городов
+                CALL Render_Number16C
+                JP   .panel_end
+.nums_date:     ; DATE (как оригинал): "Month: M Week: W" + "Day: D" из GameDay.
+                ; d=GameDay-1; dow=d mod7 +1; q=d/7; week=q mod4 +1; month=q/4 +1.
+                LD   HL, (GameDay)
+                DEC  HL
+                LD   BC, 0                     ; q = d/7
+.d7:            LD   A, H
+                OR   A
+                JR   NZ, .d7s
+                LD   A, L
+                CP   7
+                JR   C, .d7done
+.d7s:           LD   DE, 7
+                OR   A
+                SBC  HL, DE
+                INC  BC
+                JR   .d7
+.d7done:        LD   A, L
+                INC  A
+                LD   (DateDow), A
+                LD   A, C
+                AND  3
+                INC  A
+                LD   (DateWeek), A
+                LD   A, C
+                SRL  A
+                SRL  A
+                INC  A
+                LD   (DateMonth), A
+                ; строка "Month: M  Week: W" @ y=424 (центр окна ~552)
+                LD   HL, 512
+                CALL Render_ScaleHL_8_5_ToVertex
+                LD   (ResPenX), HL
+                LD   HL, 424
+                CALL Render_ScaleHL_8_5_ToVertex
+                LD   (ResPenY), HL
+                LD   HL, DateLblTable
+                LD   A, (DateMonth)
+                CALL DrawLblNum
+                CALL DateGap
+                LD   HL, DateLblTable + 5
+                LD   A, (DateWeek)
+                CALL DrawLblNum
+                ; строка "Day: D" @ y=440
+                LD   HL, 538
+                CALL Render_ScaleHL_8_5_ToVertex
+                LD   (ResPenX), HL
+                LD   HL, 440
+                CALL Render_ScaleHL_8_5_ToVertex
+                LD   (ResPenY), HL
+                LD   HL, DateLblTable + 10
+                LD   A, (DateDow)
+                CALL DrawLblNum
+.panel_end:     LD   HL, #2100
                 LD   DE, #0000
                 CALL Render_CmdBufWrite32     ; END
                 ; размер = BufferPtr - CMD_ADDRESS_PTR
@@ -3110,9 +3422,9 @@ FOG_CMD_BYTES EQU RuntimeDL_ObjectTranslate_SIZE + 24 + (GAME_VIEW_TILE_W + 1) *
 MAP_ANIM_MAX_PER_FRAME EQU 10         ; целиком вмещает мельницу (10 частей)
 MAP_ANIM_CMD_BYTES EQU 44 + MAP_ANIM_MAX_PER_FRAME * 16
                 if BG_DXT_RAW_SIZE
-RUNTIME_CMD_FRAME_MAX EQU 4 + BackgroundDxt_DL_SIZE + RuntimeDL_ObjectTranslate_SIZE + 12 + RuntimeDL_ObjectTranslate_SIZE + 12 + HERO_PATH_CMD_MAX + (HERO_MARKER_DL_SIZE - 4) + MAP_ANIM_CMD_BYTES + FOG_CMD_BYTES + AdventureUI_DL_SIZE + 180 + MINIMAP_RECT_CMD_BYTES + RESOURCE_PANEL_CMD_BYTES + CURSOR_DL_SIZE
+RUNTIME_CMD_FRAME_MAX EQU 4 + BackgroundDxt_DL_SIZE + RuntimeDL_ObjectTranslate_SIZE + 12 + RuntimeDL_ObjectTranslate_SIZE + 12 + HERO_PATH_CMD_MAX + (HERO_MARKER_DL_SIZE - 4) + MAP_ANIM_CMD_BYTES + FOG_CMD_BYTES + AdventureUI_DL_SIZE + 152 + UI_RightPanel_DL_SIZE + MINIMAP_RECT_CMD_BYTES + RESOURCE_PANEL_CMD_BYTES + CURSOR_DL_SIZE
                 else
-RUNTIME_CMD_FRAME_MAX EQU 4 + RuntimeDL_Header_SIZE + 12 + RuntimeDL_RightBand_SIZE + 12 + (RuntimeDL_Tail_SIZE - 4) + RuntimeDL_ObjectTranslate_SIZE + 12 + RuntimeDL_ObjectTranslate_SIZE + 12 + HERO_PATH_CMD_MAX + (HERO_MARKER_DL_SIZE - 4) + MAP_ANIM_CMD_BYTES + FOG_CMD_BYTES + AdventureUI_DL_SIZE + 180 + MINIMAP_RECT_CMD_BYTES + RESOURCE_PANEL_CMD_BYTES + CURSOR_DL_SIZE
+RUNTIME_CMD_FRAME_MAX EQU 4 + RuntimeDL_Header_SIZE + 12 + RuntimeDL_RightBand_SIZE + 12 + (RuntimeDL_Tail_SIZE - 4) + RuntimeDL_ObjectTranslate_SIZE + 12 + RuntimeDL_ObjectTranslate_SIZE + 12 + HERO_PATH_CMD_MAX + (HERO_MARKER_DL_SIZE - 4) + MAP_ANIM_CMD_BYTES + FOG_CMD_BYTES + AdventureUI_DL_SIZE + 152 + UI_RightPanel_DL_SIZE + MINIMAP_RECT_CMD_BYTES + RESOURCE_PANEL_CMD_BYTES + CURSOR_DL_SIZE
                 endif
                 ifdef DYNAMIC_ACTOR_RAMG
 RUNTIME_CMD_FRAME_MAX_WITH_ACTOR EQU RUNTIME_CMD_FRAME_MAX + (ACTOR_DL_SIZE - 4)

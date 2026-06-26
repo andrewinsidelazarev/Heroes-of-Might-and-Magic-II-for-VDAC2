@@ -65,9 +65,12 @@ COMPOSITE_TILE_CACHE_SIZE = COMPOSITE_BG_TILE_OFFSET + COMPOSITE_SLOT_COUNT * CO
 COMPOSITE_CACHE_BANKS = 2 if COMPOSITE_STATIC_TILEMAP else 1
 COMPOSITE_RAMG_CACHE_SIZE = COMPOSITE_TILE_CACHE_SIZE * COMPOSITE_CACHE_BANKS
 RAMG_OBJECT_BASE = ((COMPOSITE_RAMG_CACHE_SIZE + 0x0FFF) & ~0x0FFF) if COMPOSITE_STATIC_TILEMAP else 0x070000
-# Глобальный курсор: ПОСТОЯННАЯ зона RAM_G (между object atlas ~#0D7B00 и DL #0F0000),
-# не перезаписывается сменой сцены; резидентная загрузка один раз. Доступен всем сценам.
-CURSOR_RAMG_BASE = 0x0E0000
+# Глобальный курсор: ПОСТОЯННАЯ зона RAM_G выше object atlas и ниже DL #0F0000.
+# ВНИМАНИЕ: object atlas разросся до ~#0E3382 (objects base #079000 + 435138 байт), поэтому
+# прежняя база #0E0000 попадала ВНУТРЬ объектов → Objects_Upload затирал курсор #00-паддингом
+# (курсор был невидим всегда). Подняли выше конца объектов: #0E8000..#0ED37C (DL @ #0F0000).
+# Доступен всем сценам; не перезаписывается сменой сцены.
+CURSOR_RAMG_BASE = 0x0E8000
 CURSOR_RESIDENT_PAGE = 0xA2          # SPG-страница курсор-спрайтов (рядом с loader #A0/#A1, ≤#F0)
 OBJECT_PALETTE_SIZE = 512
 OBJECT_OPAQUE_PALETTE_SIZE = 512
@@ -1350,12 +1353,6 @@ def append_adventure_ui_sprites(payload: bytearray, agg_data: bytes, entries, pa
         ph, pe = button_icn[index + 1]
         buttons_pressed.append(append_paletted_sprite(payload, decode_icn_indices(ph, pe), ph["w"], ph["h"], "ADVBTNS.ICN", index + 1))
 
-    # Иконки ресурсов RESOURCE.ICN[0..6]: wood, mercury, ore, sulfur, crystal, gems, gold.
-    resource_icn = read_icn(agg_entry(agg_data, entries, "RESOURCE.ICN"))
-    resource_icons = []
-    for i in range(7):
-        header, encoded = resource_icn[i]
-        resource_icons.append(append_paletted_sprite(payload, decode_icn_indices(header, encoded), header["w"], header["h"], "RESOURCE.ICN", i))
     # Цифры SMALFONT.ICN[16..25] = '0'..'9' (5×8). Рисуются НАТИВНО (без ×1.6 апскейла).
     # +2 пустые строки снизу (h 8→10): реальный FT812 поджимает низ мелкого глифа —
     # запас гарантирует, что нижние строки цифры не срежутся (snapshot этого не ловит).
@@ -1368,6 +1365,30 @@ def append_adventure_ui_sprites(payload: bytearray, agg_data: bytes, entries, pa
         idx = decode_icn_indices(header, encoded) + bytes(w * DIGIT_PAD_BOTTOM)
         digits.append(append_paletted_sprite(payload, idx, w, h + DIGIT_PAD_BOTTOM, "SMALFONT.ICN", 16 + ch))
 
+    # Метки даты для DATE-вида статуса (текст SMALFONT, char index = ord-32; baseline по oy).
+    def smalfont_label(text):
+        gl = []
+        for c in text:
+            hd, enc = smalfont[ord(c) - 32]
+            oy = hd.get("oy", hd.get("offset_y", 0))
+            gl.append((hd["w"], hd["h"], oy, decode_icn_indices(hd, enc)))
+        tw = sum(g[0] for g in gl) + max(0, len(gl) - 1)
+        th = max((g[2] + g[1]) for g in gl) + DIGIT_PAD_BOTTOM
+        buf = bytearray(tw * th)
+        x = 0
+        for gw, gh, oy, gidx in gl:
+            for py in range(gh):
+                for px in range(gw):
+                    v = gidx[py * gw + px]
+                    if v:
+                        buf[(oy + py) * tw + x + px] = v
+            x += gw + 1
+        return bytes(buf), tw, th
+    date_labels = {}
+    for txt, key in (("Month:", "month"), ("Week:", "week"), ("Day:", "day")):
+        b, lw, lh = smalfont_label(txt)
+        date_labels[key] = append_paletted_sprite(payload, b, lw, lh, "LBL", 0)
+
     # Буфер в RAM_G под готовый DL ресурсной панели (CMD_APPEND каждый кадр; пересборка
     # при изменении ресурсов). Полная панель ~7 иконок + 7 чисел + дата ≤ 1 КБ.
     resource_panel_ramg = RAMG_OBJECT_BASE + align(len(payload), 4)
@@ -1375,13 +1396,94 @@ def append_adventure_ui_sprites(payload: bytearray, agg_data: bytes, entries, pa
         payload.append(0)
     payload.extend(b"\0" * 1024)
 
+    # Геройская панель справа: подложка, портреты, полоски маны и хода
+    portxtra_icn = read_icn(agg_entry(agg_data, entries, "PORTXTRA.ICN"))
+    header, encoded = portxtra_icn[0]
+    portxtra = append_paletted_sprite(payload, decode_icn_indices(header, encoded), header["w"], header["h"], "PORTXTRA.ICN", 0)
+
+    mobility_icn = read_icn(agg_entry(agg_data, entries, "MOBILITY.ICN"))
+    mobility_frames = []
+    max_mob_w = max(m[0]["w"] for m in mobility_icn)
+    max_mob_h = max(m[0]["h"] for m in mobility_icn)
+    for i in range(26):
+        header, encoded = mobility_icn[i]
+        pixels = decode_icn_indices(header, encoded)
+        padded = bytearray(max_mob_w * max_mob_h) # 0 is transparent
+        ox = header.get("ox", header.get("offset_x", 0))
+        oy = header.get("oy", header.get("offset_y", 0))
+        for py in range(header["h"]):
+            for px in range(header["w"]):
+                padded[(oy + py) * max_mob_w + (ox + px)] = pixels[py * header["w"] + px]
+        mobility_frames.append(append_paletted_sprite(payload, padded, max_mob_w, max_mob_h, "MOBILITY.ICN", i))
+
+    mana_icn = read_icn(agg_entry(agg_data, entries, "MANA.ICN"))
+    mana_frames = []
+    max_mana_w = max(m[0]["w"] for m in mana_icn)
+    max_mana_h = max(m[0]["h"] for m in mana_icn)
+    for i in range(26):
+        header, encoded = mana_icn[i]
+        pixels = decode_icn_indices(header, encoded)
+        padded = bytearray(max_mana_w * max_mana_h)
+        ox = header.get("ox", header.get("offset_x", 0))
+        oy = header.get("oy", header.get("offset_y", 0))
+        for py in range(header["h"]):
+            for px in range(header["w"]):
+                padded[(oy + py) * max_mana_w + (ox + px)] = pixels[py * header["w"] + px]
+        mana_frames.append(append_paletted_sprite(payload, padded, max_mana_w, max_mana_h, "MANA.ICN", i))
+
+    miniport_icn = read_icn(agg_entry(agg_data, entries, "MINIPORT.ICN"))
+    miniport_frames = []
+    for i in range(len(miniport_icn)):
+        header, encoded = miniport_icn[i]
+        miniport_frames.append(append_paletted_sprite(payload, decode_icn_indices(header, encoded), header["w"], header["h"], "MINIPORT.ICN", i))
+
+    # Статус-окно (kingdom-вид): STONBACK = каменный фон 144×72, RESSMALL[0] = спрайт иконок
+    # королевства (замок/город/золото + 7 ресурсов). Числа рисуются поверх (Render_ResourcePanelCmd).
+    stonback_icn = read_icn(agg_entry(agg_data, entries, "STONBACK.ICN"))
+    header, encoded = stonback_icn[0]
+    stonback = append_paletted_sprite(payload, decode_icn_indices(header, encoded), header["w"], header["h"], "STONBACK.ICN", 0)
+    ressmall_icn = read_icn(agg_entry(agg_data, entries, "RESSMALL.ICN"))
+    header, encoded = ressmall_icn[0]
+    ressmall = append_paletted_sprite(payload, decode_icn_indices(header, encoded), header["w"], header["h"], "RESSMALL.ICN", 0)
+    # DATE-вид статус-окна: SUNMOON[0] = солнце (день). Фаза луны/недели — позже по дню.
+    sunmoon_icn = read_icn(agg_entry(agg_data, entries, "SUNMOON.ICN"))
+    header, encoded = sunmoon_icn[0]
+    sunmoon = append_paletted_sprite(payload, decode_icn_indices(header, encoded), header["w"], header["h"], "SUNMOON.ICN", 0)
+    # ARMY-вид статус-окна: армия стартового героя. SKIRMISH героев на карте НЕ содержит —
+    # игрок стартует замком Рыцаря (24,13), движок выдаёт дефолтную армию класса (эталон
+    # fheroes2 Army::Reset/getNumberOfMonstersInStartingArmy): Knight = Peasant(MONS32[0], 30-50)
+    # + Archer(MONS32[1], 3-5). Счётчики у оригинала рандомные — берём представительные.
+    # В RAM_G грузим ТОЛЬКО типы монстров этой армии (не весь MONS32), индекс = тип монстра.
+    HERO_ARMY = [(0, 40), (1, 4)]  # (MONS32-индекс, кол-во)
+    mons32_icn = read_icn(agg_entry(agg_data, entries, "MONS32.ICN"))
+    MONS_W, MONS_H = 32, 32
+    army_sprites = []
+    for mons_idx, count in HERO_ARMY:
+        hd, enc = mons32_icn[mons_idx]
+        gidx = decode_icn_indices(hd, enc)
+        ox = hd.get("ox", hd.get("offset_x", 0))
+        oy = hd.get("oy", hd.get("offset_y", 0))
+        buf = bytearray(MONS_W * MONS_H)
+        for py in range(hd["h"]):
+            yy = oy + py
+            if 0 <= yy < MONS_H:
+                for px in range(hd["w"]):
+                    xx = ox + px
+                    if 0 <= xx < MONS_W:
+                        v = gidx[py * hd["w"] + px]
+                        if v:
+                            buf[yy * MONS_W + xx] = v
+        spr = append_paletted_sprite(payload, bytes(buf), MONS_W, MONS_H, "MONS32.ICN", mons_idx)
+        army_sprites.append((spr, count))
+
     radar_indices, radar_palette, radar_tile_colors = build_radar_paletted4444(ground_tiles, palette, width, height, map_data)
     radar = append_radar_paletted_sprite(payload, radar_indices, radar_palette, UI_RADAR_SIZE, UI_RADAR_SIZE, "RADAR_MINIMAP")
     radar["tile_px"] = UI_RADAR_SIZE // width  # px мини-карты на тайл карты
     radar["tile_colors"] = radar_tile_colors   # индекс цвета палитры на тайл (для рантайм-раскрытия тумана)
     radar["map_w"] = width
     radar["map_h"] = height
-    return {"border_w": border_w, "border_h": border_h, "background_blits": background_blits, "border_blits": border_blits, "buttons": buttons, "buttons_pressed": buttons_pressed, "radar": radar, "resource_icons": resource_icons, "digits": digits, "resource_panel_ramg": resource_panel_ramg}
+    return {"border_w": border_w, "border_h": border_h, "background_blits": background_blits, "border_blits": border_blits, "buttons": buttons, "buttons_pressed": buttons_pressed, "portxtra": portxtra, "mobility": mobility_frames, "mana": mana_frames, "miniport": miniport_frames, "radar": radar, "digits": digits, "resource_panel_ramg": resource_panel_ramg, "stonback": stonback, "ressmall": ressmall, "sunmoon": sunmoon, "date_labels": date_labels, "army_sprites": army_sprites}
+
 
 
 def append_cursor_sprites(agg_data: bytes, entries, palette):
@@ -2334,13 +2436,108 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
         lines.append("                DEFB " + ", ".join(str(b) for b in chunk))
     lines.append("")
 
-    # Таблицы для ресурсной панели: запись 5 байт [addr_lo, addr_mid, addr_hi, w, h].
-    lines.append("RESOURCE_ICON_ENTRY     EQU 5")
+    # Статус-окно: STONBACK (каменный фон) + RESSMALL (иконки kingdom-вида).
+    stonback = ui_sprites["stonback"]
+    ressmall = ui_sprites["ressmall"]
+    sunmoon = ui_sprites["sunmoon"]
+    lines.extend(
+        [
+            f"UI_STONBACK_RAMG        EQU #{stonback['addr']:06X}",
+            f"UI_STONBACK_W           EQU {stonback['w']}",
+            f"UI_STONBACK_H           EQU {stonback['h']}",
+            f"UI_STONBACK_STRIDE      EQU {stonback['stride']}",
+            f"UI_RESSMALL_RAMG        EQU #{ressmall['addr']:06X}",
+            f"UI_RESSMALL_W           EQU {ressmall['w']}",
+            f"UI_RESSMALL_H           EQU {ressmall['h']}",
+            f"UI_RESSMALL_STRIDE      EQU {ressmall['stride']}",
+            f"UI_SUNMOON_RAMG         EQU #{sunmoon['addr']:06X}",
+            f"UI_SUNMOON_W            EQU {sunmoon['w']}",
+            f"UI_SUNMOON_H            EQU {sunmoon['h']}",
+            f"UI_SUNMOON_STRIDE       EQU {sunmoon['stride']}",
+        ]
+    )
+    dl = ui_sprites["date_labels"]
+    for key, name in (("month", "MONTH"), ("week", "WEEK"), ("day", "DAY")):
+        s = dl[key]
+        lines.extend([
+            f"UI_LBL_{name}_RAMG       EQU #{s['addr']:06X}",
+            f"UI_LBL_{name}_W          EQU {s['w']}",
+            f"UI_LBL_{name}_H          EQU {s['h']}",
+            f"UI_LBL_{name}_STRIDE     EQU {s['stride']}",
+        ])
+
+    # ARMY-вид: дефолтная армия стартового героя (Knight: Peasant+Archer). В RAM_G только её типы.
+    army = ui_sprites["army_sprites"]
+    lines.append(f"UI_ARMY_COUNT           EQU {len(army)}")
+    for i, (s, count) in enumerate(army):
+        lines.extend([
+            f"UI_ARMY{i}_RAMG           EQU #{s['addr']:06X}",
+            f"UI_ARMY{i}_W              EQU {s['w']}",
+            f"UI_ARMY{i}_H              EQU {s['h']}",
+            f"UI_ARMY{i}_STRIDE         EQU {s['stride']}",
+            f"UI_ARMY{i}_COUNT          EQU {count}",
+        ])
+
+    # Панель героя (фон, портреты, полоски маны и хода)
+    portxtra = ui_sprites["portxtra"]
+    lines.extend(
+        [
+            f"UI_PORTXTRA_RAMG        EQU #{portxtra['addr']:06X}",
+            f"UI_PORTXTRA_W           EQU {portxtra['w']}",
+            f"UI_PORTXTRA_H           EQU {portxtra['h']}",
+            f"UI_PORTXTRA_STRIDE      EQU {portxtra['stride']}",
+        ]
+    )
+
+    mobility_first = ui_sprites["mobility"][0]
+    mobility_last = ui_sprites["mobility"][-1]
+    lines.extend(
+        [
+            f"UI_MOBILITY_RAMG        EQU #{mobility_first['addr']:06X}",
+            f"UI_MOBILITY_W           EQU {mobility_last['w']}",
+            f"UI_MOBILITY_H           EQU {mobility_last['h']}",
+            f"UI_MOBILITY_STRIDE      EQU {mobility_last['stride']}",
+            f"UI_MOBILITY_FRAMES      EQU {len(ui_sprites['mobility'])}",
+        ]
+    )
+
+    lines.append("MobilityFrameTable:")
+    for m in ui_sprites["mobility"]:
+        a = m["addr"]
+        lines.append(f"                DEFB #{a & 0xFF:02X}, #{(a >> 8) & 0xFF:02X}, #{(a >> 16) & 0xFF:02X}")
+
+    mana_first = ui_sprites["mana"][0]
+    mana_last = ui_sprites["mana"][-1]
+    lines.extend(
+        [
+            f"UI_MANA_RAMG            EQU #{mana_first['addr']:06X}",
+            f"UI_MANA_W               EQU {mana_last['w']}",
+            f"UI_MANA_H               EQU {mana_last['h']}",
+            f"UI_MANA_STRIDE          EQU {mana_last['stride']}",
+            f"UI_MANA_FRAMES          EQU {len(ui_sprites['mana'])}",
+        ]
+    )
+
+    lines.append("ManaFrameTable:")
+    for m in ui_sprites["mana"]:
+        a = m["addr"]
+        lines.append(f"                DEFB #{a & 0xFF:02X}, #{(a >> 8) & 0xFF:02X}, #{(a >> 16) & 0xFF:02X}")
+
+    miniport = ui_sprites["miniport"][0]
+    lines.extend(
+        [
+            f"UI_MINIPORT_RAMG        EQU #{miniport['addr']:06X}",
+            f"UI_MINIPORT_W           EQU {miniport['w']}",
+            f"UI_MINIPORT_H           EQU {miniport['h']}",
+            f"UI_MINIPORT_STRIDE      EQU {miniport['stride']}",
+            f"UI_MINIPORT_FRAMES      EQU {len(ui_sprites['miniport'])}",
+        ]
+    )
+
+    lines.append("")
+
+    # Цифры SMALFONT для Render_Number16. (ResourceIconTable удалён — иконки даёт RESSMALL.)
     lines.append("DIGIT_ENTRY             EQU 5")
-    lines.append("ResourceIconTable:")
-    for ic in ui_sprites["resource_icons"]:
-        a = ic["addr"]
-        lines.append(f"                DEFB #{a & 0xFF:02X}, #{(a >> 8) & 0xFF:02X}, #{(a >> 16) & 0xFF:02X}, {ic['w']}, {ic['h']}")
     lines.append("DigitTable:")
     for d in ui_sprites["digits"]:
         a = d["addr"]
@@ -2407,7 +2604,10 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
             f"                FT_VERTEX2F {scaled_vertex2f_units(UI_RADAR_X)}, {scaled_vertex2f_units(UI_RADAR_Y)}",
             "                FT_END",
             "                FT_BLEND_FUNC FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA",
-            "                FT_PALETTE_SOURCE OBJECT_PALETTE_RAMG",
+            # Рамка ADVBORD непрозрачна (оригинал = Blit без альфы): индекс-0 = сплошной чёрный,
+            # НЕ прозрачность. OBJECT_PALETTE_RAMG даёт alpha=0 у инд.0 → дыры в тени рамки.
+            # OPAQUE-палитра (alpha=15 всем) убирает дыры. Фон панели уже на ней.
+            "                FT_PALETTE_SOURCE OBJECT_OPAQUE_PALETTE_RAMG",
             "                FT_BEGIN FT_BITMAPS",
             "                FT_BITMAP_LAYOUT_H 0, 0",
             "                FT_BITMAP_SIZE_H 0, 0",

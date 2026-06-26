@@ -6,14 +6,14 @@ OBJECT_OPAQUE_PALETTE_RAMG EQU #079200
 OBJECT_PALETTE_SIZE     EQU 512
 OBJECT_OPAQUE_PALETTE_SIZE EQU 512
 OBJECT_ATLAS_PAGE_BASE  EQU #07
-OBJECT_ATLAS_PAGE_COUNT EQU 24
-OBJECT_ATLAS_SIZE       EQU 386414
+OBJECT_ATLAS_PAGE_COUNT EQU 28
+OBJECT_ATLAS_SIZE       EQU 451858
 HERO_SPRITE_RAMG        EQU #0B3E0C
 HERO_SPRITE_W           EQU 32
 HERO_SPRITE_H           EQU 50
 HERO_SPRITE_OX          EQU 0
 HERO_SPRITE_OY          EQU 0
-CURSOR_SPRITE_RAMG      EQU #0E0000
+CURSOR_SPRITE_RAMG      EQU #0E8000
 CURSOR_SPRITE_W         EQU 15
 CURSOR_SPRITE_H         EQU 21
 CURSOR_SPRITE_OX        EQU 0
@@ -28,8 +28,8 @@ CURSOR_SCROLL_BASE_INDEX EQU 9
 CURSOR_TABLE_ENTRY_SIZE EQU 12
 UI_BORDER_W             EQU 640
 UI_BORDER_H             EQU 480
-UI_RADAR_RAMG           EQU #0CB9F4
-UI_RADAR_PALETTE_RAMG   EQU #0D0AF4
+UI_RADAR_RAMG           EQU #0DB998
+UI_RADAR_PALETTE_RAMG   EQU #0E0A98
 UI_RADAR_W              EQU 144
 UI_RADAR_H              EQU 144
 UI_RADAR_STRIDE         EQU 144
@@ -54,60 +54,60 @@ UI_STATUS_H             EQU 72
 ROUTE_SPRITE_COUNT      EQU 145
 ROUTE_PALETTE_RAMG      EQU OBJECT_PALETTE_RAMG
 ROUTE_RED_PALETTE_RAMG  EQU #0B3C0C
-ROUTE_TABLE_PAGE        EQU #8A
+ROUTE_TABLE_PAGE        EQU #8E
 ROUTE_TABLE_ADDR        EQU #0000
 ROUTE_TABLE_ENTRY_SIZE  EQU 12
 
 CursorSpriteTable:
-                DEFB #0E, #00, #00, 21, 30, 24, 34, 0
+                DEFB #0E, #00, #80, 21, 30, 24, 34, 0
                 DEFW #0000
                 DEFW #0000
-                DEFB #0E, #78, #02, 25, 60, 48, 40, 0
+                DEFB #0E, #78, #82, 25, 60, 48, 40, 0
                 DEFW #FFF1
                 DEFW #FFF4
-                DEFB #0E, #54, #08, 26, 68, 55, 42, 0
+                DEFB #0E, #54, #88, 26, 68, 55, 42, 0
                 DEFW #FFF1
                 DEFW #FFF4
-                DEFB #0E, #3C, #0F, 26, 68, 55, 42, 0
+                DEFB #0E, #3C, #8F, 26, 68, 55, 42, 0
                 DEFW #FFF1
                 DEFW #FFF4
-                DEFB #0E, #24, #16, 26, 68, 55, 42, 0
+                DEFB #0E, #24, #96, 26, 68, 55, 42, 0
                 DEFW #FFF1
                 DEFW #FFF4
-                DEFB #0E, #0C, #1D, 26, 68, 55, 42, 0
+                DEFB #0E, #0C, #9D, 26, 68, 55, 42, 0
                 DEFW #FFF1
                 DEFW #FFF4
-                DEFB #0E, #F4, #23, 26, 68, 55, 42, 0
+                DEFB #0E, #F4, #A3, 26, 68, 55, 42, 0
                 DEFW #FFF1
                 DEFW #FFF4
-                DEFB #0E, #DC, #2A, 26, 68, 55, 42, 0
+                DEFB #0E, #DC, #AA, 26, 68, 55, 42, 0
                 DEFW #FFF1
                 DEFW #FFF4
-                DEFB #0E, #C4, #31, 26, 76, 61, 42, 0
+                DEFB #0E, #C4, #B1, 26, 76, 61, 42, 0
                 DEFW #FFF1
                 DEFW #FFF4
-                DEFB #0E, #7C, #39, 32, 16, 13, 52, 0
+                DEFB #0E, #7C, #B9, 32, 16, 13, 52, 0
                 DEFW #FFFC
                 DEFW #FFF0
-                DEFB #0E, #7C, #3B, 24, 48, 39, 39, 0
+                DEFB #0E, #7C, #BB, 24, 48, 39, 39, 0
                 DEFW #FFF4
                 DEFW #FFF4
-                DEFB #0E, #FC, #3F, 8, 64, 52, 13, 0
+                DEFB #0E, #FC, #BF, 8, 64, 52, 13, 0
                 DEFW #FFF0
                 DEFW #FFFC
-                DEFB #0E, #FC, #41, 24, 48, 39, 39, 0
+                DEFB #0E, #FC, #C1, 24, 48, 39, 39, 0
                 DEFW #FFF4
                 DEFW #FFF4
-                DEFB #0E, #7C, #46, 32, 16, 13, 52, 0
+                DEFB #0E, #7C, #C6, 32, 16, 13, 52, 0
                 DEFW #FFFC
                 DEFW #FFF0
-                DEFB #0E, #7C, #48, 24, 48, 39, 39, 0
+                DEFB #0E, #7C, #C8, 24, 48, 39, 39, 0
                 DEFW #FFF4
                 DEFW #FFF4
-                DEFB #0E, #FC, #4C, 8, 64, 52, 13, 0
+                DEFB #0E, #FC, #CC, 8, 64, 52, 13, 0
                 DEFW #FFF0
                 DEFW #FFFC
-                DEFB #0E, #FC, #4E, 24, 48, 39, 39, 0
+                DEFB #0E, #FC, #CE, 24, 48, 39, 39, 0
                 DEFW #FFF4
                 DEFW #FFF4
 
@@ -156,28 +156,128 @@ MinimapTileColorTable:
                 DEFB 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 1, 2
                 DEFB 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
 
-RESOURCE_ICON_ENTRY     EQU 5
+UI_STONBACK_RAMG        EQU #0D5DF0
+UI_STONBACK_W           EQU 144
+UI_STONBACK_H           EQU 72
+UI_STONBACK_STRIDE      EQU 144
+UI_RESSMALL_RAMG        EQU #0D8670
+UI_RESSMALL_W           EQU 133
+UI_RESSMALL_H           EQU 56
+UI_RESSMALL_STRIDE      EQU 133
+UI_SUNMOON_RAMG         EQU #0DA388
+UI_SUNMOON_W            EQU 144
+UI_SUNMOON_H            EQU 25
+UI_SUNMOON_STRIDE       EQU 144
+UI_LBL_MONTH_RAMG       EQU #0C9700
+UI_LBL_MONTH_W          EQU 45
+UI_LBL_MONTH_H          EQU 10
+UI_LBL_MONTH_STRIDE     EQU 45
+UI_LBL_WEEK_RAMG       EQU #0C98C4
+UI_LBL_WEEK_W          EQU 39
+UI_LBL_WEEK_H          EQU 10
+UI_LBL_WEEK_STRIDE     EQU 39
+UI_LBL_DAY_RAMG       EQU #0C9A4C
+UI_LBL_DAY_W          EQU 28
+UI_LBL_DAY_H          EQU 12
+UI_LBL_DAY_STRIDE     EQU 28
+UI_ARMY_COUNT           EQU 2
+UI_ARMY0_RAMG           EQU #0DB198
+UI_ARMY0_W              EQU 32
+UI_ARMY0_H              EQU 32
+UI_ARMY0_STRIDE         EQU 32
+UI_ARMY0_COUNT          EQU 40
+UI_ARMY1_RAMG           EQU #0DB598
+UI_ARMY1_W              EQU 32
+UI_ARMY1_H              EQU 32
+UI_ARMY1_STRIDE         EQU 32
+UI_ARMY1_COUNT          EQU 4
+UI_PORTXTRA_RAMG        EQU #0C9F9C
+UI_PORTXTRA_W           EQU 46
+UI_PORTXTRA_H           EQU 22
+UI_PORTXTRA_STRIDE      EQU 46
+UI_MOBILITY_RAMG        EQU #0CA390
+UI_MOBILITY_W           EQU 7
+UI_MOBILITY_H           EQU 22
+UI_MOBILITY_STRIDE      EQU 7
+UI_MOBILITY_FRAMES      EQU 26
+MobilityFrameTable:
+                DEFB #90, #A3, #0C
+                DEFB #2C, #A4, #0C
+                DEFB #C8, #A4, #0C
+                DEFB #64, #A5, #0C
+                DEFB #00, #A6, #0C
+                DEFB #9C, #A6, #0C
+                DEFB #38, #A7, #0C
+                DEFB #D4, #A7, #0C
+                DEFB #70, #A8, #0C
+                DEFB #0C, #A9, #0C
+                DEFB #A8, #A9, #0C
+                DEFB #44, #AA, #0C
+                DEFB #E0, #AA, #0C
+                DEFB #7C, #AB, #0C
+                DEFB #18, #AC, #0C
+                DEFB #B4, #AC, #0C
+                DEFB #50, #AD, #0C
+                DEFB #EC, #AD, #0C
+                DEFB #88, #AE, #0C
+                DEFB #24, #AF, #0C
+                DEFB #C0, #AF, #0C
+                DEFB #5C, #B0, #0C
+                DEFB #F8, #B0, #0C
+                DEFB #94, #B1, #0C
+                DEFB #30, #B2, #0C
+                DEFB #CC, #B2, #0C
+UI_MANA_RAMG            EQU #0CB368
+UI_MANA_W               EQU 7
+UI_MANA_H               EQU 22
+UI_MANA_STRIDE          EQU 7
+UI_MANA_FRAMES          EQU 26
+ManaFrameTable:
+                DEFB #68, #B3, #0C
+                DEFB #04, #B4, #0C
+                DEFB #A0, #B4, #0C
+                DEFB #3C, #B5, #0C
+                DEFB #D8, #B5, #0C
+                DEFB #74, #B6, #0C
+                DEFB #10, #B7, #0C
+                DEFB #AC, #B7, #0C
+                DEFB #48, #B8, #0C
+                DEFB #E4, #B8, #0C
+                DEFB #80, #B9, #0C
+                DEFB #1C, #BA, #0C
+                DEFB #B8, #BA, #0C
+                DEFB #54, #BB, #0C
+                DEFB #F0, #BB, #0C
+                DEFB #8C, #BC, #0C
+                DEFB #28, #BD, #0C
+                DEFB #C4, #BD, #0C
+                DEFB #60, #BE, #0C
+                DEFB #FC, #BE, #0C
+                DEFB #98, #BF, #0C
+                DEFB #34, #C0, #0C
+                DEFB #D0, #C0, #0C
+                DEFB #6C, #C1, #0C
+                DEFB #08, #C2, #0C
+                DEFB #A4, #C2, #0C
+UI_MINIPORT_RAMG        EQU #0CC340
+UI_MINIPORT_W           EQU 30
+UI_MINIPORT_H           EQU 22
+UI_MINIPORT_STRIDE      EQU 30
+UI_MINIPORT_FRAMES      EQU 60
+
 DIGIT_ENTRY             EQU 5
-ResourceIconTable:
-                DEFB #0C, #95, #0C, 39, 23
-                DEFB #90, #98, #0C, 37, 30
-                DEFB #E8, #9C, #0C, 39, 25
-                DEFB #B8, #A0, #0C, 39, 26
-                DEFB #B0, #A4, #0C, 39, 32
-                DEFB #90, #A9, #0C, 36, 27
-                DEFB #5C, #AD, #0C, 68, 25
 DigitTable:
-                DEFB #00, #B4, #0C, 5, 10
-                DEFB #34, #B4, #0C, 3, 10
-                DEFB #54, #B4, #0C, 5, 10
-                DEFB #88, #B4, #0C, 5, 10
-                DEFB #BC, #B4, #0C, 5, 10
-                DEFB #F0, #B4, #0C, 5, 10
-                DEFB #24, #B5, #0C, 5, 10
-                DEFB #58, #B5, #0C, 5, 10
-                DEFB #8C, #B5, #0C, 5, 10
-                DEFB #C0, #B5, #0C, 5, 10
-RESOURCE_PANEL_RAMG     EQU #0CB5F4
+                DEFB #0C, #95, #0C, 5, 10
+                DEFB #40, #95, #0C, 3, 10
+                DEFB #60, #95, #0C, 5, 10
+                DEFB #94, #95, #0C, 5, 10
+                DEFB #C8, #95, #0C, 5, 10
+                DEFB #FC, #95, #0C, 5, 10
+                DEFB #30, #96, #0C, 5, 10
+                DEFB #64, #96, #0C, 5, 10
+                DEFB #98, #96, #0C, 5, 10
+                DEFB #CC, #96, #0C, 5, 10
+RESOURCE_PANEL_RAMG     EQU #0C9B9C
 
 AdventureUI_DL:
                 FT_SCISSOR_XY 0, 0
@@ -241,14 +341,14 @@ AdventureUI_DL:
                 FT_END
                 FT_BLEND_FUNC FT_ONE, FT_ZERO
                 FT_PALETTE_SOURCE UI_RADAR_PALETTE_RAMG
-                FT_BITMAP_SOURCE #0CB9F4
+                FT_BITMAP_SOURCE #0DB998
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 144, 144
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 231, 231
                 FT_BEGIN FT_BITMAPS
                 FT_VERTEX2F 12288, 410
                 FT_END
                 FT_BLEND_FUNC FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA
-                FT_PALETTE_SOURCE OBJECT_PALETTE_RAMG
+                FT_PALETTE_SOURCE OBJECT_OPAQUE_PALETTE_RAMG
                 FT_BEGIN FT_BITMAPS
                 FT_BITMAP_LAYOUT_H 0, 0
                 FT_BITMAP_SIZE_H 0, 0
@@ -651,7 +751,31 @@ Objects_Upload:
                 LD   HL, #C000
                 LD   A, #0D
                 LD   DE, #5000
-                LD   BC, 9582
+                LD   BC, 16384
+                CALL FT.WriteMem
+                SetPage3 #8A
+                LD   HL, #C000
+                LD   A, #0D
+                LD   DE, #9000
+                LD   BC, 16384
+                CALL FT.WriteMem
+                SetPage3 #8B
+                LD   HL, #C000
+                LD   A, #0D
+                LD   DE, #D000
+                LD   BC, 16384
+                CALL FT.WriteMem
+                SetPage3 #8C
+                LD   HL, #C000
+                LD   A, #0E
+                LD   DE, #1000
+                LD   BC, 16384
+                CALL FT.WriteMem
+                SetPage3 #8D
+                LD   HL, #C000
+                LD   A, #0E
+                LD   DE, #5000
+                LD   BC, 9490
                 CALL FT.WriteMem
 .RestorePage    EQU $+1
                 LD   A, #00
@@ -664,13 +788,13 @@ Cursor_GlobalUpload:
                 SetPage3 #A2
                 LD   HL, #C000
                 LD   A, #0E
-                LD   DE, #0000
+                LD   DE, #8000
                 LD   BC, 16384
                 CALL FT.WriteMem
                 SetPage3 #A3
                 LD   HL, #C000
                 LD   A, #0E
-                LD   DE, #4000
+                LD   DE, #C000
                 LD   BC, 4988
                 CALL FT.WriteMem
 .CurRestore     EQU $+1

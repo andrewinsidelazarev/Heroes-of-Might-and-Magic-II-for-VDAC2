@@ -62,7 +62,11 @@ Game_Init:
                 CALL Cursor_GlobalUpload          ; глобальный курсор в постоянную RAM_G (раз)
                 CALL Music_InitPort               ; AY port A → выход (иначе MIDI не идёт на пин)
                 CALL Music_GMReset                ; SAM2695 → General MIDI (раз при старте)
-                CALL Menu_Enter
+            IFDEF DBG_BOOT_ADVENTURE
+                CALL Adventure_Enter              ; DEBUG: сразу в игровой экран для ground-truth-проверки
+            ELSE
+                CALL Menu_Enter_Tramp            ; меню в оверлее (slot3) — через резидентный трамплин
+            ENDIF
                 RET
 
 ; Вход в adventure-сцену: загрузка карты в RAM_G + инициализация состояния.
@@ -94,8 +98,10 @@ Adventure_Enter:
                 LD   (HeroMovePoints), A
                 LD   HL, 1                       ; день 1
                 LD   (GameDay), HL
+                LD   A, STATUS_ARMY            ; дефолт статус-окна = армия героя (как оригинал)
+                LD   (StatusState), A
                 CALL Resources_InitStart
-                CALL Resources_BuildPanelDL      ; собрать DL панели в RAM_G
+                CALL Resources_BuildPanelDL      ; собрать DL панели в RAM_G (по StatusState)
                 XOR  A
                 LD   (CursorMoveCooldown), A
                 LD   (CursorSpriteIndex), A
@@ -104,6 +110,11 @@ Adventure_Enter:
                 ; не превратился в команду движения героя до следующего нажатия.
                 LD   A, 1
                 LD   (HeroFireLatch), A
+                ; Курсор грузится в Game_Init. КОРЕНЬ бага «нет курсора» был в RAM_G-коллизии:
+                ; CURSOR_RAMG_BASE #0E0000 попадал ВНУТРЬ object atlas (разросся до #0E3382) →
+                ; Objects_Upload затирал курсор. ИСПРАВЛЕНО переносом базы на #0E8000 (viewport_pack.py).
+                ; Этот перезалив оставлен как СТРАХОВКА на случай будущих аплоадов в зону курсора.
+                CALL Cursor_GlobalUpload
                 RET
 
 Game_Update:
@@ -112,7 +123,11 @@ Game_Update:
                 LD   (FrameCounter), HL
                 LD   A, (GameMode)
                 CP   GAME_MODE_MENU
-                JP   Z, Menu_Update
+                JP   Z, Menu_Update_Tramp
+                CP   GAME_MODE_TOWN
+                JP   Z, Town_Update_Tramp
+                CP   GAME_MODE_COMBAT
+                JP   Z, Battle_Update_Tramp
                 CP   GAME_MODE_HIGHSCORES_STANDARD
                 JP   Z, HiScores_Update_Tramp
                 CP   GAME_MODE_HIGHSCORES_CAMPAIGN
@@ -196,6 +211,15 @@ UI_ButtonsPressedUpdate:
 
 ; Пересчитывает логические состояния всех кнопок на панели
 UI_ButtonsStateUpdate:
+                ; Сброс ВСЕХ 8 состояний в Normal(0). Без него индексы 0/2/3/5/6/7 —
+                ; мусор в #4274 → Render_AdvButtonsCmd индексирует UI_BtnColors за таблицей
+                ; → мусорный FT_COLOR_RGB (зелёный тинт на Adventure-флаге и т.п.).
+                XOR  A
+                LD   HL, UI_ButtonStates
+                LD   B, 8
+.clrstate:      LD   (HL), A
+                INC  HL
+                DJNZ .clrstate
                 ; 1. Hero Movement (индекс 1)
                 ; Если нет активного героя (пока упрощенно), то Disabled (3)
                 ; Если HeroPathLen == 0, то Disabled (3)
@@ -216,6 +240,15 @@ UI_ButtonsStateUpdate:
                 LD   A, 3                       ; 3 = Disabled
 .hero_move_done:
                 LD   (UI_HeroMoveButtonState), A
+
+                ; NextHero (индекс 0): disabled, если у героя не осталось хода (MovePoints==0).
+                ; fheroes2 interface_buttons.cpp:328 — enabled только при наличии ходячего героя.
+                LD   A, (HeroMovePoints)
+                OR   A
+                JR   NZ, .next_hero_ok
+                LD   A, 3                       ; 3 = Disabled
+                LD   (UI_ButtonStates), A        ; индекс 0 = NextHero
+.next_hero_ok:
 
                 ; End Turn (индекс 4) - пока всегда 0
                 XOR  A
@@ -245,6 +278,7 @@ Hero_InitPosition:
                 LD   (HeroFacingRight), A
                 LD   (HeroPathLen), A
                 LD   (HeroPathIndex), A
+                LD   (HeroWalkActive), A          ; спавн ≠ движение: не триггерить вход в гейт (24,13) на старте
                 LD   (PathState), A
                 LD   (PathDebugLen), A
                 LD   (PathDebugLen + 1), A
@@ -317,7 +351,7 @@ UI_DispatchClick:
                 LD   DE, UI_RADAR_X
                 OR   A
                 SBC  HL, DE                  ; x - 480
-                JP   C, Hero_CommandTargetFromMouse
+                JP   C, Adventure_GameAreaClick   ; клик по замку → город (оверлей), иначе команда герою
                 ; x в [480..624)?
                 PUSH HL
                 LD   DE, UI_RADAR_W
@@ -348,8 +382,27 @@ UI_DispatchClick:
                 OR   A
                 SBC  HL, DE
                 POP  HL
-                RET  NC                       ; y >= 392 → игнор
+                JR   NC, .try_status          ; y >= 392 → возможно статус-окно
                 JP   UI_ButtonClick
+.try_status:    ; статус-окно [392..464): клик переключает вид (DATE↔FUNDS), как оригинал.
+                LD   HL, (UIClickY)
+                LD   DE, UI_STATUS_Y          ; 392
+                OR   A
+                SBC  HL, DE
+                RET  C
+                PUSH HL
+                LD   DE, UI_STATUS_H          ; 72
+                OR   A
+                SBC  HL, DE
+                POP  HL
+                RET  NC                       ; y >= 464 → игнор
+                LD   A, (StatusState)
+                INC  A
+                CP   STATUS_STATE_COUNT
+                JR   C, .st_ok
+                XOR  A
+.st_ok:         LD   (StatusState), A
+                JP   Resources_BuildPanelDL   ; пересобрать композит под новый вид
 
 ; Клик по мини-карте → центрировать вьюпорт на тайле (tx,ty) = (click-radar)/4.
 UI_MinimapNav:
@@ -412,10 +465,32 @@ UI_ButtonClick:
                 CP   #FF
                 RET  Z
 UI_ButtonClick_Index:
+                OR   A                           ; индекс 0 = Next Hero?
+                JR   Z, .next_hero
                 CP   4                           ; End Turn?
                 JP   Z, Game_EndTurn
                 CP   1                           ; Hero Movement?
                 JR   Z, .hero_move
+                RET
+
+.next_hero:
+                ; NextHero disabled, если нет хода (MovePoints==0) → клик игнор, как в оригинале.
+                LD   A, (HeroMovePoints)
+                OR   A
+                RET  Z
+                ; центрировать вьюпорт на герое (faithful EventNextHero → SetFocus).
+                LD   A, (HeroTileX)
+                LD   B, MAP0_W - GAME_VIEW_TILE_W
+                CALL UI_CenterOrigin
+                LD   (ViewportOriginX), A
+                CALL UI_TileToPixelHL
+                LD   (ViewportPixelX), HL
+                LD   A, (HeroTileY)
+                LD   B, MAP0_H - GAME_VIEW_TILE_H
+                CALL UI_CenterOrigin
+                LD   (ViewportOriginY), A
+                CALL UI_TileToPixelHL
+                LD   (ViewportPixelY), HL
                 RET
 
 .hero_move:
@@ -602,6 +677,16 @@ Hero_SelectStepIfArrived:
                 LD   (HeroPathLen), A
                 LD   (HeroPathIndex), A
                 LD   (HeroWalkActive), A
+                ; Прибыли на КЛИКНУТУЮ цель. Если это гейт замка/тест-тайл — войти ПО ПРИБЫТИИ
+                ; (по оригиналу вход = шаг героя на тайл, а не мгновенно по клику). B=TileX, C=TileY.
+                LD   A, B
+                CP   24
+                RET  NZ                         ; не колонка 24 → ничего
+                LD   A, C
+                CP   13
+                JP   Z, Town_Enter_Tramp        ; гейт замка (24,13) → войти в замок
+                CP   16
+                JP   Z, Battle_Enter_Tramp      ; тест-тайл (24,16) → бой (достижимое открытое поле)
                 RET
 
 .need_step:     LD   A, (HeroMovePoints)

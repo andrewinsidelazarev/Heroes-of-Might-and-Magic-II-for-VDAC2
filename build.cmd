@@ -26,6 +26,18 @@ rem ??????? ????-???????? ???????????? ??????????, ????? ?????????.
 python Source\Tools\menu_pack.py
 if errorlevel 1 goto :err
 
+echo === generate town pack ===
+python Source\Tools\town_pack.py
+if errorlevel 1 goto :err
+
+echo === generate battle pack ===
+python Source\Tools\battle_pack.py
+if errorlevel 1 goto :err
+
+echo === extract monster stats (global data) ===
+python Source\Tools\monster_stats.py
+if errorlevel 1 goto :err
+
 echo === generate high scores pack ===
 python Source\Tools\hiscores_pack.py
 if errorlevel 1 goto :err

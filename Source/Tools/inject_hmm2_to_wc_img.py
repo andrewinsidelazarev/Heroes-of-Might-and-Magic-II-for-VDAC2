@@ -348,6 +348,8 @@ def prepare_host_package(root: Path) -> list[Path]:
         # остальные PAK по мере волны (копируются если есть):
         (root / "Build" / "HMM2UI.PAK", package_dir / "HMM2UI.PAK"),
         (root / "Build" / "HMM2MAP.PAK", package_dir / "HMM2MAP.PAK"),
+        (root / "Build" / "HMM2TOWN.PAK", package_dir / "HMM2TOWN.PAK"),
+        (root / "Build" / "HMM2BATL.PAK", package_dir / "HMM2BATL.PAK"),
         (root / "Build" / "HMM2HISC.PAK", package_dir / "HMM2HISC.PAK"),
     ]
     for src, dst in files:

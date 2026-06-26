@@ -70,11 +70,11 @@ Menu_LoadFromPak:
 
 ; Опрос ввода меню (зеркалит MainMenu loop): анимация фонаря по таймеру, hover-индекс
 ; кнопки под мышью, pressed по ЛКМ, и клик-действие с latch.
+; OUT: A = действие (0=нет, 1=New Game, 2=High Scores). Резидентный Menu_Update_Tramp диспатчит
+; (menu.asm в ОВЕРЛЕЕ slot3 — нельзя звать Adventure_Enter/HiScores отсюда, slot3-edge).
 Menu_Update:
-                ; --- MIDI-музыка: slot3 на страницу потока, продвинуть на кадр ---
-                LD   A, HMM2_MUSIC_PAGE
-                SetPage3_A
-                CALL Music_Tick
+                ; --- MIDI-музыка: Music_Tick_Tramp сам мапит slot3=поток и восстанавливает (меню в slot3) ---
+                CALL Music_Tick_Tramp
                 ; --- анимация фонаря: смена кадра каждые (1<<SHIFT) гейм-кадров ---
                 LD   A, (FrameCounter)
                 AND  (1 << MENU_LANTERN_SHIFT) - 1
@@ -99,26 +99,26 @@ Menu_Update:
                 LD   (MenuLmbDown), A            ; зажата → hover-кнопка рисуется pressed
                 LD   A, (MenuClickLatch)
                 OR   A
-                RET  NZ                          ; этот клик уже обработан
+                JR   NZ, .none                   ; этот клик уже обработан → действие 0
                 LD   A, 1
                 LD   (MenuClickLatch), A
                 LD   A, (MenuHoverIndex)
                 CP   #FF
-                RET  Z                           ; клик мимо кнопок
+                JR   Z, .none                    ; клик мимо кнопок → 0
                 OR   A                           ; индекс 0 = New Game
-                JR   Z, .new_game
+                JR   Z, .act_newgame
                 CP   2                           ; индекс 2 = High Scores (internal [9])
-                JR   Z, .high_scores
-                RET                              ; Load/Credits/Quit — пока заглушка
-.new_game:
-                CALL Adventure_Enter             ; New Game → запустить adventure
+                JR   Z, .act_hiscores
+.none:          XOR  A                           ; Load/Credits/Quit заглушка → действие 0
                 RET
-.high_scores:
-                CALL HiScores_EnterStandard_Tramp
+.act_newgame:   LD   A, 1                        ; → резидент зовёт Adventure_Enter
+                RET
+.act_hiscores:  LD   A, 2                        ; → резидент зовёт HiScores
                 RET
 .released:      XOR  A
                 LD   (MenuLmbDown), A
                 LD   (MenuClickLatch), A
+                XOR  A                           ; действие 0
                 RET
 
 ; Menu_ComputeHover: найти кнопку под мышью. Out: A=индекс (0..N-1) или #FF; пишет

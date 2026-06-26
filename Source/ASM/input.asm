@@ -212,12 +212,14 @@ Input_MouseX:   LD   HL, (Input.Mouse.PositionX) : RET
 Input_MouseY:   LD   HL, (Input.Mouse.PositionY) : RET
 
 ; Input_MouseLMB -> NZ = ЛКМ нажата, Z = отпущена.
-; Kempston-mouse кнопка active-HIGH (TSLib KeyState: бит порта #FADF=1 → нажата).
-; KeyState = AND маски с портом → NZ если бит выставлен (нажата), Z если сброшен.
-; РАНЬШЕ тут стоял `CP SVK_LBUTTON` — инвертор под active-low: он и давал «вечно
-; нажато» на железе (в покое линия 0) → красный pressed-кадр везде + клики не ловились.
+; ОРИГИНАЛ (восстановлено): Kempston-mouse active-LOW — в покое mbuttons=0xFF (бит=1),
+; при нажатии бит сбрасывается в 0. KeyState делает AND маски с портом; CP SVK_LBUTTON:
+; Z=бит выставлен(отпущена), NZ=бит сброшен(нажата). Мой прежний JP-вариант (active-high)
+; был НЕВЕРЕН — ломал клик. Подтверждено эмулятором bt8xxemu (idle 0xFF).
 Input_MouseLMB: LD   A, Input.Mouse.SVK_LBUTTON
-                JP   Input.Mouse.KeyState
+                CALL Input.Mouse.KeyState
+                CP   Input.Mouse.SVK_LBUTTON
+                RET
 
 ; ----------------------------------------------------------------------------
 ; Input_Poll — компактное состояние для HMM2 adventure map.

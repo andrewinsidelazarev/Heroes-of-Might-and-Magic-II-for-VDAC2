@@ -77,7 +77,7 @@ HiScores_Update:
                 LD   (HsPressedExit), A
                 LD   A, (HsLmbLatch)
                 OR   A
-                RET  NZ
+                JR   NZ, .stay                ; уже зажато (дебаунс) → остаться
                 LD   A, 1
                 LD   (HsLmbLatch), A
                 LD   A, (HsPressedExit)
@@ -85,7 +85,7 @@ HiScores_Update:
                 JR   NZ, .exit_to_menu
                 LD   A, (HsPressedOther)
                 OR   A
-                RET  Z
+                JR   Z, .stay                 ; не «Other» → остаться
                 LD   A, (HsIsCampaign)
                 XOR  1
                 LD   (HsIsCampaign), A
@@ -93,14 +93,18 @@ HiScores_Update:
                 JR   Z, .standard
                 LD   A, GAME_MODE_HIGHSCORES_CAMPAIGN
                 LD   (GameMode), A
-                RET
+                JR   .stay                    ; вид переключён → остаться
 .standard:      LD   A, GAME_MODE_HIGHSCORES_STANDARD
                 LD   (GameMode), A
+.stay:          XOR  A                        ; A=0 → действие «остаться»
                 RET
 
+; Выход в меню: НЕ зовём Render_BlackFrame/Menu_Enter из оверлея (slot3-edge —
+; Menu_Enter теперь в #A7). Возвращаем код A=1; резидентный HiScores_Update_Tramp
+; сделает чёрный кадр + Menu_Enter_Tramp (маппит #A7).
 .exit_to_menu:
-                CALL Render_BlackFrame
-                JP   Menu_Enter
+                LD   A, 1
+                RET
 
 Render_HiScores:
                 LD   A, (HsAnimationFrame)
