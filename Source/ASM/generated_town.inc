@@ -502,5 +502,7 @@ RecruitCostPfx: DEFB "Cost: ", 0
 RecruitGoldSfx: DEFB " gold", 0
 RecruitAvailPfx: DEFB "Available: ", 0
 START_GOLD           EQU 7500
+GOLD_PANEL_VX        EQU 14992
+GOLD_PANEL_VY        EQU 10560
 
                 endif

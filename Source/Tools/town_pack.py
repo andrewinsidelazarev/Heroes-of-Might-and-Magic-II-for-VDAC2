@@ -265,8 +265,7 @@ def load_strip(palette):
     val("wood", leftX, 0); val("sulfur", rightX, 0)
     val("crystal", leftX, 1); val("mercury", rightX, 1)
     val("ore", leftX, 2); val("gems", rightX, 2)
-    gs = str(START_FUNDS["gold"])
-    put_num(gs, rx + (82 - num_w(gs)) // 2, 6 + offY[3] + gh + 1)
+    # Число золота НЕ запекаем (3d) — рисуется живым из KingdomGold поверх (ячейка остаётся фоном).
     # 8) Кнопка EXIT (castle_dialog.cpp:379 BUTTON_EXIT_TOWN → useOriginalResources()=TREASURY[1],
     #    agg_image.cpp:910). 80×25 @ dialog(553,428)->strip(553,172).
     ex, w, h, ox, oy = icn("TREASURY.ICN", 1)
@@ -620,6 +619,12 @@ def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_add
     L.append('RecruitGoldSfx: DEFB " gold", 0')
     L.append('RecruitAvailPfx: DEFB "Available: ", 0')
     L.append(f"START_GOLD           EQU {START_FUNDS['gold']}")   # стартовая казна (kingdom funds, 3c)
+    # Позиция живого золота на панели (3d): центр ячейки золота strip-local (593,156), панель ×1.6 @ screen y0.
+    panel_y0 = round(TOWN_H * 1.6)
+    gold_cx = round(593 * 1.6)                                    # центр ячейки на экране
+    gold_y = panel_y0 + round(156 * 1.6)
+    L.append(f"GOLD_PANEL_VX        EQU {(gold_cx - 12) * 16}")   # лево-выр. (≈центр для 4 цифр)
+    L.append(f"GOLD_PANEL_VY        EQU {gold_y * 16}")
     L.append("")
     L.append("                endif")
     TOWN_INC.write_text("\n".join(L), encoding="utf-8")

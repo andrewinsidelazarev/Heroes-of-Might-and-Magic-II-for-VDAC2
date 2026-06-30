@@ -495,6 +495,19 @@ Render_Town:
                 LD   HL, Town_DL
                 LD   BC, Town_DL_SIZE
                 CALL Render_CmdBufCopy
+                ; --- живое золото на панели (всегда; число не запечено) ---
+                LD   HL, Town_Name_Begin_DL
+                LD   BC, Town_Name_Begin_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   HL, GOLD_PANEL_VX
+                LD   (ResPenX), HL
+                LD   HL, GOLD_PANEL_VY
+                LD   (ResPenY), HL
+                LD   HL, (KingdomGold)
+                CALL Render_DrawNum
+                LD   HL, Town_Name_End_DL
+                LD   BC, Town_Name_End_DL_SIZE
+                CALL Render_CmdBufCopy
                 LD   A, (TownRecruitIdx)          ; диалог найма открыт → его рисуем (приоритет)
                 INC  A
                 JP   NZ, .recruit
