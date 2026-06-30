@@ -24,8 +24,13 @@ def set_pos(x, y):
     UIPOS.write_text(f"{x} {y}")     # держится эмулятором каждый кадр, пока файл есть
 
 def release_pos():
-    if UIPOS.exists():
-        UIPOS.unlink()
+    for _ in range(20):                    # uipos.req может быть занят Unreal (гонка чтения) → ретрай
+        try:
+            if UIPOS.exists():
+                UIPOS.unlink()
+            break
+        except PermissionError:
+            time.sleep(0.03)
     write_vm(0, 0)
 
 def read_state():

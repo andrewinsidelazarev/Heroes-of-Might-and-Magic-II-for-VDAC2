@@ -618,6 +618,8 @@ def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_add
         L.append(f"                DW {RECRUIT_COST[i]}")
     L.append('RecruitCostPfx: DEFB "Cost: ", 0')
     L.append('RecruitGoldSfx: DEFB " gold", 0')
+    L.append('RecruitAvailPfx: DEFB "Available: ", 0')
+    L.append(f"START_GOLD           EQU {START_FUNDS['gold']}")   # стартовая казна (kingdom funds, 3c)
     L.append("")
     L.append("                endif")
     TOWN_INC.write_text("\n".join(L), encoding="utf-8")

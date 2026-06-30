@@ -500,5 +500,7 @@ RecruitCostNum:                        ; [recruit idx] → цена-за-1 (DW),
                 DW 600
 RecruitCostPfx: DEFB "Cost: ", 0
 RecruitGoldSfx: DEFB " gold", 0
+RecruitAvailPfx: DEFB "Available: ", 0
+START_GOLD           EQU 7500
 
                 endif

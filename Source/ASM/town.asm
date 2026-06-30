@@ -18,6 +18,10 @@ RecMX:          DEFW 0            ; кэш мыши X для хит-теста �
 RecMY:          DEFW 0
 RecNumVal:      DEFW 0            ; рабочее для Render_DrawNum
 RecNumStarted:  DEFB 0
+; --- Состояние королевства (3c, персистентное между визитами; init один раз) ---
+TownStateInit:  DEFB 0            ; 0 = ещё не инициализировано
+KingdomGold:    DEFW 0            ; казна (золото)
+DwellAvail:     DEFW 0,0,0,0,0,0  ; доступно в жилищах [recruit idx] (декремент при найме)
 
 ; Курсор → блок 8×8 хит-карты → индекс здания (TownHitMap). OUT: TownHoverIdx. Только в зоне замка (Y<256).
 Town_HitTest:
@@ -235,12 +239,12 @@ RecBoxMax:      DEFW 414, 470, 244, 266          ; MAX
 RecBoxOk:       DEFW 214, 331, 328, 359          ; OKAY
 RecBoxCancel:   DEFW 367, 459, 336, 359          ; CANCEL
 
-; Town_RecAvail — OUT: DE = доступно для текущего TownRecruitIdx (RecruitAvailNum). Портит HL,AF.
+; Town_RecAvail — OUT: DE = текущее доступно для TownRecruitIdx (DwellAvail, динамич.). Портит HL,AF.
 Town_RecAvail:  LD   A, (TownRecruitIdx)
                 ADD  A, A
                 LD   L, A
                 LD   H, 0
-                LD   DE, RecruitAvailNum
+                LD   DE, DwellAvail
                 ADD  HL, DE
                 LD   E, (HL)
                 INC  HL
@@ -278,7 +282,19 @@ Town_Enter:
                 LD   (TownInfoIdx), A             ; инфо-попап закрыт
                 LD   A, 255
                 LD   (TownRecruitIdx), A          ; диалог найма закрыт
-                CALL Town_LoadFromPak             ; стрим HMM2TOWN.PAK → RAM_G[0]
+                ; --- состояние королевства: init один раз (персистентно между визитами) ---
+                LD   A, (TownStateInit)
+                OR   A
+                JR   NZ, .stateok
+                LD   HL, START_GOLD
+                LD   (KingdomGold), HL
+                LD   HL, RecruitAvailNum          ; копировать базовое доступное → DwellAvail (6×DW)
+                LD   DE, DwellAvail
+                LD   BC, 12
+                LDIR
+                LD   A, 1
+                LD   (TownStateInit), A
+.stateok:       CALL Town_LoadFromPak             ; стрим HMM2TOWN.PAK → RAM_G[0]
                 RET
 
 ; Стрим HMM2TOWN.PAK с SD в RAM_G[0]. Имя — общий MenuNameBuf (сцены эксклюзивны).
@@ -328,10 +344,10 @@ Town_Update:
                 LD   (TownExitLatch), A            ; залатчить (одно действие)
                 LD   IX, RecBoxOk
                 CALL Town_Box
-                JR   Z, .rec_doclose               ; OKAY (найм — Phase 3c; пока закрыть)
+                JR   Z, .rec_ok                    ; OKAY → реальный найм (Castle::RecruitMonster)
                 LD   IX, RecBoxCancel
                 CALL Town_Box
-                JR   Z, .rec_doclose               ; CANCEL
+                JR   Z, .rec_doclose               ; CANCEL → закрыть без найма
                 LD   IX, RecBoxMax
                 CALL Town_Box
                 JR   Z, .rec_max
@@ -347,6 +363,32 @@ Town_Update:
                 LD   (TownRecruitIdx), A
                 XOR  A
                 RET
+.rec_ok:        ; найм по оригиналу: проверить казну → списать золото → DwellAvail[idx] -= count → закрыть
+                CALL Town_RecTotal                 ; HL = count × цена-за-1
+                EX   DE, HL                         ; DE = total
+                LD   HL, (KingdomGold)
+                OR   A
+                SBC  HL, DE                         ; gold - total
+                JR   C, .rec_doclose               ; не хватает золота (AllowPayment=false) → без найма
+                LD   (KingdomGold), HL              ; OddFundsResource: списать
+                CALL Town_RecAvail                 ; DE = текущее доступно
+                LD   HL, (TownRecruitCount)
+                EX   DE, HL                         ; HL=avail, DE=count
+                OR   A
+                SBC  HL, DE                         ; avail - count
+                EX   DE, HL                         ; DE = новое доступно
+                LD   A, (TownRecruitIdx)
+                ADD  A, A
+                LD   L, A
+                LD   H, 0
+                PUSH DE
+                LD   DE, DwellAvail
+                ADD  HL, DE                         ; &DwellAvail[idx]
+                POP  DE
+                LD   (HL), E
+                INC  HL
+                LD   (HL), D                         ; _dwelling[idx] -= count
+                JR   .rec_doclose
 .rec_max:       CALL Town_RecAvail                 ; счётчик = доступно
                 LD   (TownRecruitCount), DE
                 XOR  A
@@ -613,12 +655,15 @@ Render_Town:
                 LD   DE, RECR_NAME_VY
                 LD   (ResPenY), DE
                 CALL Render_DrawStringCentered
-                LD   A, (TownRecruitIdx)           ; "Available: N"
-                LD   DE, RecruitAvailTab
-                CALL Recr_StrPtr
-                LD   DE, RECR_AVAIL_VY
-                LD   (ResPenY), DE
-                CALL Render_DrawStringCentered
+                LD   HL, RECR_AVAIL_VY             ; "Available: " + динамич. DwellAvail[idx]
+                LD   (ResPenY), HL
+                LD   HL, 448 * 16
+                LD   (ResPenX), HL
+                LD   HL, RecruitAvailPfx
+                CALL Render_DrawString
+                CALL Town_RecAvail                 ; DE = доступно
+                EX   DE, HL
+                CALL Render_DrawNum
                 LD   HL, RECR_COST_VY              ; нижняя строка: "Cost: " + count×цена + " gold"
                 LD   (ResPenY), HL
                 LD   HL, 450 * 16
