@@ -22,6 +22,7 @@ RecNumStarted:  DEFB 0
 TownStateInit:  DEFB 0            ; 0 = ещё не инициализировано
 KingdomGold:    DEFW 0            ; казна (золото)
 DwellAvail:     DEFW 0,0,0,0,0,0  ; доступно в жилищах [recruit idx] (декремент при найме)
+GarCount:       DEFW 0,0,0,0,0,0  ; армия гарнизона по [recruit idx] (JoinTroop: +count при найме)
 
 ; Курсор → блок 8×8 хит-карты → индекс здания (TownHitMap). OUT: TownHoverIdx. Только в зоне замка (Y<256).
 Town_HitTest:
@@ -292,6 +293,10 @@ Town_Enter:
                 LD   DE, DwellAvail
                 LD   BC, 12
                 LDIR
+                LD   HL, GarCountInit             ; начальная армия → GarCount (Peasant40, Archer4)
+                LD   DE, GarCount
+                LD   BC, 12
+                LDIR
                 LD   A, 1
                 LD   (TownStateInit), A
 .stateok:       CALL Town_LoadFromPak             ; стрим HMM2TOWN.PAK → RAM_G[0]
@@ -388,6 +393,30 @@ Town_Update:
                 LD   (HL), E
                 INC  HL
                 LD   (HL), D                         ; _dwelling[idx] -= count
+                ; JoinTroop: GarCount[idx] += count (тот же recruit idx → тот же слот армии)
+                LD   A, (TownRecruitIdx)
+                ADD  A, A
+                LD   L, A
+                LD   H, 0
+                LD   DE, GarCount
+                ADD  HL, DE                         ; &GarCount[idx]
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)                         ; DE = GarCount[idx]
+                LD   HL, (TownRecruitCount)
+                ADD  HL, DE                         ; + count
+                EX   DE, HL                         ; DE = новое
+                LD   A, (TownRecruitIdx)
+                ADD  A, A
+                LD   L, A
+                LD   H, 0
+                PUSH DE
+                LD   DE, GarCount
+                ADD  HL, DE
+                POP  DE
+                LD   (HL), E
+                INC  HL
+                LD   (HL), D                         ; GarCount[idx] = старое + count
                 JR   .rec_doclose
 .rec_max:       CALL Town_RecAvail                 ; счётчик = доступно
                 LD   (TownRecruitCount), DE
@@ -504,6 +533,18 @@ Render_Town:
                 LD   HL, GOLD_PANEL_VY
                 LD   (ResPenY), HL
                 LD   HL, (KingdomGold)
+                CALL Render_DrawNum
+                LD   HL, GAR_CNT0_VX               ; живой счётчик гарнизона: слот0 Peasant
+                LD   (ResPenX), HL
+                LD   HL, GAR_CNT_VY
+                LD   (ResPenY), HL
+                LD   HL, (GarCount)
+                CALL Render_DrawNum
+                LD   HL, GAR_CNT1_VX               ; слот1 Archer
+                LD   (ResPenX), HL
+                LD   HL, GAR_CNT_VY
+                LD   (ResPenY), HL
+                LD   HL, (GarCount + 2)
                 CALL Render_DrawNum
                 LD   HL, Town_Name_End_DL
                 LD   BC, Town_Name_End_DL_SIZE

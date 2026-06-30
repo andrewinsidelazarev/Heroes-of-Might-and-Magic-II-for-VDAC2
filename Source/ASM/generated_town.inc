@@ -504,5 +504,15 @@ RecruitAvailPfx: DEFB "Available: ", 0
 START_GOLD           EQU 7500
 GOLD_PANEL_VX        EQU 14992
 GOLD_PANEL_VY        EQU 10560
+GAR_CNT0_VX          EQU 4512
+GAR_CNT1_VX          EQU 6752
+GAR_CNT_VY           EQU 8768
+GarCountInit:                          ; начальная армия по recruit idx (Peasant40, Archer4)
+                DW 40
+                DW 4
+                DW 0
+                DW 0
+                DW 0
+                DW 0
 
                 endif

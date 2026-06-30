@@ -244,7 +244,7 @@ def load_strip(palette):
         _blit_icn(buf, s4, p4w, p4h, 0, 0, cellx, 6, TOWN_W, STRIP_H)       # плита расы под монстром
         m, mw, mh, mox, moy = icn(monh, 0)
         _blit_icn(buf, m, mw, mh, mox, moy, cellx, 6, TOWN_W, STRIP_H)      # MONH[0] @ cell + ox/oy
-        put_num(cnt, cellx + 82 - num_w(cnt) - 3, 6 + 93 - 13)             # счётчик низ-право
+        # Счётчик гарнизона НЕ запекаем (3d) — живой из GarCount поверх (растёт при найме).
     # 7) Ресурс-панель @ ROI(552,262)->strip(552,6). ui_castle.cpp:242. RESOURCE[0..6], 2 колонки.
     res = [icn("RESOURCE.ICN", k) for k in range(7)]   # wood,mercury,ore,sulfur,crystal,gems,gold
     rx = 552; maxW = 39; maxH = 32; fh = 9
@@ -625,6 +625,15 @@ def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_add
     gold_y = panel_y0 + round(156 * 1.6)
     L.append(f"GOLD_PANEL_VX        EQU {(gold_cx - 12) * 16}")   # лево-выр. (≈центр для 4 цифр)
     L.append(f"GOLD_PANEL_VY        EQU {gold_y * 16}")
+    # Гарнизон (3d): живые счётчики слотов Peasant/Archer (число не запечено). Позиции = ячейки армбара.
+    gar_y = panel_y0 + round(86 * 1.6)
+    L.append(f"GAR_CNT0_VX          EQU {round((112 + 64) * 1.6) * 16}")   # слот0 Peasant
+    L.append(f"GAR_CNT1_VX          EQU {round((200 + 64) * 1.6) * 16}")   # слот1 Archer
+    L.append(f"GAR_CNT_VY           EQU {gar_y * 16}")
+    L.append("GarCountInit:                          ; начальная армия по recruit idx (Peasant40, Archer4)")
+    for i in range(len(RECRUIT_NAMES)):
+        c = {0: 40, 1: 4}.get(i, 0)
+        L.append(f"                DW {c}")
     L.append("")
     L.append("                endif")
     TOWN_INC.write_text("\n".join(L), encoding="utf-8")
