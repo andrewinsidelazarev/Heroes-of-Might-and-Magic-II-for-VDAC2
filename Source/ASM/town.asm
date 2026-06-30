@@ -52,8 +52,33 @@ Town_Update:
                 RET
 .pressed:       LD   A, (TownExitLatch)
                 OR   A
-                JR   Z, .exit
-                XOR  A                             ; клик ещё «зажат» → A=0
+                JR   Z, .check
+                XOR  A                             ; клик ещё «зажат» (входной) → A=0
+                RET
+                ; Выход ТОЛЬКО по кнопке EXIT (castle_dialog.cpp: BUTTON_EXIT_TOWN), не по любому клику.
+                ; TREASURY[1] 80×25 @ логич.(553,428) → X∈[553,633), Y∈[428,453).
+.check:         CALL Input_MouseX                 ; HL = логич. X
+                LD   DE, 553
+                OR   A
+                SBC  HL, DE
+                JP   M, .stay
+                JR   C, .stay
+                LD   DE, 80
+                OR   A
+                SBC  HL, DE
+                JR   NC, .stay                    ; X >= 633
+                CALL Input_MouseY                 ; HL = логич. Y
+                LD   DE, 428
+                OR   A
+                SBC  HL, DE
+                JP   M, .stay
+                JR   C, .stay
+                LD   DE, 25
+                OR   A
+                SBC  HL, DE
+                JR   NC, .stay                    ; Y >= 453
+                JR   .exit                        ; в кнопке EXIT → выход
+.stay:          XOR  A                            ; клик НЕ по Exit (здание/панель) → остаёмся; A=0
                 RET
 .exit:          ; Город затёр RAM_G-кэш террейн-композита. Перед возвратом на карту форсируем
                 ; полный перезалив: сбросить RuntimeLastOrigin (резидентная RAM, пишем из оверлея)
