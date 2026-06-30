@@ -82,6 +82,7 @@ BattleMoveCurX:  DEFW 0           ; текущая интерполир. поз�
 BattleMoveCurY:  DEFW 0
 BattleMoveStepX: DEFW 0           ; шаг/кадр = (to−from)/STEPS (знаковый)
 BattleMoveStepY: DEFW 0
+BattleMoveSrcCell: DEFB 0         ; клетка-источник движения (для строки «Moved …: from [src] to [dst].»)
 BattlePendAttack: DEFB 0          ; 1 = после движения проверить соседство и атаковать BattleTargetUnit
 BattleAtkActive: DEFB 0           ; 1 = идёт анимация атаки (урон применяется в пике)
 BattleAtkUnit:   DEFB 0           ; индекс атакующего (играет ATTACK-кадры)
@@ -381,15 +382,14 @@ Battle_Update:
                 LD   A, 1
                 RET
 
-; Передвинуть активного юнита в наведённую ячейку + передать ход следующему по скорости.
-; BattleUnitState[active].cell = BattleHoverCell; затем Battle_NextTurn.
+; Передвинуть активного юнита в наведённую ячейку: запустить АНИМАЦИЮ движения (как AI), чтобы
+; показать строку «Moved …: from [src] to [dst].» и скольжение спрайта. Ход завершит Battle_MoveTick.
 Battle_MoveActive:
-                LD   A, (BattleActiveUnit)
-                CALL Battle_UnitAddr               ; HL = &state[active]
-                INC  HL                            ; → cell
                 LD   A, (BattleHoverCell)
-                LD   (HL), A                       ; передвинуть юнита
-                JP   Battle_NextTurn               ; ход → следующему по скорости (#91)
+                LD   (BattleMoveDestCell), A        ; цель движения = наведённая клетка
+                XOR  A
+                LD   (BattlePendAttack), A          ; чистое перемещение (без атаки по приходу)
+                JP   Battle_StartMove               ; анимация движения; MoveTick поставит клетку + Battle_EndTurn
 
 ; A = индекс юнита → HL = &BattleUnitState[A * 5]. Сохраняет A.
 Battle_UnitAddr:
@@ -901,6 +901,191 @@ Battle_RenderEventLine:
                 CALL Battle_EvtPerishAddr
                 CALL Battle_DrawEvtSprite
 .eend:          LD   HL, Battle_Status_End_DL
+                LD   BC, Battle_Status_End_DL_SIZE
+                CALL Render_CmdBufCopy
+                RET
+
+; ============================================================================
+; СТРОКА ДВИЖЕНИЯ (fheroes2 RedrawActionMove, battle_interface.cpp:4448):
+; «Moved %{monster}: from [%{src}] to [%{dst}].»  src/dst = «row+1, col+1».
+; Рисуется пока идёт анимация движения (BattleMoveActive). Источник=BattleMoveSrcCell,
+; назначение=BattleMoveDestCell, тип=BattleMoveUnit.type. Центрируется по физ-центру 512.
+; ============================================================================
+
+; A=cell → row+1 в B, col+1 в A (для строки координат [row, col], 1-based как fheroes2).
+Battle_CellRowColP1:
+                CALL Battle_CellRowCol             ; B=row, A=col (0-based)
+                INC  A                             ; col+1
+                INC  B                             ; row+1
+                RET
+
+Battle_TmpCoordCell: DEFB 0
+
+; A=цифра 0-9 → нарисовать нативную цифру (BattleEvtMoveDigitTab) пером ResPenX, продвинуть.
+Battle_DrawMoveDigit:
+                LD   L, A
+                LD   H, 0
+                LD   D, H
+                LD   E, L
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, DE                         ; A*5
+                LD   DE, BattleEvtMoveDigitTab
+                ADD  HL, DE
+                JP   Battle_DrawEvtSprite
+
+; A=число (1..99) → нарисовать нативными цифрами без ведущего нуля. Портит A,B,C,HL,DE.
+Battle_DrawMoveNum:
+                CP   10
+                JR   C, .single
+                LD   B, 0                           ; десятки
+.tens:          INC  B
+                SUB  10
+                CP   10
+                JR   NC, .tens
+                LD   C, A                           ; C = единицы
+                LD   A, B                           ; десятки
+                PUSH BC
+                CALL Battle_DrawMoveDigit
+                POP  BC
+                LD   A, C                           ; единицы
+.single:        JP   Battle_DrawMoveDigit
+
+; Нарисовать координату «row+1, col+1» пером (ResPenX): row-число + «, » + col-число (нативно). A=cell.
+Battle_DrawCoord:
+                LD   (Battle_TmpCoordCell), A
+                CALL Battle_CellRowColP1           ; B=row+1, A=col+1
+                LD   A, B                          ; row+1
+                CALL Battle_DrawMoveNum            ; row-число (нативно)
+                LD   HL, BattleEvtComma             ; «, »
+                CALL Battle_DrawEvtSprite
+                LD   A, (Battle_TmpCoordCell)
+                CALL Battle_CellRowColP1           ; A=col+1
+                JP   Battle_DrawMoveNum             ; col-число (нативно, RET через JP)
+
+; A=число (1..99) → A=ширина нативными цифрами (px). Портит B,C,HL,DE.
+Battle_MoveNumW:
+                LD   B, 0                           ; B = число цифр
+                CP   10
+                JR   C, .one
+                LD   B, 1                           ; десятки есть → 2 цифры
+.one:          INC  B
+                LD   A, (BattleEvtMoveDigitTab + 3) ; ширина нативной '0'
+                LD   C, A
+                XOR  A
+.mw:           ADD  A, C
+                DJNZ .mw
+                RET
+
+; A=BattleMoveUnit.type → HL=&BattleEvtMoveNameTab[type*5]. Портит A,DE.
+Battle_MoveNameAddr:
+                LD   A, (BattleMoveUnit)
+                CALL Battle_UnitAddr
+                LD   A, (HL)                       ; type
+                LD   C, A
+                ADD  A, A
+                ADD  A, A
+                ADD  A, C                          ; type*5
+                LD   L, A
+                LD   H, 0
+                LD   DE, BattleEvtMoveNameTab
+                ADD  HL, DE
+                RET
+
+; HL=накопитель, HL2=&запись → HL += ширина записи. Хелпер: HL += EntW(record). Запись в DE-сейв.
+; (используется как: LD HL,record / CALL Battle_EvtEntW / затем ADD к накопителю — см. ниже инлайн)
+
+; Собрать ширину строки движения → HL (нативные px), для центрирования.
+Battle_MoveLineW:
+                LD   HL, 0
+                PUSH HL                            ; накопитель
+                LD   HL, BattleEvtMoveHead          ; «Moved »
+                CALL Battle_EvtEntW
+                POP  HL
+                CALL Battle_AddAToHL
+                PUSH HL
+                CALL Battle_MoveNameAddr            ; «Peasants: »/«Archers: »
+                CALL Battle_EvtEntW
+                POP  HL
+                CALL Battle_AddAToHL
+                PUSH HL
+                LD   HL, BattleEvtMoveFrom           ; «from [»
+                CALL Battle_EvtEntW
+                POP  HL
+                CALL Battle_AddAToHL
+                PUSH HL
+                LD   A, (BattleMoveSrcCell)         ; координата src
+                CALL Battle_AccCoordWrap
+                POP  HL
+                CALL Battle_AddAToHL
+                PUSH HL
+                LD   HL, BattleEvtMoveMid           ; «] to [»
+                CALL Battle_EvtEntW
+                POP  HL
+                CALL Battle_AddAToHL
+                PUSH HL
+                LD   A, (BattleMoveDestCell)         ; координата dst
+                CALL Battle_AccCoordWrap
+                POP  HL
+                CALL Battle_AddAToHL
+                PUSH HL
+                LD   HL, BattleEvtMoveEnd            ; «].»
+                CALL Battle_EvtEntW
+                POP  HL
+                CALL Battle_AddAToHL
+                RET
+
+; A=cell → A=ширина координаты «row+1, col+1» (число+comma+число) нативных px. Портит много.
+Battle_AccCoordWrap:
+                CALL Battle_CellRowColP1           ; B=row+1, A=col+1
+                PUSH AF                            ; A=col+1
+                LD   A, B                          ; row+1
+                CALL Battle_MoveNumW               ; ширина row (нативные цифры)
+                LD   C, A
+                PUSH BC                            ; C=row-ширина (Battle_EvtEntW клоббит B? нет, но safe)
+                LD   HL, BattleEvtComma
+                CALL Battle_EvtEntW
+                POP  BC
+                ADD  A, C
+                LD   C, A
+                POP  AF                            ; col+1
+                CALL Battle_MoveNumW               ; ширина col (нативные цифры)
+                ADD  A, C
+                RET
+
+Battle_RenderMoveLine:
+                CALL Battle_MoveLineW              ; HL = суммарная нативная ширина
+                SRL  H
+                RR   L
+                EX   DE, HL                        ; DE = ширина/2
+                LD   HL, 512
+                OR   A
+                SBC  HL, DE                        ; startX = 512 − ширина/2 (физ px)
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL                        ; ×16
+                LD   (ResPenX), HL
+                LD   HL, BATTLE_EVT_Y
+                LD   (ResPenY), HL
+                LD   HL, Battle_Status_Begin_DL    ; пролог статуса (палитра + transform 256 + BEGIN)
+                LD   BC, Battle_Status_Begin_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   HL, BattleEvtMoveHead          ; «Moved »
+                CALL Battle_DrawEvtSprite
+                CALL Battle_MoveNameAddr            ; «Peasants: »/«Archers: »
+                CALL Battle_DrawEvtSprite
+                LD   HL, BattleEvtMoveFrom           ; «from [»
+                CALL Battle_DrawEvtSprite
+                LD   A, (BattleMoveSrcCell)         ; [src]
+                CALL Battle_DrawCoord
+                LD   HL, BattleEvtMoveMid           ; «] to [»
+                CALL Battle_DrawEvtSprite
+                LD   A, (BattleMoveDestCell)        ; [dst]
+                CALL Battle_DrawCoord
+                LD   HL, BattleEvtMoveEnd            ; «].»
+                CALL Battle_DrawEvtSprite
+                LD   HL, Battle_Status_End_DL
                 LD   BC, Battle_Status_End_DL_SIZE
                 CALL Render_CmdBufCopy
                 RET
@@ -1525,6 +1710,7 @@ Battle_StartMove:
                 LD   (BattleTmpType), A
                 INC  HL
                 LD   A, (HL)                        ; from-клетка
+                LD   (BattleMoveSrcCell), A         ; запомнить src для строки «Moved …: from [src] to [dst].»
                 LD   B, A
                 LD   A, (BattleTmpType)
                 CALL Battle_CellPixAddr             ; HL = &pix[from]
@@ -2214,9 +2400,10 @@ Battle_ComputeReachable:
                 INC  A
                 JR   .crpass
 
-; Статус-подсказка по наведённой клетке (fheroes2 battle_interface.cpp:2914/2928/3009):
+; Статус-подсказка по наведённой клетке (fheroes2 battle_interface.cpp:2889/2914/2928/3009):
 ; BattleStatusMsg: 0=Turn N; 1/2=Move Peasant/Archer here; 3/4=Attack Peasant/Archer;
-; 5/6=Shoot Peasant/Archer. Пусто+достижима→Move; враг+можно→Shoot(стрелок)/Attack(ближний сосед).
+; 5/6=Shoot Peasant/Archer; 7/8=View Peasant/Archer info. Пусто+достижима→Move; враг+можно→
+; Shoot(стрелок)/Attack(ближний сосед); свой отряд (или своя клетка)→View info (faithful).
 Battle_ComputeStatus:
                 XOR  A
                 LD   (BattleStatusMsg), A          ; по умолчанию Turn N
@@ -2237,7 +2424,7 @@ Battle_ComputeStatus:
                 INC  HL
                 LD   A, (HL)                        ; active.side
                 CP   C
-                RET  Z                              ; свой отряд → Turn N
+                JR   Z, .stview                    ; свой отряд → «View %{monster} info» (faithful)
                 CALL Battle_AttackAllowed           ; враг: можно дотянуться? (стрелок везде/ближний сосед)
                 OR   A
                 RET  Z                              ; нельзя → Turn N
@@ -2262,6 +2449,12 @@ Battle_ComputeStatus:
 .stmelee:       ADD  A, 3                            ; Attack: 3=Peasant,4=Archer
                 LD   (BattleStatusMsg), A
                 RET
+.stview:        LD   A, (BattleTargetUnit)           ; «View %{monster} info»: 7=Peasant,8=Archer (по типу цели)
+                CALL Battle_UnitAddr
+                LD   A, (HL)                        ; target.type
+                ADD  A, 7
+                LD   (BattleStatusMsg), A
+                RET
 .stempty:       LD   A, (BattleHoverCell)            ; пусто: достижима? BattleReach[cell] in 1..speed
                 LD   L, A
                 LD   H, 0
@@ -2271,11 +2464,17 @@ Battle_ComputeStatus:
                 OR   A
                 RET  Z                              ; недостижима → Turn N
                 CP   #FF
-                RET  Z                              ; origin (под активным) → Turn N
+                JR   Z, .storigin                  ; origin (под активным) → View info активного (faithful)
                 LD   A, (BattleActiveUnit)           ; достижима → Move <active> here
                 CALL Battle_UnitAddr
                 LD   A, (HL)
                 INC  A                              ; 1=Move Peasant,2=Move Archer
+                LD   (BattleStatusMsg), A
+                RET
+.storigin:      LD   A, (BattleActiveUnit)           ; своя клетка активного → «View %{monster} info»
+                CALL Battle_UnitAddr
+                LD   A, (HL)                        ; active.type
+                ADD  A, 7                           ; 7=View Peasant,8=View Archer
                 LD   (BattleStatusMsg), A
                 RET
 
@@ -2670,9 +2869,15 @@ Render_Battle:
                 LD   HL, Battle_Count_End_DL
                 LD   BC, Battle_Count_End_DL_SIZE
                 CALL Render_CmdBufCopy
-                ; --- СТАТУС-БАР панели (fheroes2): есть событие → строка «X do N damage[. M perish]»
-                ;     (верхняя строка, setStatus top); иначе msg==0 → "Turn N", иначе hover-подсказка.
-                LD   A, (BattleEvtActive)
+                ; --- СТАТУС-БАР панели (fheroes2): идёт движение → «Moved …: from [src] to [dst].»;
+                ;     иначе есть событие → «X do N damage[. M perish]» (верхняя строка, setStatus top);
+                ;     иначе msg==0 → "Turn N", иначе hover-подсказка.
+                LD   A, (BattleMoveActive)
+                OR   A
+                JR   Z, .st_noMove
+                CALL Battle_RenderMoveLine         ; строка движения (собственный пролог+эпилог)
+                JP   .no_status
+.st_noMove:     LD   A, (BattleEvtActive)
                 OR   A
                 JR   Z, .st_normal
                 CALL Battle_RenderEventLine        ; строка события (собственный пролог+эпилог)
@@ -2682,8 +2887,36 @@ Render_Battle:
                 CALL Render_CmdBufCopy
                 LD   A, (BattleStatusMsg)
                 OR   A
-                JR   NZ, .st_verb                  ; msg!=0 → hover-подсказка (Move/Attack/Shoot)
-                JP   .st_end                       ; msg==0 → СТАТУС ПУСТ: «Turn N» в оригинале НЕТ
+                JR   NZ, .st_verb                  ; msg!=0 → hover-подсказка (Move/Attack/Shoot/View)
+                ; msg==0 → ДЕФОЛТ статуса «Turn %{turn}» (faithful, battle_interface.cpp:3017).
+                ; turnIdx = min(BattleRound, BATTLE_TURN_MAX) − 1; префикс BattleTurnPreTab + вершина.
+                LD   A, (BattleRound)
+                CP   BATTLE_TURN_MAX + 1
+                JR   C, .turn_ok
+                LD   A, BATTLE_TURN_MAX            ; раунд > предрендера → показать последний "Turn N"
+.turn_ok:       DEC  A                            ; 1-based раунд → 0-based индекс
+                LD   (BattleStatusIdx), A
+                ADD  A, A                          ; idx*2 (DEFW)
+                LD   L, A
+                LD   H, 0
+                LD   DE, BattleTurnPreTab
+                ADD  HL, DE
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)
+                EX   DE, HL
+                LD   BC, BATTLE_TURN_PRE_SIZE
+                CALL Render_CmdBufCopy
+                LD   A, (BattleStatusIdx)          ; вершина BattleTurnVertTab + idx*4
+                LD   L, A
+                LD   H, 0
+                ADD  HL, HL
+                ADD  HL, HL
+                LD   DE, BattleTurnVertTab
+                ADD  HL, DE
+                LD   BC, 4
+                CALL Render_CmdBufCopy
+                JP   .st_end
 .st_verb:       DEC  A                            ; 1-based → 0-based hover-подсказка
                 LD   (BattleStatusIdx), A
                 LD   A, (BattleStatusIdx)          ; префикс BattleStatusPreTab[idx]

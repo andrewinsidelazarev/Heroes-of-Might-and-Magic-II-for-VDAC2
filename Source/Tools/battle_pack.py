@@ -185,13 +185,19 @@ def load_units(agg, ent):
     return out                                                     # [P_n, P_m, A_n, A_m], each (frames[N],w,h)
 
 
-# Статус-сообщения нижней панели — РЕАЛЬНЫЕ строки fheroes2 (battle_interface.cpp:2914/2928/3009):
+# Статус-сообщения нижней панели — РЕАЛЬНЫЕ строки fheroes2 (battle_interface.cpp:2889/2914/2928/3009):
 # подсказка по наведению. %{monster} = имя отряда (Peasant/Archer plural). BattleStatusMsg (1-based):
 # 1=Move Peasants here, 2=Move Archers here, 3=Attack Peasants, 4=Attack Archers,
-# 5=Shoot Peasants, 6=Shoot Archers. msg=0 → "Turn N" (рендерится "Turn "+номер раунда).
+# 5=Shoot Peasants (...shots), 6=Shoot Archers (...shots), 7=View Peasants info, 8=View Archers info.
+# msg=0 → "Turn N" (рендерится "Turn "+номер раунда).
+# Shoot: оригинал append " (%{count} shots left)"; в нашей безгеройной модели shots Archer=12 фикс
+# (не вычитается → аппаратно-упрощённая модель), поэтому строка статична "(12 shots left)".
+# View: оригинал GetMultiName() (plural) + "View %{monster} info" (battle_interface.cpp:2889).
+ARCHER_SHOTS = 12                    # generated_monsters.inc [2] Archer shots=12 (faithful fheroes2)
 STATUS_MESSAGES = ["Move Peasants here", "Move Archers here",
                    "Attack Peasants", "Attack Archers",
-                   "Shoot Peasants", "Shoot Archers"]
+                   f"Shoot Peasants ({ARCHER_SHOTS} shots left)", f"Shoot Archers ({ARCHER_SHOTS} shots left)",
+                   "View Peasants info", "View Archers info"]
 STATUS_TURN_MAX = 10                 # предрендер "Turn 1".."Turn 10" (номер раунда, fheroes2 "Turn %{turn}")
 
 
@@ -464,18 +470,25 @@ def build_payload(palette, img, units, agg, ent):
         status_pal[i * 2] = v & 0xFF
         status_pal[i * 2 + 1] = (v >> 8) & 0xFF
     status_pal_addr = put(bytes(status_pal))
-    status_msgs = []                              # 6 hover-подсказок (Move/Attack/Shoot X)
+    # Hover-подсказки + «Turn N» — НАТИВНЫЙ SMALFONT scale=1.0 (fonts-native-no-1p6-upscale:
+    # текст нативно; ×1.6 только при запасе RAM_G). ×1.6-версии (~+25КБ) толкали payload за
+    # курсор #0E8000 (затирали курсор) — недопустимо. Нативно = faithful нижняя строка статуса.
+    status_msgs = []                              # 8 hover-подсказок (Move/Attack/Shoot/View X)
     for text in STATUS_MESSAGES:
-        m, w, h = render_text_mask(agg, ent, text)
+        m, w, h = render_text_mask(agg, ent, text, font="SMALFONT.ICN", scale=1.0)
         status_msgs.append((put(m), w, h))
     turn_msgs = []                                # "Turn 1".."Turn N" (номер раунда, fheroes2 "Turn %{turn}")
     for i in range(1, STATUS_TURN_MAX + 1):
-        m, w, h = render_text_mask(agg, ent, "Turn " + str(i))
+        m, w, h = render_text_mask(agg, ent, "Turn " + str(i), font="SMALFONT.ICN", scale=1.0)
         turn_msgs.append((put(m), w, h))
     # --- ФРАГМЕНТЫ СТРОКИ СОБЫТИЙ (fheroes2 RedrawActionAttackPart2, battle_interface.cpp:4157):
     #     «%{atk} do %{dmg} damage.» (+ при гибели « %{n} %{def} perish.»). idx = type×2 + (count==1). ---
     def bake(t):
         m, w, h = render_text_mask(agg, ent, t)
+        return (put(m), w, h)
+
+    def bakeN(t):                                     # нативный шрифт SMALFONT scale=1.0 (экономия RAM_G)
+        m, w, h = render_text_mask(agg, ent, t, font="SMALFONT.ICN", scale=1.0)
         return (put(m), w, h)
     evt = {
         "atk": [bake(t) for t in ("Peasants do ", "Peasant does ", "Archers do ", "Archer does ")],
@@ -484,6 +497,19 @@ def build_payload(palette, img, units, agg, ent):
         "perish": [bake(t) for t in (" Peasants perish.", " Peasant perishes.",
                                      " Archers perish.", " Archer perishes.")],
         "digit": [bake(str(d)) for d in range(10)],
+        # --- СТРОКА ДВИЖЕНИЯ (fheroes2 RedrawActionMove, battle_interface.cpp:4448):
+        #     «Moved %{monster}: from [%{src}] to [%{dst}].» где src/dst = «row+1, col+1».
+        #     АППАРАТНОЕ ОГРАНИЧЕНИЕ RAM_G: пред-масштаб ×1.6 этих фрагментов (~32КБ) толкал
+        #     battle-payload за курсор #0E8000 (затирал курсор). Рисуем НАТИВНЫМ шрифтом scale=1.0
+        #     (fonts-native-no-1p6-upscale: текст рисовать нативно; ×1.6 только если RAM_G позволяет).
+        #     Дробим на узкие фрагменты (<255px): «Moved »+per-type+«from [». ---
+        "mvhead": bakeN("Moved "),
+        "mvname": [bakeN(t) for t in ("Peasants: ", "Archers: ")],
+        "mvfrom": bakeN("from ["),
+        "mvmid": bakeN("] to ["),
+        "mvend": bakeN("]."),
+        "comma": bakeN(", "),
+        "ndigit": [bakeN(str(d)) for d in range(10)],   # нативные цифры для координат движения
     }
     wdlg, wdw, wdh, wtexts, cas_atk_ly, cas_def_ly = compose_win_dialog(agg, ent)  # окно итога БЕЗ текста
     win_dlg = (put(wdlg), wdw, wdh)
@@ -719,6 +745,23 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
         L.append(ee(e))
     L.append("BattleEvtDigitTab:                     ; «0».. «9» (тот же шрифт, что слова)")
     for e in evt["digit"]:
+        L.append(ee(e))
+    # --- ФРАГМЕНТЫ СТРОКИ ДВИЖЕНИЯ (Battle_RenderMoveLine): «Moved <m>: from [r, c] to [r, c].». ---
+    L.append("BattleEvtMoveHead:                     ; «Moved »")
+    L.append(ee(evt["mvhead"]))
+    L.append("BattleEvtMoveNameTab:                  ; «Peasants: »/«Archers: » idx=type")
+    for e in evt["mvname"]:
+        L.append(ee(e))
+    L.append("BattleEvtMoveFrom:                     ; «from [»")
+    L.append(ee(evt["mvfrom"]))
+    L.append("BattleEvtMoveMid:                      ; «] to [»")
+    L.append(ee(evt["mvmid"]))
+    L.append("BattleEvtMoveEnd:                      ; «].»")
+    L.append(ee(evt["mvend"]))
+    L.append("BattleEvtComma:                        ; «, » (между row и col)")
+    L.append(ee(evt["comma"]))
+    L.append("BattleEvtMoveDigitTab:                 ; нативные цифры «0».. «9» для координат движения")
+    for e in evt["ndigit"]:
         L.append(ee(e))
     L.append("")
     # --- НАДПИСИ ОКНА ИТОГА: нативные спрайты поверх ×1.6-диалога (не рвутся). Запись (10б):
