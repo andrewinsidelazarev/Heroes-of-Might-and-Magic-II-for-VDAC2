@@ -55,6 +55,15 @@ KNIGHT_BUILDINGS = [
     ("TWNKSTAT.ICN", 0),   # STATUE — статуя (front)
 ]
 
+# Имена зданий Knight (castle_building_info.cpp getBuildingName / GetStringBuilding) —
+# СТРОГО параллельно KNIGHT_BUILDINGS (для hover-подсказки по зданию). Башни/ров — часть замка.
+KNIGHT_NAMES = [
+    "Farm", "Castle", "Fortifications", "Captain's Quarters", "Castle", "Castle",
+    "Moat", "Marketplace", "Archery Range", "Thieves Guild", "Tavern", "Mage Guild",
+    "Jousting Arena", "Cathedral", "Thatched Hut", "Blacksmith", "Armory", "Well", "Statue",
+]
+HIT_BLOCK = 8                      # хит-карта: 1 байт на блок 8x8 (640x256 -> 80x32 = 2560Б)
+
 
 def load_town(palette):
     agg, ent = read_agg_index_with_expansion(AGG_PATH)
@@ -69,7 +78,8 @@ def load_town(palette):
         for x in range(min(bw, TOWN_W)):
             canvas[y * TOWN_W + x] = bidx[y * bw + x]
     placed.append(("TOWNBKG0.ICN(bg)", bw, bh, 0, 0))
-    for icn_name, frame in KNIGHT_BUILDINGS:
+    hit = bytearray(TOWN_W * TOWN_H)        # пер-пиксель индекс здания (1-based; 0=фон) для hover
+    for bidx_i, (icn_name, frame) in enumerate(KNIGHT_BUILDINGS, start=1):
         icn = read_icn(agg_entry(agg, ent, icn_name))
         hdr, enc = icn[frame]
         idx = decode_icn_indices(hdr, enc)
@@ -89,8 +99,23 @@ def load_town(palette):
                 xx = ox + x
                 if 0 <= xx < TOWN_W:
                     canvas[row + xx] = v
+                    hit[row + xx] = bidx_i     # front-most здание (рисуется back→front)
         placed.append((icn_name, w, h, ox, oy))
-    return bytes(canvas), placed
+    # Даунсэмпл хит-карты в блоки HIT_BLOCK×HIT_BLOCK: индекс = МОДА ненулевых в блоке (надёжнее центра).
+    from collections import Counter
+    bw_n, bh_n = TOWN_W // HIT_BLOCK, TOWN_H // HIT_BLOCK
+    block_hit = bytearray(bw_n * bh_n)
+    for by in range(bh_n):
+        for bx in range(bw_n):
+            cnt = Counter()
+            for yy in range(by * HIT_BLOCK, by * HIT_BLOCK + HIT_BLOCK):
+                base = yy * TOWN_W + bx * HIT_BLOCK
+                for xx in range(HIT_BLOCK):
+                    v = hit[base + xx]
+                    if v:
+                        cnt[v] += 1
+            block_hit[by * bw_n + bx] = cnt.most_common(1)[0][0] if cnt else 0
+    return bytes(canvas), placed, bytes(block_hit)
 
 
 STRIP_H = 224          # нижняя панель замка: y[256..480) (STRIP[0] 205 + статус-бар 19)
@@ -196,7 +221,33 @@ def load_strip(palette):
     _blit_icn(buf, ex, w, h, ox, oy, 553, 172, TOWN_W, STRIP_H)
     return bytes(buf)
 
-def build_payload(palette, town_img, strip_img):
+def render_name_mask(agg, ent, name):
+    """Имя здания → маска (idx 15=глиф / 0=прозрачно) шрифтом SMALFONT, НАТИВНО (≤108px<128 для
+    резидентного Render_DrawSpriteEntry). Палитра белая-альфа (idx0 прозрачен). (mask, W, H)."""
+    sf = read_icn(agg_entry(agg, ent, "SMALFONT.ICN"))
+    glyphs, tw, maxbot = [], 0, 0
+    for c in name:
+        if c == " ":
+            glyphs.append((None, 4, 0, 0)); tw += 4; continue
+        h, e = sf[ord(c) - 32]
+        gi = decode_icn_indices(h, e); oy = h.get("oy", 0)
+        glyphs.append((gi, h["w"], h["h"], oy)); tw += h["w"]; maxbot = max(maxbot, oy + h["h"])
+    W0, H0 = max(1, tw), max(1, maxbot)
+    base = bytearray(W0 * H0)
+    x = 0
+    for gi, gw, gh, oy in glyphs:
+        if gi is not None:
+            for yy in range(gh):
+                py = oy + yy
+                if 0 <= py < H0:
+                    for xx in range(gw):
+                        if gi[yy * gw + xx] != TRANSPARENT:
+                            base[py * W0 + x + xx] = 15
+        x += gw
+    return bytes(base), W0, H0
+
+
+def build_payload(palette, town_img, strip_img, names_masks):
     payload = bytearray()
 
     def put(raw: bytes) -> int:
@@ -209,10 +260,17 @@ def build_payload(palette, town_img, strip_img):
     pal_addr = put(palette_argb4444_opaque(palette))   # экран замка непрозрачен → opaque-палитра
     img_addr = put(town_img)
     strip_addr = put(strip_img)
-    return payload, pal_addr, img_addr, strip_addr
+    # Палитра имён зданий: idx i = БЕЛЫЙ с альфой i (ARGB4444 0xiFFF); idx0 прозрачен (текст поверх панели).
+    name_pal = bytearray(2 * 256)
+    for i in range(16):
+        v = ((i << 12) | 0x0FFF) if i else 0
+        name_pal[i * 2] = v & 0xFF; name_pal[i * 2 + 1] = (v >> 8) & 0xFF
+    name_pal_addr = put(bytes(name_pal))
+    name_addrs = [(put(m), w, h) for (m, w, h) in names_masks]   # [имя]=(addr,w,h)
+    return payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs
 
 
-def emit_inc(pal_addr, img_addr, strip_addr, pak):
+def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, block_hit, pak):
     L = []
     L.append("; Сгенерировано Source/Tools/town_pack.py — экран города (Knight, потоковый HMM2TOWN.PAK).")
     L.append("                ifndef _HMM2_GENERATED_TOWN_")
@@ -234,8 +292,11 @@ def emit_inc(pal_addr, img_addr, strip_addr, pak):
     L.append("                FT_BITMAP_HANDLE 0")
     L.append("                FT_CELL 0")
     L.append("                FT_BITMAP_TRANSFORM_A 160")
-    L.append("                FT_BITMAP_TRANSFORM_E 160")
+    L.append("                FT_BITMAP_TRANSFORM_B 0")    # сброс skew B/D/F (FT812 протекают между сценами)
     L.append("                FT_BITMAP_TRANSFORM_C 0")
+    L.append("                FT_BITMAP_TRANSFORM_D 0")
+    L.append("                FT_BITMAP_TRANSFORM_E 160")
+    L.append("                FT_BITMAP_TRANSFORM_F 0")
     L.append("                FT_VERTEX_TRANSLATE_X 0")
     L.append("                FT_VERTEX_TRANSLATE_Y 0")
     L.append("                FT_BLEND_FUNC FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA")
@@ -261,6 +322,34 @@ def emit_inc(pal_addr, img_addr, strip_addr, pak):
     L.append(f"TOWN_BODY_SECTOR     EQU {pak['body_start_sector']}")
     L.append('TownPakName:         DEFB "HMM2TOWN.PAK", 0')
     L.append("")
+    # --- Hover-имена зданий (faithful castle_dialog.cpp: наведение/клик → имя здания) ---
+    bw_n, bh_n = TOWN_W // HIT_BLOCK, TOWN_H // HIT_BLOCK
+    L.append(f"TOWN_HIT_BLK         EQU {HIT_BLOCK}")
+    L.append(f"TOWN_HIT_W           EQU {bw_n}")
+    L.append(f"TOWN_HIT_H           EQU {bh_n}")
+    L.append(f"TOWN_NAME_PAL_RAMG   EQU #{name_pal_addr:06X}")
+    L.append(f"TOWN_NAME_COUNT      EQU {len(name_addrs)}")
+    L.append("TownHitMap:                            ; блок 8x8 → индекс здания (1-based; 0=фон), Z80-читаемая")
+    for r in range(bh_n):
+        row = block_hit[r * bw_n:(r + 1) * bw_n]
+        L.append("                DEFB " + ", ".join(str(b) for b in row))
+    L.append("TownBuildingNameTab:                   ; [idx-1] → имя SMALFONT ×1.6 [lo,mid,hi,w,h]")
+    for (addr, w, h) in name_addrs:
+        L.append(f"                DEFB #{addr & 0xFF:02X}, #{(addr >> 8) & 0xFF:02X}, "
+                 f"#{(addr >> 16) & 0xFF:02X}, {w}, {h}")
+    L.append("Town_Name_Begin_DL:                    ; пролог имени: нативно (имя ×1.6-пред-масштаб), белая-альфа")
+    L.append("                FT_BITMAP_TRANSFORM_A 256")
+    L.append("                FT_BITMAP_TRANSFORM_B 0")
+    L.append("                FT_BITMAP_TRANSFORM_D 0")
+    L.append("                FT_BITMAP_TRANSFORM_E 256")
+    L.append("                FT_BITMAP_TRANSFORM_F 0")
+    L.append("                FT_PALETTE_SOURCE TOWN_NAME_PAL_RAMG")
+    L.append("                FT_BEGIN FT_BITMAPS")
+    L.append("Town_Name_Begin_DL_SIZE EQU $ - Town_Name_Begin_DL")
+    L.append("Town_Name_End_DL:")
+    L.append("                FT_END")
+    L.append("Town_Name_End_DL_SIZE EQU $ - Town_Name_End_DL")
+    L.append("")
     L.append("                endif")
     TOWN_INC.write_text("\n".join(L), encoding="utf-8")
 
@@ -272,7 +361,8 @@ def main() -> int:
 
     agg, ent = read_agg_index_with_expansion(AGG_PATH)
     palette = read_palette(agg_entry(agg, ent, "KB.PAL"))
-    town_img, placed = load_town(palette)
+    town_img, placed, block_hit = load_town(palette)
+    names_masks = [render_name_mask(agg, ent, nm) for nm in KNIGHT_NAMES]  # hover-имена зданий
 
     if args.preview:
         from PIL import Image
@@ -290,7 +380,8 @@ def main() -> int:
         return 0
 
     strip_img = load_strip(palette)
-    payload, pal_addr, img_addr, strip_addr = build_payload(palette, town_img, strip_img)
+    payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs = build_payload(
+        palette, town_img, strip_img, names_masks)
     summary = build_pak(
         [{"type": TYPE_RAMG_BLOB, "target": TOWN_RAMG_BASE, "data": bytes(payload)}],
         TOWN_PAK_PATH,
@@ -300,7 +391,7 @@ def main() -> int:
         "payload_sectors": (len(payload) + SECTOR - 1) // SECTOR,
         "body_start_sector": summary["body_start_sector"],
     }
-    emit_inc(pal_addr, img_addr, strip_addr, pak)
+    emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, block_hit, pak)
     print(f"town pack -> {TOWN_PAK_PATH.name}: {len(placed)} построек, "
           f"payload={len(payload)} байт ({pak['payload_sectors']} сект), PAK={summary['total_bytes']} байт")
     print(f"  inc: {TOWN_INC}")

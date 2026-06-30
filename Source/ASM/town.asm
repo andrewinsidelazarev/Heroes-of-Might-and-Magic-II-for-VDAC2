@@ -9,6 +9,49 @@
                 include "generated_town.inc"
 
 TownExitLatch:  DEFB 1            ; 1 на входе (гасит «зажатый» клик-вход), 0 после отпускания ЛКМ
+TownHoverIdx:   DEFB 0            ; здание под курсором (1-based из TownHitMap; 0=нет) для hover-имени
+
+; Курсор → блок 8×8 хит-карты → индекс здания (TownHitMap). OUT: TownHoverIdx. Только в зоне замка (Y<256).
+Town_HitTest:
+                CALL Input_MouseY                 ; HL = логич. Y
+                LD   A, H
+                OR   A
+                JR   NZ, .none                    ; Y >= 256 → панель, нет hover
+                LD   A, L                          ; Y (0..255)
+                SRL  A
+                SRL  A
+                SRL  A                             ; block_y = Y/8 (0..31)
+                LD   B, A
+                CALL Input_MouseX                 ; HL = X
+                SRL  H
+                RR   L
+                SRL  H
+                RR   L
+                SRL  H
+                RR   L                             ; HL = X/8 (0..79)
+                LD   C, L                          ; block_x
+                LD   H, 0                           ; offset = block_y*TOWN_HIT_W(80) + block_x
+                LD   L, B
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL                        ; B*16
+                LD   D, H
+                LD   E, L
+                ADD  HL, HL
+                ADD  HL, HL                        ; B*64
+                ADD  HL, DE                        ; B*80
+                LD   D, 0
+                LD   E, C
+                ADD  HL, DE                        ; + block_x
+                LD   DE, TownHitMap
+                ADD  HL, DE
+                LD   A, (HL)
+                LD   (TownHoverIdx), A
+                RET
+.none:          XOR  A
+                LD   (TownHoverIdx), A
+                RET
 
 ; Вход в город (вызывается через Town_Enter_Tramp; чёрный кадр уже показан трамплином).
 ; Стрим композита города в RAM_G[0] + установка состояния. GameMode уже не важен здесь —
@@ -45,6 +88,7 @@ Town_LoadFromPak:
 ; Опрос города: клик ЛКМ (после отпускания входного) → выход. OUT: A=1 если запрошен выход
 ; (резидентный Town_Update_Tramp по A=1 зовёт Adventure_Enter — slot3-edge).
 Town_Update:
+                CALL Town_HitTest                 ; здание под курсором → TownHoverIdx (для hover-имени)
                 CALL Input_MouseLMB               ; NZ = нажато
                 JR   NZ, .pressed
                 XOR  A
@@ -99,6 +143,50 @@ Render_Town:
                 LD   HL, Town_DL
                 LD   BC, Town_DL_SIZE
                 CALL Render_CmdBufCopy
-                CALL Render_GlobalCursor          ; курсор (содержит DISPLAY)
+                ; --- hover-имя здания в статус-баре (faithful castle_dialog.cpp) ---
+                LD   A, (TownHoverIdx)
+                OR   A
+                JR   Z, .noname
+                LD   HL, Town_Name_Begin_DL
+                LD   BC, Town_Name_Begin_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   A, (TownHoverIdx)             ; запись = TownBuildingNameTab + (idx-1)*5
+                DEC  A
+                LD   L, A
+                LD   H, 0
+                LD   D, H
+                LD   E, L
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, DE                        ; (idx-1)*5
+                LD   DE, TownBuildingNameTab
+                ADD  HL, DE
+                PUSH HL                            ; record
+                INC  HL
+                INC  HL
+                INC  HL                            ; &w (+3)
+                LD   A, (HL)                       ; ширина имени (native px)
+                SRL  A                             ; w/2
+                LD   H, 0
+                LD   L, A
+                LD   DE, 512                        ; центр X экрана 1024 = 512px
+                EX   DE, HL
+                OR   A
+                SBC  HL, DE                        ; 512 − w/2
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL                        ; ×16 (vertex)
+                LD   (ResPenX), HL
+                LD   HL, TOWN_NAME_Y               ; статус-бар Y (vertex)
+                LD   (ResPenY), HL
+                POP  HL
+                CALL Render_DrawSpriteEntry        ; имя SMALFONT native, белая-альфа палитра
+                LD   HL, Town_Name_End_DL
+                LD   BC, Town_Name_End_DL_SIZE
+                CALL Render_CmdBufCopy
+.noname:        CALL Render_GlobalCursor          ; курсор (содержит DISPLAY)
                 CALL Render_SwapFrameDMA          ; vsync перед DMA+DLSWAP
                 RET
+
+TOWN_NAME_Y     EQU 745 * 16       ; статус-бар (экран y≈745, в нижней панели), vertex 1/16px
