@@ -41,8 +41,8 @@ Town_DL:
 Town_DL_SIZE EQU $ - Town_DL
 
 TOWN_RAMG_BASE       EQU #000000
-TOWN_PAYLOAD_BYTES   EQU 318228
-TOWN_PAYLOAD_SECTORS EQU 622
+TOWN_PAYLOAD_BYTES   EQU 324000
+TOWN_PAYLOAD_SECTORS EQU 633
 TOWN_BODY_SECTOR     EQU 1
 TownPakName:         DEFB "HMM2TOWN.PAK", 0
 
@@ -116,5 +116,249 @@ Town_Name_Begin_DL_SIZE EQU $ - Town_Name_Begin_DL
 Town_Name_End_DL:
                 FT_END
 Town_Name_End_DL_SIZE EQU $ - Town_Name_End_DL
+
+FontGlyphTab:                          ; [char-32] → глиф SMALFONT [lo,mid,hi,w,h] (Render_DrawString)
+                DEFB #14, #DB, #04, 4, 3
+                DEFB #20, #DB, #04, 2, 10
+                DEFB #34, #DB, #04, 4, 6
+                DEFB #4C, #DB, #04, 2, 10
+                DEFB #60, #DB, #04, 6, 12
+                DEFB #A8, #DB, #04, 8, 10
+                DEFB #F8, #DB, #04, 7, 10
+                DEFB #40, #DC, #04, 2, 6
+                DEFB #4C, #DC, #04, 4, 11
+                DEFB #78, #DC, #04, 4, 11
+                DEFB #A4, #DC, #04, 2, 10
+                DEFB #B8, #DC, #04, 6, 9
+                DEFB #F0, #DC, #04, 3, 12
+                DEFB #14, #DD, #04, 6, 7
+                DEFB #40, #DD, #04, 2, 10
+                DEFB #54, #DD, #04, 5, 11
+                DEFB #8C, #DD, #04, 5, 10
+                DEFB #C0, #DD, #04, 3, 10
+                DEFB #E0, #DD, #04, 5, 10
+                DEFB #14, #DE, #04, 5, 10
+                DEFB #48, #DE, #04, 5, 10
+                DEFB #7C, #DE, #04, 5, 10
+                DEFB #B0, #DE, #04, 5, 10
+                DEFB #E4, #DE, #04, 5, 10
+                DEFB #18, #DF, #04, 5, 10
+                DEFB #4C, #DF, #04, 5, 10
+                DEFB #80, #DF, #04, 2, 10
+                DEFB #94, #DF, #04, 3, 12
+                DEFB #B8, #DF, #04, 2, 10
+                DEFB #CC, #DF, #04, 6, 8
+                DEFB #FC, #DF, #04, 2, 10
+                DEFB #10, #E0, #04, 6, 10
+                DEFB #4C, #E0, #04, 2, 10
+                DEFB #60, #E0, #04, 9, 10
+                DEFB #BC, #E0, #04, 7, 10
+                DEFB #04, #E1, #04, 7, 10
+                DEFB #4C, #E1, #04, 8, 10
+                DEFB #9C, #E1, #04, 8, 10
+                DEFB #EC, #E1, #04, 8, 10
+                DEFB #3C, #E2, #04, 8, 10
+                DEFB #8C, #E2, #04, 9, 10
+                DEFB #E8, #E2, #04, 4, 10
+                DEFB #10, #E3, #04, 7, 10
+                DEFB #58, #E3, #04, 9, 10
+                DEFB #B4, #E3, #04, 8, 10
+                DEFB #04, #E4, #04, 11, 10
+                DEFB #74, #E4, #04, 10, 10
+                DEFB #D8, #E4, #04, 8, 10
+                DEFB #28, #E5, #04, 8, 10
+                DEFB #78, #E5, #04, 8, 11
+                DEFB #D0, #E5, #04, 9, 10
+                DEFB #2C, #E6, #04, 7, 10
+                DEFB #74, #E6, #04, 8, 10
+                DEFB #C4, #E6, #04, 10, 10
+                DEFB #28, #E7, #04, 10, 10
+                DEFB #8C, #E7, #04, 13, 10
+                DEFB #10, #E8, #04, 9, 10
+                DEFB #6C, #E8, #04, 9, 10
+                DEFB #C8, #E8, #04, 7, 10
+                DEFB #10, #E9, #04, 4, 11
+                DEFB #3C, #E9, #04, 2, 10
+                DEFB #50, #E9, #04, 4, 11
+                DEFB #7C, #E9, #04, 2, 10
+                DEFB #90, #E9, #04, 6, 10
+                DEFB #CC, #E9, #04, 2, 6
+                DEFB #D8, #E9, #04, 7, 10
+                DEFB #20, #EA, #04, 7, 10
+                DEFB #68, #EA, #04, 6, 10
+                DEFB #A4, #EA, #04, 7, 10
+                DEFB #EC, #EA, #04, 6, 10
+                DEFB #28, #EB, #04, 5, 10
+                DEFB #5C, #EB, #04, 7, 12
+                DEFB #B0, #EB, #04, 8, 10
+                DEFB #00, #EC, #04, 4, 10
+                DEFB #28, #EC, #04, 5, 12
+                DEFB #64, #EC, #04, 8, 10
+                DEFB #B4, #EC, #04, 4, 10
+                DEFB #DC, #EC, #04, 12, 10
+                DEFB #54, #ED, #04, 8, 10
+                DEFB #A4, #ED, #04, 6, 10
+                DEFB #E0, #ED, #04, 7, 12
+                DEFB #34, #EE, #04, 7, 12
+                DEFB #88, #EE, #04, 7, 10
+                DEFB #D0, #EE, #04, 6, 10
+                DEFB #0C, #EF, #04, 5, 10
+                DEFB #40, #EF, #04, 8, 10
+                DEFB #90, #EF, #04, 8, 10
+                DEFB #E0, #EF, #04, 12, 10
+                DEFB #58, #F0, #04, 7, 10
+                DEFB #A0, #F0, #04, 8, 12
+                DEFB #00, #F1, #04, 6, 10
+                DEFB #3C, #F1, #04, 2, 10
+                DEFB #50, #F1, #04, 2, 10
+                DEFB #64, #F1, #04, 2, 10
+                DEFB #78, #F1, #04, 2, 10
+                DEFB #8C, #F1, #04, 2, 10
+TownNameStrTab:                        ; [idx-1] → &имя (null-term, для заголовка попапа)
+                DW TownNameStr_0
+                DW TownNameStr_1
+                DW TownNameStr_2
+                DW TownNameStr_3
+                DW TownNameStr_4
+                DW TownNameStr_5
+                DW TownNameStr_6
+                DW TownNameStr_7
+                DW TownNameStr_8
+                DW TownNameStr_9
+                DW TownNameStr_10
+                DW TownNameStr_11
+                DW TownNameStr_12
+                DW TownNameStr_13
+                DW TownNameStr_14
+                DW TownNameStr_15
+                DW TownNameStr_16
+                DW TownNameStr_17
+                DW TownNameStr_18
+TownNameStr_0: DEFB "Farm", 0
+TownNameStr_1: DEFB "Castle", 0
+TownNameStr_2: DEFB "Fortifications", 0
+TownNameStr_3: DEFB "Captain's Quarters", 0
+TownNameStr_4: DEFB "Castle", 0
+TownNameStr_5: DEFB "Castle", 0
+TownNameStr_6: DEFB "Moat", 0
+TownNameStr_7: DEFB "Marketplace", 0
+TownNameStr_8: DEFB "Archery Range", 0
+TownNameStr_9: DEFB "Thieves Guild", 0
+TownNameStr_10: DEFB "Tavern", 0
+TownNameStr_11: DEFB "Mage Guild", 0
+TownNameStr_12: DEFB "Jousting Arena", 0
+TownNameStr_13: DEFB "Cathedral", 0
+TownNameStr_14: DEFB "Thatched Hut", 0
+TownNameStr_15: DEFB "Blacksmith", 0
+TownNameStr_16: DEFB "Armory", 0
+TownNameStr_17: DEFB "Well", 0
+TownNameStr_18: DEFB "Statue", 0
+TownDescTab:                           ; [idx-1] → &блок строк описания (null-term; пустая строка = конец)
+                DW TownDescBlk_0
+                DW TownDescBlk_1
+                DW TownDescBlk_2
+                DW TownDescBlk_3
+                DW TownDescBlk_4
+                DW TownDescBlk_5
+                DW TownDescBlk_6
+                DW TownDescBlk_7
+                DW TownDescBlk_8
+                DW TownDescBlk_9
+                DW TownDescBlk_10
+                DW TownDescBlk_11
+                DW TownDescBlk_12
+                DW TownDescBlk_13
+                DW TownDescBlk_14
+                DW TownDescBlk_15
+                DW TownDescBlk_16
+                DW TownDescBlk_17
+                DW TownDescBlk_18
+TownDescBlk_0:
+                DEFB "The Farm increases production of Peasants by 8 per week.", 0
+                DEFB 0
+TownDescBlk_1:
+                DEFB "The Castle improves the town's defense and increases its income to", 0
+                DEFB "1000 gold per day.", 0
+                DEFB 0
+TownDescBlk_2:
+                DEFB "The Fortifications increase the toughness of the walls, increasing", 0
+                DEFB "the number of turns it takes to knock them down.", 0
+                DEFB 0
+TownDescBlk_3:
+                DEFB "The Captain's Quarters provides a captain to assist in the castle's", 0
+                DEFB "defense when no hero is present.", 0
+                DEFB 0
+TownDescBlk_4:
+                DEFB "The Left Turret provides extra firepower during castle combat.", 0
+                DEFB 0
+TownDescBlk_5:
+                DEFB "The Right Turret provides extra firepower during castle combat.", 0
+                DEFB 0
+TownDescBlk_6:
+                DEFB "The Moat slows and weakens attacking units. Any walking unit", 0
+                DEFB "entering the moat must end its turn there and can only move", 0
+                DEFB "within the moat one hex at a time. Any creature present in the", 0
+                DEFB "moat will have its defense skill reduced by 3.", 0
+                DEFB 0
+TownDescBlk_7:
+                DEFB "The Marketplace can be used to convert one type of resource into", 0
+                DEFB "another. The more marketplaces you control, the better the", 0
+                DEFB "exchange rate.", 0
+                DEFB 0
+TownDescBlk_8:
+                DEFB "Recruit Archer.", 0
+                DEFB 0
+TownDescBlk_9:
+                DEFB "The Thieves' Guild provides information on enemy players.", 0
+                DEFB "Thieves' Guilds can also provide scouting information on enemy", 0
+                DEFB "towns. Additional Guilds provide more information.", 0
+                DEFB 0
+TownDescBlk_10:
+                DEFB "The Tavern increases morale for troops defending the castle.", 0
+                DEFB 0
+TownDescBlk_11:
+                DEFB "The Mage Guild allows heroes to learn spells and replenish their", 0
+                DEFB "spell points.", 0
+                DEFB 0
+TownDescBlk_12:
+                DEFB "Recruit Cavalry.", 0
+                DEFB 0
+TownDescBlk_13:
+                DEFB "Recruit Paladin.", 0
+                DEFB 0
+TownDescBlk_14:
+                DEFB "Recruit Peasant.", 0
+                DEFB 0
+TownDescBlk_15:
+                DEFB "Recruit Pikeman.", 0
+                DEFB 0
+TownDescBlk_16:
+                DEFB "Recruit Swordsman.", 0
+                DEFB 0
+TownDescBlk_17:
+                DEFB "The Well increases the growth rate of all dwellings by 2 creatures", 0
+                DEFB "per week.", 0
+                DEFB 0
+TownDescBlk_18:
+                DEFB "The Statue increases the town's income by 250 gold per day.", 0
+                DEFB 0
+Town_Info_Box_DL:                      ; рамка попапа (faithful Dialog::Message окно)
+                FT_COLOR_RGB 176, 140, 92
+                FT_COLOR_A 255
+                FT_LINE_WIDTH 16
+                FT_BEGIN FT_RECTS
+                FT_VERTEX2F 4672, 4608
+                FT_VERTEX2F 11712, 7552
+                FT_COLOR_RGB 28, 20, 10
+                FT_COLOR_A 244
+                FT_VERTEX2F 4720, 4656
+                FT_VERTEX2F 11664, 7504
+                FT_END
+                FT_COLOR_A 255
+                FT_COLOR_RGB 255, 255, 255
+Town_Info_Box_DL_SIZE EQU $ - Town_Info_Box_DL
+TOWN_INFO_TITLE_Y    EQU 300 * 16
+TOWN_INFO_LINE0_Y    EQU 322 * 16
+TOWN_INFO_LINE_H     EQU 12 * 16
 
                 endif

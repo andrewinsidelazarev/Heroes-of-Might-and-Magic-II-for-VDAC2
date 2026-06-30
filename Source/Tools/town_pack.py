@@ -64,6 +64,38 @@ KNIGHT_NAMES = [
 ]
 HIT_BLOCK = 8                      # хит-карта: 1 байт на блок 8x8 (640x256 -> 80x32 = 2560Б)
 
+# Описания зданий (getBuildingDescription / getKnightBuildingDescription, castle_building_info.cpp).
+# %{count} разрешены значениями GameStatic/profit: Well=2, Wel2(Farm)=8, Moat=-3, Castle=1000,
+# Statue=250. Жилища (assert в исходнике → показывают монстра): "Recruit <Monster>" (Knight база:
+# DW1..6 = Peasant/Archer/Pikeman/Swordsman/Cavalry/Paladin). СТРОГО параллельно KNIGHT_BUILDINGS.
+KNIGHT_DESCS = [
+    "The Farm increases production of Peasants by 8 per week.",                                 # WEL2
+    "The Castle improves the town's defense and increases its income to 1000 gold per day.",    # CASTLE
+    "The Fortifications increase the toughness of the walls, increasing the number of turns it takes to knock them down.",  # SPEC
+    "The Captain's Quarters provides a captain to assist in the castle's defense when no hero is present.",  # CAPTAIN
+    "The Left Turret provides extra firepower during castle combat.",                           # LEFTTURRET
+    "The Right Turret provides extra firepower during castle combat.",                          # RIGHTTURRET
+    "The Moat slows and weakens attacking units. Any walking unit entering the moat must end its turn there and can only move within the moat one hex at a time. Any creature present in the moat will have its defense skill reduced by 3.",  # MOAT
+    "The Marketplace can be used to convert one type of resource into another. The more marketplaces you control, the better the exchange rate.",  # MARKETPLACE
+    "Recruit Archer.",                                                                          # DW_1 = MONSTER2
+    "The Thieves' Guild provides information on enemy players. Thieves' Guilds can also provide scouting information on enemy towns. Additional Guilds provide more information.",  # THIEVESGUILD
+    "The Tavern increases morale for troops defending the castle.",                             # TAVERN
+    "The Mage Guild allows heroes to learn spells and replenish their spell points.",           # MAGEGUILD1
+    "Recruit Cavalry.",                                                                         # DW_4 = MONSTER5
+    "Recruit Paladin.",                                                                         # DW_5 = MONSTER6
+    "Recruit Peasant.",                                                                         # DW_0 = MONSTER1
+    "Recruit Pikeman.",                                                                         # DW_2 = MONSTER3
+    "Recruit Swordsman.",                                                                       # DW_3 = MONSTER4
+    "The Well increases the growth rate of all dwellings by 2 creatures per week.",             # WELL
+    "The Statue increases the town's income by 250 gold per day.",                              # STATUE
+]
+# Геометрия инфо-попапа (экран 1024×768, screen px). Рамка по центру.
+INFO_BOX = (292, 288, 732, 472)    # x1,y1,x2,y2
+INFO_TITLE_Y = 300                 # верх заголовка (имя)
+INFO_LINE0_Y = 322                 # верх первой строки описания
+INFO_LINE_H  = 12                  # межстрочный шаг (native SMALFONT)
+INFO_WRAP_PX = 404                 # ширина обёртки текста (≈ внутренняя ширина рамки − поля)
+
 
 def load_town(palette):
     agg, ent = read_agg_index_with_expansion(AGG_PATH)
@@ -247,7 +279,42 @@ def render_name_mask(agg, ent, name):
     return bytes(base), W0, H0
 
 
-def build_payload(palette, town_img, strip_img, names_masks):
+def bake_font(agg, ent, pad=2):
+    """Атлас глифов SMALFONT для Render_DrawString: ASCII 32..127 → (маска 1Б/px idx15, w, h+pad).
+    Тот же формат, что render_name_mask (проверен на железе). Низ паддится pad прозрачных строк —
+    реальный FT812 режет ~2px низа мелкого глифа (см. память ft812-small-glyph-bottom-padding)."""
+    sf = read_icn(agg_entry(agg, ent, "SMALFONT.ICN"))
+    out = []
+    for c in range(32, 128):
+        idx = c - 32
+        try:
+            ch = " " if (c == 32 or idx >= len(sf)) else chr(c)
+            m, w, h = render_name_mask(agg, ent, ch)
+        except Exception:
+            m, w, h = render_name_mask(agg, ent, " ")
+        out.append((m + bytes(w * pad), w, h + pad))   # +pad прозрачных строк снизу
+    return out
+
+
+def wrap_desc(text, glyph_w):
+    """Жадная обёртка по словам до INFO_WRAP_PX (ширины глифов из атласа)."""
+    def line_px(s):
+        return sum(glyph_w.get(ch, 4) for ch in s)
+    lines, cur = [], ""
+    for word in text.split(" "):
+        trial = (cur + " " + word) if cur else word
+        if line_px(trial) <= INFO_WRAP_PX:
+            cur = trial
+        else:
+            if cur:
+                lines.append(cur)
+            cur = word
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def build_payload(palette, town_img, strip_img, names_masks, font_masks):
     payload = bytearray()
 
     def put(raw: bytes) -> int:
@@ -267,10 +334,11 @@ def build_payload(palette, town_img, strip_img, names_masks):
         name_pal[i * 2] = v & 0xFF; name_pal[i * 2 + 1] = (v >> 8) & 0xFF
     name_pal_addr = put(bytes(name_pal))
     name_addrs = [(put(m), w, h) for (m, w, h) in names_masks]   # [имя]=(addr,w,h)
-    return payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs
+    font_addrs = [(put(m), w, h) for (m, w, h) in font_masks]    # [char-32]=(addr,w,h)
+    return payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs
 
 
-def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, block_hit, pak):
+def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, block_hit, pak, wrapped_descs):
     L = []
     L.append("; Сгенерировано Source/Tools/town_pack.py — экран города (Knight, потоковый HMM2TOWN.PAK).")
     L.append("                ifndef _HMM2_GENERATED_TOWN_")
@@ -350,6 +418,46 @@ def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, block_hi
     L.append("                FT_END")
     L.append("Town_Name_End_DL_SIZE EQU $ - Town_Name_End_DL")
     L.append("")
+    # --- Динамический рендер текста: атлас глифов SMALFONT + строки имён/описаний ---
+    L.append("FontGlyphTab:                          ; [char-32] → глиф SMALFONT [lo,mid,hi,w,h] (Render_DrawString)")
+    for (addr, w, h) in font_addrs:
+        L.append(f"                DEFB #{addr & 0xFF:02X}, #{(addr >> 8) & 0xFF:02X}, "
+                 f"#{(addr >> 16) & 0xFF:02X}, {w}, {h}")
+    # Заголовок попапа = имя здания (строкой). Описание = блок обёрнутых строк, пустая = конец.
+    L.append("TownNameStrTab:                        ; [idx-1] → &имя (null-term, для заголовка попапа)")
+    for i in range(len(KNIGHT_NAMES)):
+        L.append(f"                DW TownNameStr_{i}")
+    for i, nm in enumerate(KNIGHT_NAMES):
+        L.append(f'TownNameStr_{i}: DEFB "{nm}", 0')
+    L.append("TownDescTab:                           ; [idx-1] → &блок строк описания (null-term; пустая строка = конец)")
+    for i in range(len(wrapped_descs)):
+        L.append(f"                DW TownDescBlk_{i}")
+    for i, lines in enumerate(wrapped_descs):
+        L.append(f"TownDescBlk_{i}:")
+        for ln in lines:
+            L.append(f'                DEFB "{ln}", 0')
+        L.append("                DEFB 0")            # пустая строка = терминатор блока
+    # Рамка инфо-попапа (RECTS): внешний прямоугольник (рамка) + внутренний (заливка).
+    bx1, by1, bx2, by2 = INFO_BOX
+    L.append("Town_Info_Box_DL:                      ; рамка попапа (faithful Dialog::Message окно)")
+    L.append("                FT_COLOR_RGB 176, 140, 92")
+    L.append("                FT_COLOR_A 255")
+    L.append("                FT_LINE_WIDTH 16")
+    L.append("                FT_BEGIN FT_RECTS")
+    L.append(f"                FT_VERTEX2F {bx1 * 16}, {by1 * 16}")
+    L.append(f"                FT_VERTEX2F {bx2 * 16}, {by2 * 16}")
+    L.append("                FT_COLOR_RGB 28, 20, 10")
+    L.append("                FT_COLOR_A 244")
+    L.append(f"                FT_VERTEX2F {(bx1 + 3) * 16}, {(by1 + 3) * 16}")
+    L.append(f"                FT_VERTEX2F {(bx2 - 3) * 16}, {(by2 - 3) * 16}")
+    L.append("                FT_END")
+    L.append("                FT_COLOR_A 255")
+    L.append("                FT_COLOR_RGB 255, 255, 255")
+    L.append("Town_Info_Box_DL_SIZE EQU $ - Town_Info_Box_DL")
+    L.append(f"TOWN_INFO_TITLE_Y    EQU {INFO_TITLE_Y} * 16")
+    L.append(f"TOWN_INFO_LINE0_Y    EQU {INFO_LINE0_Y} * 16")
+    L.append(f"TOWN_INFO_LINE_H     EQU {INFO_LINE_H} * 16")
+    L.append("")
     L.append("                endif")
     TOWN_INC.write_text("\n".join(L), encoding="utf-8")
 
@@ -363,6 +471,9 @@ def main() -> int:
     palette = read_palette(agg_entry(agg, ent, "KB.PAL"))
     town_img, placed, block_hit = load_town(palette)
     names_masks = [render_name_mask(agg, ent, nm) for nm in KNIGHT_NAMES]  # hover-имена зданий
+    font_masks = bake_font(agg, ent)                                       # атлас глифов для текста
+    glyph_w = {chr(32 + i): font_masks[i][1] for i in range(len(font_masks))}
+    wrapped_descs = [wrap_desc(d, glyph_w) for d in KNIGHT_DESCS]          # описания → строки
 
     if args.preview:
         from PIL import Image
@@ -380,8 +491,8 @@ def main() -> int:
         return 0
 
     strip_img = load_strip(palette)
-    payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs = build_payload(
-        palette, town_img, strip_img, names_masks)
+    payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs = build_payload(
+        palette, town_img, strip_img, names_masks, font_masks)
     summary = build_pak(
         [{"type": TYPE_RAMG_BLOB, "target": TOWN_RAMG_BASE, "data": bytes(payload)}],
         TOWN_PAK_PATH,
@@ -391,7 +502,7 @@ def main() -> int:
         "payload_sectors": (len(payload) + SECTOR - 1) // SECTOR,
         "body_start_sector": summary["body_start_sector"],
     }
-    emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, block_hit, pak)
+    emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, block_hit, pak, wrapped_descs)
     print(f"town pack -> {TOWN_PAK_PATH.name}: {len(placed)} построек, "
           f"payload={len(payload)} байт ({pak['payload_sectors']} сект), PAK={summary['total_bytes']} байт")
     print(f"  inc: {TOWN_INC}")

@@ -10,6 +10,8 @@
 
 TownExitLatch:  DEFB 1            ; 1 на входе (гасит «зажатый» клик-вход), 0 после отпускания ЛКМ
 TownHoverIdx:   DEFB 0            ; здание под курсором (1-based из TownHitMap; 0=нет) для hover-имени
+TownInfoIdx:    DEFB 0            ; здание для right-click инфо-попапа (1-based; 0=попап скрыт)
+TownInfoLineY:  DEFW 0            ; текущий Y строки описания в попапе (vertex 1/16px)
 
 ; Курсор → блок 8×8 хит-карты → индекс здания (TownHitMap). OUT: TownHoverIdx. Только в зоне замка (Y<256).
 Town_HitTest:
@@ -53,6 +55,77 @@ Town_HitTest:
                 LD   (TownHoverIdx), A
                 RET
 
+; ============================================================================
+; Динамический рендер текста (keystone для попапов/найма/диалогов). Глиф = спрайт из
+; FontGlyphTab (атлас SMALFONT в RAM_G, белая-альфа), перо двигает Render_DrawSpriteEntry.
+; ============================================================================
+; Render_DrawString — null-term строка (HL) пером (ResPenX/ResPenY). OUT: HL на терминаторе.
+Render_DrawString:
+.loop:          LD   A, (HL)
+                OR   A
+                RET  Z
+                PUSH HL
+                SUB  32                            ; char → idx глифа
+                LD   L, A
+                LD   H, 0
+                LD   D, H
+                LD   E, L
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, DE                        ; idx*5
+                LD   DE, FontGlyphTab
+                ADD  HL, DE
+                CALL Render_DrawSpriteEntry        ; глиф @ перо, ResPenX += w*16
+                POP  HL
+                INC  HL
+                JR   .loop
+
+; Town_StrPixW — ширина строки (HL) в нативных px → BC. HL сохраняется.
+Town_StrPixW:
+                PUSH HL
+                LD   BC, 0
+.l:             LD   A, (HL)
+                OR   A
+                JR   Z, .done
+                PUSH HL
+                SUB  32
+                LD   L, A
+                LD   H, 0
+                LD   D, H
+                LD   E, L
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, DE                        ; idx*5
+                LD   DE, FontGlyphTab + 3          ; +3 → поле w
+                ADD  HL, DE
+                LD   A, (HL)                       ; ширина глифа
+                POP  HL
+                ADD  A, C
+                LD   C, A
+                JR   NC, .nocar
+                INC  B
+.nocar:         INC  HL
+                JR   .l
+.done:          POP  HL
+                RET
+
+; Render_DrawStringCentered — строка (HL) по центру X (экран 1024 → 512), ResPenY задан. OUT: HL на терм.
+Render_DrawStringCentered:
+                PUSH HL
+                CALL Town_StrPixW                  ; BC = ширина
+                SRL  B
+                RR   C                             ; BC = w/2
+                LD   HL, 512
+                OR   A
+                SBC  HL, BC                        ; 512 − w/2
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL                        ; ×16 (vertex)
+                LD   (ResPenX), HL
+                POP  HL
+                JP   Render_DrawString
+
 ; Вход в город (вызывается через Town_Enter_Tramp; чёрный кадр уже показан трамплином).
 ; Стрим композита города в RAM_G[0] + установка состояния. GameMode уже не важен здесь —
 ; ставит трамплин? нет: ставим тут, пока slot3=town (GameMode — резидентная переменная, ок).
@@ -89,7 +162,14 @@ Town_LoadFromPak:
 ; (резидентный Town_Update_Tramp по A=1 зовёт Adventure_Enter — slot3-edge).
 Town_Update:
                 CALL Town_HitTest                 ; здание под курсором → TownHoverIdx (для hover-имени)
-                CALL Input_MouseLMB               ; NZ = нажато
+                CALL Input_MouseRMB               ; ПКМ зажата → инфо-попап по зданию (faithful Dialog::Message)
+                JR   Z, .noinfo
+                LD   A, (TownHoverIdx)            ; зажата → попап для здания под курсором (0=фон=нет)
+                LD   (TownInfoIdx), A
+                JR   .lmb
+.noinfo:        XOR  A
+                LD   (TownInfoIdx), A             ; отпущена → попап скрыт
+.lmb:           CALL Input_MouseLMB               ; NZ = нажато
                 JR   NZ, .pressed
                 XOR  A
                 LD   (TownExitLatch), A            ; отпущено → сбросить latch; A=0 (выхода нет)
@@ -143,6 +223,9 @@ Render_Town:
                 LD   HL, Town_DL
                 LD   BC, Town_DL_SIZE
                 CALL Render_CmdBufCopy
+                LD   A, (TownInfoIdx)             ; right-click инфо-попап — приоритет над hover-именем
+                OR   A
+                JP   NZ, .popup
                 ; --- hover-имя здания в статус-баре (faithful castle_dialog.cpp) ---
                 LD   A, (TownHoverIdx)
                 OR   A
@@ -188,5 +271,60 @@ Render_Town:
 .noname:        CALL Render_GlobalCursor          ; курсор (содержит DISPLAY)
                 CALL Render_SwapFrameDMA          ; vsync перед DMA+DLSWAP
                 RET
+
+; --- right-click инфо-попап: рамка + заголовок(имя) + описание построчно (faithful Dialog::Message) ---
+.popup:         LD   HL, Town_Info_Box_DL
+                LD   BC, Town_Info_Box_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   HL, Town_Name_Begin_DL       ; пролог текста: transform native + палитра + BEGIN BITMAPS
+                LD   BC, Town_Name_Begin_DL_SIZE
+                CALL Render_CmdBufCopy
+                ; заголовок = имя здания по центру
+                LD   A, (TownInfoIdx)
+                DEC  A
+                LD   L, A
+                LD   H, 0
+                ADD  HL, HL                        ; idx*2 (таблица DW)
+                LD   DE, TownNameStrTab
+                ADD  HL, DE
+                LD   A, (HL)
+                INC  HL
+                LD   H, (HL)
+                LD   L, A                           ; HL = &имя (null-term)
+                LD   DE, TOWN_INFO_TITLE_Y
+                LD   (ResPenY), DE
+                CALL Render_DrawStringCentered
+                ; описание: блок строк, каждая по центру, Y из TownInfoLineY
+                LD   A, (TownInfoIdx)
+                DEC  A
+                LD   L, A
+                LD   H, 0
+                ADD  HL, HL
+                LD   DE, TownDescTab
+                ADD  HL, DE
+                LD   A, (HL)
+                INC  HL
+                LD   H, (HL)
+                LD   L, A                           ; HL = &блок строк
+                LD   DE, TOWN_INFO_LINE0_Y
+                LD   (TownInfoLineY), DE
+.descloop:      LD   A, (HL)
+                OR   A
+                JR   Z, .descdone                  ; пустая строка → конец блока
+                LD   DE, (TownInfoLineY)
+                LD   (ResPenY), DE
+                CALL Render_DrawStringCentered     ; HL → терминатор строки
+                INC  HL                             ; HL → начало следующей строки
+                PUSH HL
+                LD   HL, (TownInfoLineY)
+                LD   DE, TOWN_INFO_LINE_H
+                ADD  HL, DE
+                LD   (TownInfoLineY), HL
+                POP  HL
+                JR   .descloop
+.descdone:      LD   HL, Town_Name_End_DL
+                LD   BC, Town_Name_End_DL_SIZE
+                CALL Render_CmdBufCopy
+                JR   .noname
 
 TOWN_NAME_Y     EQU 745 * 16       ; статус-бар (экран y≈745, в нижней панели), vertex 1/16px

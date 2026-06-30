@@ -221,6 +221,13 @@ Input_MouseLMB: LD   A, Input.Mouse.SVK_LBUTTON
                 CP   Input.Mouse.SVK_LBUTTON
                 RET
 
+; Input_MouseRMB -> NZ = ПКМ нажата, Z = отпущена. Та же active-LOW семантика, что у LMB
+; (порт #FADF, бит SVK_RBUTTON=%010). Для right-click инфо-попапов (castle_dialog.cpp).
+Input_MouseRMB: LD   A, Input.Mouse.SVK_RBUTTON
+                CALL Input.Mouse.KeyState
+                CP   Input.Mouse.SVK_RBUTTON
+                RET
+
 ; ----------------------------------------------------------------------------
 ; Input_Poll — компактное состояние для HMM2 adventure map.
 ; Биты InputState:
