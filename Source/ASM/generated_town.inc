@@ -41,8 +41,8 @@ Town_DL:
 Town_DL_SIZE EQU $ - Town_DL
 
 TOWN_RAMG_BASE       EQU #000000
-TOWN_PAYLOAD_BYTES   EQU 421584
-TOWN_PAYLOAD_SECTORS EQU 824
+TOWN_PAYLOAD_BYTES   EQU 476946
+TOWN_PAYLOAD_SECTORS EQU 932
 TOWN_BODY_SECTOR     EQU 1
 TownPakName:         DEFB "HMM2TOWN.PAK", 0
 
@@ -393,12 +393,12 @@ RecruitNameTab:
                 DW RecruitNameTab_3
                 DW RecruitNameTab_4
                 DW RecruitNameTab_5
-RecruitNameTab_0: DEFB "Peasant", 0
-RecruitNameTab_1: DEFB "Archer", 0
-RecruitNameTab_2: DEFB "Pikeman", 0
-RecruitNameTab_3: DEFB "Swordsman", 0
-RecruitNameTab_4: DEFB "Cavalry", 0
-RecruitNameTab_5: DEFB "Paladin", 0
+RecruitNameTab_0: DEFB "Recruit Peasants", 0
+RecruitNameTab_1: DEFB "Recruit Archers", 0
+RecruitNameTab_2: DEFB "Recruit Pikemen", 0
+RecruitNameTab_3: DEFB "Recruit Swordsmen", 0
+RecruitNameTab_4: DEFB "Recruit Cavalries", 0
+RecruitNameTab_5: DEFB "Recruit Paladins", 0
 RecruitAvailTab:
                 DW RecruitAvailTab_0
                 DW RecruitAvailTab_1
@@ -438,5 +438,31 @@ RecruitCountTab_2: DEFB "5", 0
 RecruitCountTab_3: DEFB "4", 0
 RecruitCountTab_4: DEFB "3", 0
 RecruitCountTab_5: DEFB "2", 0
+RECRUIT_SPR_PAL_RAMG EQU #066ED0
+Recruit_Mon_Begin_DL:                  ; пролог спрайта монстра: native (×1.6 пред-масштаб), палитра прозрачная idx0
+                FT_BITMAP_TRANSFORM_A 256
+                FT_BITMAP_TRANSFORM_B 0
+                FT_BITMAP_TRANSFORM_D 0
+                FT_BITMAP_TRANSFORM_E 256
+                FT_BITMAP_TRANSFORM_F 0
+                FT_BITMAP_LAYOUT_H 0, 0
+                FT_BITMAP_SIZE_H 0, 0
+                FT_PALETTE_SOURCE RECRUIT_SPR_PAL_RAMG
+                FT_BEGIN FT_BITMAPS
+Recruit_Mon_Begin_DL_SIZE EQU $ - Recruit_Mon_Begin_DL
+RecruitMonSprTab:                      ; [recruit idx] → спрайт монстра [lo,mid,hi,w,h]
+                DEFB #D0, #70, #06, 57, 102
+                DEFB #88, #87, #06, 54, 105
+                DEFB #B0, #9D, #06, 68, 118
+                DEFB #08, #BD, #06, 59, 113
+                DEFB #14, #D7, #06, 115, 155
+                DEFB #B8, #1C, #07, 78, 139
+RecruitMonPosTab:                      ; [recruit idx] → позиция спрайта (vertex) [Xlo,Xhi,Ylo,Yhi]
+                DEFB #90, #14, #70, #0F
+                DEFB #A0, #14, #40, #0F
+                DEFB #30, #14, #70, #0E
+                DEFB #80, #14, #C0, #0E
+                DEFB #C0, #12, #20, #0C
+                DEFB #E0, #13, #20, #0D
 
                 endif

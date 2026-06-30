@@ -387,6 +387,40 @@ Render_Town:
 .recruit:       LD   HL, Recruit_Win_DL
                 LD   BC, Recruit_Win_DL_SIZE
                 CALL Render_CmdBufCopy
+                ; --- спрайт монстра (боевой статик ×1.6, прозрачная палитра idx0) ---
+                LD   HL, Recruit_Mon_Begin_DL
+                LD   BC, Recruit_Mon_Begin_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   A, (TownRecruitIdx)           ; позиция = RecruitMonPosTab + idx*4
+                ADD  A, A
+                ADD  A, A
+                LD   L, A
+                LD   H, 0
+                LD   DE, RecruitMonPosTab
+                ADD  HL, DE
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)
+                INC  HL
+                LD   (ResPenX), DE                 ; X спрайта (vertex)
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)
+                LD   (ResPenY), DE                 ; Y спрайта (vertex)
+                LD   A, (TownRecruitIdx)           ; запись = RecruitMonSprTab + idx*5
+                LD   L, A
+                LD   H, 0
+                LD   D, H
+                LD   E, L
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, DE
+                LD   DE, RecruitMonSprTab
+                ADD  HL, DE
+                CALL Render_DrawSpriteEntry        ; спрайт монстра @ перо
+                LD   HL, Town_Name_End_DL          ; закрыть BITMAPS монстра
+                LD   BC, Town_Name_End_DL_SIZE
+                CALL Render_CmdBufCopy
                 LD   HL, Town_Name_Begin_DL       ; пролог текста (native + палитра + BEGIN BITMAPS)
                 LD   BC, Town_Name_Begin_DL_SIZE
                 CALL Render_CmdBufCopy

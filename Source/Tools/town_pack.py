@@ -16,7 +16,7 @@ from pathlib import Path
 from agg_tools import read_agg_index_with_expansion
 from object_atlas import agg_entry, read_icn, read_palette
 from pak_builder import build_pak, TYPE_RAMG_BLOB, SECTOR
-from viewport_pack import align, decode_icn_indices, palette_argb4444_opaque
+from viewport_pack import align, decode_icn_indices, palette_argb4444_opaque, palette_argb4444
 
 ROOT = Path(__file__).resolve().parents[2]
 AGG_PATH = ROOT / "Assets" / "Original" / "DATA" / "HEROES2.AGG"
@@ -98,9 +98,15 @@ INFO_WRAP_PX = 404                 # ширина обёртки текста (�
 
 # Диалог найма (Dialog::RecruitMonster). Окно = RECRBKG[0] (321×304, оригинал, с рамками/полем
 # счётчика). 6 базовых Knight-монстров (monster_info.cpp: имя | прирост | цена золота).
-RECRUIT_NAMES = ["Peasant", "Archer", "Pikeman", "Swordsman", "Cavalry", "Paladin"]
+# Заголовок = "Recruit %{name}" с мн.ч. (dialog_recruit.cpp:162 GetMultiName, monster_info.cpp plural).
+RECRUIT_NAMES = ["Recruit Peasants", "Recruit Archers", "Recruit Pikemen",
+                 "Recruit Swordsmen", "Recruit Cavalries", "Recruit Paladins"]
 RECRUIT_COST  = [20, 150, 200, 250, 300, 600]     # золото за 1 (GetCost().gold)
 RECRUIT_AVAIL = [12, 8, 5, 4, 3, 2]               # базовый прирост = доступно в свежем жилище
+# Боевой спрайт монстра (GetMonsterSprite, monster_info.cpp:137), статик-кадр = 1 (battle_pack STATIC1).
+RECRUIT_ICN   = ["PEASANT.ICN", "ARCHER.ICN", "PIKEMAN.ICN", "SWORDSMN.ICN", "CAVALRYR.ICN", "PALADIN.ICN"]
+RECR_MON_FRAME = 1
+RECR_MON_ANCHOR = (64, 130)        # window-local: центр X / низ Y спрайта монстра (левая зона)
 # building idx (1-based, параллельно KNIGHT_BUILDINGS) → recruit idx (0..5); прочее = 255 (не жилище).
 DWELLING_MAP = {9: 1, 13: 4, 14: 5, 15: 0, 16: 2, 17: 3}
 RECR_W, RECR_H = 321, 304          # размер RECRBKG[0] (native)
@@ -338,7 +344,32 @@ def bake_recruit_window(agg, ent):
     return bytes(buf)
 
 
-def build_payload(palette, town_img, strip_img, names_masks, font_masks, recruit_win):
+def _prescale16(gi, w, h):
+    """Nearest ×1.6 (×16/10) апскейл индексного буфера (1Б/px) → (bytes, nw, nh)."""
+    nw, nh = w * 16 // 10, h * 16 // 10
+    out = bytearray(nw * nh)
+    for oy in range(nh):
+        srow = (oy * 10 // 16) * w
+        orow = oy * nw
+        for ox in range(nw):
+            out[orow + ox] = gi[srow + ox * 10 // 16]
+    return bytes(out), nw, nh
+
+
+def bake_recruit_monsters(agg, ent):
+    """6 боевых спрайтов Knight (статик-кадр), пред-масштаб ×1.6, индексы KB.PAL (idx0=прозрачно).
+    → [(sprite, W, H)]; W<128 (лимит Render_DrawSpriteEntry: stride=W*2 в байте)."""
+    out = []
+    for icn in RECRUIT_ICN:
+        h, e = read_icn(agg_entry(agg, ent, icn))[RECR_MON_FRAME]
+        gi = decode_icn_indices(h, e)              # idx0=прозрачно, 1..255=KB.PAL
+        spr, nw, nh = _prescale16(gi, h["w"], h["h"])
+        assert nw < 128, f"{icn} ×1.6 width {nw} >= 128"
+        out.append((spr, nw, nh))
+    return out
+
+
+def build_payload(palette, town_img, strip_img, names_masks, font_masks, recruit_win, monster_sprites):
     payload = bytearray()
 
     def put(raw: bytes) -> int:
@@ -360,10 +391,14 @@ def build_payload(palette, town_img, strip_img, names_masks, font_masks, recruit
     name_addrs = [(put(m), w, h) for (m, w, h) in names_masks]   # [имя]=(addr,w,h)
     font_addrs = [(put(m), w, h) for (m, w, h) in font_masks]    # [char-32]=(addr,w,h)
     recruit_addr = put(recruit_win)                              # окно найма RECRBKG (один на все жилища)
-    return payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, recruit_addr
+    spr_pal_addr = put(palette_argb4444(palette))                # палитра спрайтов: idx0 ПРОЗРАЧЕН
+    mon_addrs = [(put(s), w, h) for (s, w, h) in monster_sprites]  # [recruit idx]=(addr,w,h)
+    return (payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs,
+            recruit_addr, spr_pal_addr, mon_addrs)
 
 
-def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, block_hit, pak, wrapped_descs, recruit_addr):
+def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, block_hit, pak,
+             wrapped_descs, recruit_addr, spr_pal_addr, mon_addrs):
     L = []
     L.append("; Сгенерировано Source/Tools/town_pack.py — экран города (Knight, потоковый HMM2TOWN.PAK).")
     L.append("                ifndef _HMM2_GENERATED_TOWN_")
@@ -525,6 +560,31 @@ def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_add
     strtab("RecruitAvailTab", lambda i: f"Available: {RECRUIT_AVAIL[i]}")
     strtab("RecruitCostTab", lambda i: f"Cost: {RECRUIT_COST[i]} gold")
     strtab("RecruitCountTab", lambda i: str(RECRUIT_AVAIL[i]))
+    # --- спрайт монстра (боевой статик-кадр ×1.6) в окне найма ---
+    L.append(f"RECRUIT_SPR_PAL_RAMG EQU #{spr_pal_addr:06X}")
+    L.append("Recruit_Mon_Begin_DL:                  ; пролог спрайта монстра: native (×1.6 пред-масштаб), палитра прозрачная idx0")
+    L.append("                FT_BITMAP_TRANSFORM_A 256")
+    L.append("                FT_BITMAP_TRANSFORM_B 0")
+    L.append("                FT_BITMAP_TRANSFORM_D 0")
+    L.append("                FT_BITMAP_TRANSFORM_E 256")
+    L.append("                FT_BITMAP_TRANSFORM_F 0")
+    L.append("                FT_BITMAP_LAYOUT_H 0, 0")
+    L.append("                FT_BITMAP_SIZE_H 0, 0")
+    L.append("                FT_PALETTE_SOURCE RECRUIT_SPR_PAL_RAMG")
+    L.append("                FT_BEGIN FT_BITMAPS")
+    L.append("Recruit_Mon_Begin_DL_SIZE EQU $ - Recruit_Mon_Begin_DL")
+    L.append("RecruitMonSprTab:                      ; [recruit idx] → спрайт монстра [lo,mid,hi,w,h]")
+    for (addr, w, h) in mon_addrs:
+        L.append(f"                DEFB #{addr & 0xFF:02X}, #{(addr >> 8) & 0xFF:02X}, "
+                 f"#{(addr >> 16) & 0xFF:02X}, {w}, {h}")
+    ax = rsx + round(RECR_MON_ANCHOR[0] * 1.6)     # экран X центра монстра
+    ayb = rsy + round(RECR_MON_ANCHOR[1] * 1.6)    # экран Y низа монстра
+    L.append("RecruitMonPosTab:                      ; [recruit idx] → позиция спрайта (vertex) [Xlo,Xhi,Ylo,Yhi]")
+    for (addr, w, h) in mon_addrs:
+        px = (ax - w // 2) * 16
+        py = (ayb - h) * 16
+        L.append(f"                DEFB #{px & 0xFF:02X}, #{(px >> 8) & 0xFF:02X}, "
+                 f"#{py & 0xFF:02X}, #{(py >> 8) & 0xFF:02X}")
     L.append("")
     L.append("                endif")
     TOWN_INC.write_text("\n".join(L), encoding="utf-8")
@@ -560,8 +620,10 @@ def main() -> int:
 
     strip_img = load_strip(palette)
     recruit_win = bake_recruit_window(agg, ent)
-    payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, recruit_addr = build_payload(
-        palette, town_img, strip_img, names_masks, font_masks, recruit_win)
+    monster_sprites = bake_recruit_monsters(agg, ent)
+    (payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs,
+     recruit_addr, spr_pal_addr, mon_addrs) = build_payload(
+        palette, town_img, strip_img, names_masks, font_masks, recruit_win, monster_sprites)
     summary = build_pak(
         [{"type": TYPE_RAMG_BLOB, "target": TOWN_RAMG_BASE, "data": bytes(payload)}],
         TOWN_PAK_PATH,
@@ -571,7 +633,8 @@ def main() -> int:
         "payload_sectors": (len(payload) + SECTOR - 1) // SECTOR,
         "body_start_sector": summary["body_start_sector"],
     }
-    emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, block_hit, pak, wrapped_descs, recruit_addr)
+    emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, block_hit, pak,
+             wrapped_descs, recruit_addr, spr_pal_addr, mon_addrs)
     print(f"town pack -> {TOWN_PAK_PATH.name}: {len(placed)} построек, "
           f"payload={len(payload)} байт ({pak['payload_sectors']} сект), PAK={summary['total_bytes']} байт")
     print(f"  inc: {TOWN_INC}")
