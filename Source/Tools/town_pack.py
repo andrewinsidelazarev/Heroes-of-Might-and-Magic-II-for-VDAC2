@@ -113,11 +113,16 @@ GARRISON_MONH = ["MONH0000.ICN", "MONH0001.ICN", "MONH0003.ICN", "MONH0005.ICN",
 # building idx (1-based, параллельно KNIGHT_BUILDINGS) → recruit idx (0..5); прочее = 255 (не жилище).
 DWELLING_MAP = {9: 1, 13: 4, 14: 5, 15: 0, 16: 2, 17: 3}
 RECR_W, RECR_H = 321, 304          # размер RECRBKG[0] (native)
-# Поле счётчика на RECRBKG — (134,159) 68×19 (dialog_recruit.cpp:286). Центр = (168,164).
-RECR_COUNT_XY = (168, 162)
-RECR_NAME_Y   = 20                 # имя монстра (центр сверху)
-RECR_AVAIL_Y  = 185               # "Available: N" (центр)
-RECR_COST_Y   = 242               # "Cost: N gold" (центр, наша строка под полем)
+# Координаты — window-local native, ТОЧНО по dialog_recruit.cpp (RedrawMonsterInfo/RedrawCurrentInfo).
+RECR_COUNT_XY = (151, 147)         # число-счётчик (result) — x+151 центр, y+147 (стр.106)
+RECR_NAME_Y   = 11                 # заголовок "Recruit X" normalYellow — y+11 центр (стр.165)
+RECR_AVAIL_X  = 64                 # "Available: N" smallWhite — центр x+64 (центр спрайта), y+120 (стр.215)
+RECR_AVAIL_Y  = 120
+RECR_NUMBUY_X = 107                # "Number to buy:" smallWhite — ПРАВЫЙ край x+107, y+149 (стр.219)
+RECR_NUMBUY_Y = 149
+RECR_TOTAL_X  = 144                # итог "N (остаток)" smallWhite — центр x+144, y+214 (стр.124)
+RECR_TOTAL_Y  = 214
+RECR_TOTGOLD_XY = (124, 184)       # икона золота итога — (px1-45, py1+125) = (169-45, 59+125) (стр.151)
 
 
 def load_town(palette):
@@ -567,8 +572,14 @@ def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_add
     L.append("Recruit_Win_DL_SIZE EQU $ - Recruit_Win_DL")
     L.append(f"RECR_NAME_VY         EQU {(rsy + round(RECR_NAME_Y * 1.6)) * 16}")
     L.append(f"RECR_AVAIL_VY        EQU {(rsy + round(RECR_AVAIL_Y * 1.6)) * 16}")
-    L.append(f"RECR_COST_VY         EQU {(rsy + round(RECR_COST_Y * 1.6)) * 16}")
+    L.append(f"RECR_NUMBUY_VY       EQU {(rsy + round(RECR_NUMBUY_Y * 1.6)) * 16}")
+    L.append(f"RECR_COST_VY         EQU {(rsy + round(RECR_TOTAL_Y * 1.6)) * 16}")    # итог "N" (центр)
     L.append(f"RECR_COUNT_VY        EQU {(rsy + round(RECR_COUNT_XY[1] * 1.6)) * 16}")
+    L.append(f"RECR_AVAIL_CX        EQU {rsx + round(RECR_AVAIL_X * 1.6)}")            # центр Available (экран px)
+    L.append(f"RECR_NUMBUY_RX       EQU {rsx + round(RECR_NUMBUY_X * 1.6)}")           # правый край Number to buy (px)
+    L.append(f"RECR_TOTAL_CX        EQU {rsx + round(RECR_TOTAL_X * 1.6)}")            # центр итога (px)
+    L.append(f"RECR_TOTGOLD_VX      EQU {(rsx + round(RECR_TOTGOLD_XY[0] * 1.6)) * 16}")  # икона золота итога
+    L.append(f"RECR_TOTGOLD_VY      EQU {(rsy + round(RECR_TOTGOLD_XY[1] * 1.6)) * 16}")
     # building idx (1-based) → recruit idx (0..5) или 255 (не жилище)
     dmap = [DWELLING_MAP.get(i, 255) for i in range(1, len(KNIGHT_BUILDINGS) + 1)]
     L.append("TownDwellingMap:                       ; [idx-1] → recruit idx (0..5); 255 = не жилище")
@@ -631,8 +642,7 @@ def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_add
     L.append("RecruitCostNum:                        ; [recruit idx] → цена-за-1 (DW), для total")
     for i in range(len(RECRUIT_COST)):
         L.append(f"                DW {RECRUIT_COST[i]}")
-    L.append('RecruitCostPfx: DEFB "Cost: ", 0')
-    L.append('RecruitGoldSfx: DEFB " gold", 0')
+    L.append('RecruitNumBuy:  DEFB "Number to buy:", 0')   # smallWhite, право-выр. (dialog_recruit.cpp:218)
     L.append('RecruitAvailPfx: DEFB "Available: ", 0')
     L.append(f"START_GOLD           EQU {START_FUNDS['gold']}")   # стартовая казна (kingdom funds, 3c)
     # Позиция живого золота на панели (3d): центр ячейки золота strip-local (593,156), панель ×1.6 @ screen y0.

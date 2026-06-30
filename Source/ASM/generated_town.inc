@@ -380,10 +380,16 @@ Recruit_Win_DL:                        ; окно найма RECRBKG ×1.6 по 
                 FT_VERTEX2F 4080, 2256
                 FT_END
 Recruit_Win_DL_SIZE EQU $ - Recruit_Win_DL
-RECR_NAME_VY         EQU 2768
-RECR_AVAIL_VY        EQU 6992
-RECR_COST_VY         EQU 8448
-RECR_COUNT_VY        EQU 6400
+RECR_NAME_VY         EQU 2544
+RECR_AVAIL_VY        EQU 5328
+RECR_NUMBUY_VY       EQU 6064
+RECR_COST_VY         EQU 7728
+RECR_COUNT_VY        EQU 6016
+RECR_AVAIL_CX        EQU 357
+RECR_NUMBUY_RX       EQU 426
+RECR_TOTAL_CX        EQU 485
+RECR_TOTGOLD_VX      EQU 7248
+RECR_TOTGOLD_VY      EQU 6960
 TownDwellingMap:                       ; [idx-1] → recruit idx (0..5); 255 = не жилище
                 DEFB 255, 255, 255, 255, 255, 255, 255, 255, 1, 255, 255, 255, 4, 5, 0, 2, 3, 255, 255
 RecruitNameTab:
@@ -498,8 +504,7 @@ RecruitCostNum:                        ; [recruit idx] → цена-за-1 (DW),
                 DW 250
                 DW 300
                 DW 600
-RecruitCostPfx: DEFB "Cost: ", 0
-RecruitGoldSfx: DEFB " gold", 0
+RecruitNumBuy:  DEFB "Number to buy:", 0
 RecruitAvailPfx: DEFB "Available: ", 0
 START_GOLD           EQU 7500
 GOLD_PANEL_VX        EQU 14992

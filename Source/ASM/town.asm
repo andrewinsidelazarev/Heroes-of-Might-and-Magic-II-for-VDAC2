@@ -820,6 +820,12 @@ Render_Town:
                 LD   (ResPenY), HL
                 LD   HL, RecruitGoldRec
                 CALL Render_DrawSpriteEntry        ; та же прозрачная палитра, что у монстра
+                LD   HL, RECR_TOTGOLD_VX           ; иконка золота ИТОГА под полем (по оригиналу стр.151)
+                LD   (ResPenX), HL
+                LD   HL, RECR_TOTGOLD_VY
+                LD   (ResPenY), HL
+                LD   HL, RecruitGoldRec
+                CALL Render_DrawSpriteEntry
                 LD   HL, Town_Name_End_DL          ; закрыть BITMAPS монстра+иконки
                 LD   BC, Town_Name_End_DL_SIZE
                 CALL Render_CmdBufCopy
@@ -838,25 +844,27 @@ Render_Town:
                 LD   HL, #04FF                    ; COLOR_RGB 255,255,255 — остальной текст белый
                 LD   DE, #FFFF
                 CALL Render_CmdBufWrite32
-                LD   HL, RECR_AVAIL_VY             ; "Available: " + динамич. DwellAvail[idx]
+                LD   HL, RECR_AVAIL_VY             ; "Available: N" ПОД спрайтом (центр x+64, y+120)
                 LD   (ResPenY), HL
-                LD   HL, 448 * 16
+                LD   HL, 310 * 16                  ; ≈центр 357 для "Available: " (лево-выр.)
                 LD   (ResPenX), HL
                 LD   HL, RecruitAvailPfx
                 CALL Render_DrawString
                 CALL Town_RecAvail                 ; DE = доступно
                 EX   DE, HL
                 CALL Render_DrawNum
-                LD   HL, RECR_COST_VY              ; нижняя строка: "Cost: " + count×цена + " gold"
+                LD   HL, RECR_NUMBUY_VY            ; "Number to buy:" (по оригиналу стр.218, был пропущен)
                 LD   (ResPenY), HL
-                LD   HL, 450 * 16
+                LD   HL, 314 * 16
                 LD   (ResPenX), HL
-                LD   HL, RecruitCostPfx
+                LD   HL, RecruitNumBuy
                 CALL Render_DrawString
+                LD   HL, RECR_COST_VY             ; итог = ЧИСЛО у иконки золота (НЕ «Cost: N gold» текстом)
+                LD   (ResPenY), HL
+                LD   HL, 465 * 16
+                LD   (ResPenX), HL
                 CALL Town_RecTotal                 ; HL = TownRecruitCount × цена-за-1
                 CALL Render_DrawNum
-                LD   HL, RecruitGoldSfx
-                CALL Render_DrawString
                 LD   HL, RECR_COUNT_VY             ; счётчик (динамический TownRecruitCount)
                 LD   (ResPenY), HL
                 LD   HL, 505 * 16
