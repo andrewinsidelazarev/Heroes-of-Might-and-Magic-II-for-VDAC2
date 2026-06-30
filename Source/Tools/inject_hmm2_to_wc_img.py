@@ -351,6 +351,7 @@ def prepare_host_package(root: Path) -> list[Path]:
         (root / "Build" / "HMM2TOWN.PAK", package_dir / "HMM2TOWN.PAK"),
         (root / "Build" / "HMM2BATL.PAK", package_dir / "HMM2BATL.PAK"),
         (root / "Build" / "HMM2HISC.PAK", package_dir / "HMM2HISC.PAK"),
+        (root / "Build" / "HMM2SCN.PAK", package_dir / "HMM2SCN.PAK"),
     ]
     for src, dst in files:
         if src.exists():

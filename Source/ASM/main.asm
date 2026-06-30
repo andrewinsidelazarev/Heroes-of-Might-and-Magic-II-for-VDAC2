@@ -327,6 +327,11 @@ Music_Tick_Tramp:
                 RET
 
 HiScores_EnterStandard_Tramp:
+                LD   A, HMM2_HISCORES_PAGE
+                LD   (ScnOvlPage), A
+                LD   A, SCN_HISC_SECTOR
+                LD   (ScnOvlSkip), A
+                CALL Scene_LoadOverlay            ; стрим hiscores.asm в #A5 из HMM2SCN.PAK
                 GetPage3
                 PUSH AF
                 LD   A, HMM2_HISCORES_PAGE
@@ -381,6 +386,11 @@ Scene_RunOvl:
 ; --- Город (town.asm в HMM2_TOWN_PAGE) ---
 Town_Enter_Tramp:
                 CALL Render_BlackFrame            ; чёрный кадр (резидент, ДО перезаписи RAM_G)
+                LD   A, HMM2_TOWN_PAGE
+                LD   (ScnOvlPage), A
+                LD   A, SCN_TOWN_SECTOR
+                LD   (ScnOvlSkip), A
+                CALL Scene_LoadOverlay            ; стрим town.asm в #A6 из HMM2SCN.PAK
                 LD   B, HMM2_TOWN_PAGE
                 LD   HL, Town_Enter
                 JP   Scene_RunOvl
@@ -398,6 +408,11 @@ Town_Update_Tramp:                                ; Town_Update вернёт A=1
 ; --- Бой (battle.asm в HMM2_BATTLE_PAGE) ---
 Battle_Enter_Tramp:
                 CALL Render_BlackFrame            ; чёрный кадр (резидент, ДО перезаписи RAM_G)
+                LD   A, HMM2_BATTLE_PAGE
+                LD   (ScnOvlPage), A
+                LD   A, SCN_BATTLE_SECTOR
+                LD   (ScnOvlSkip), A
+                CALL Scene_LoadOverlay            ; стрим battle.asm в #A8 из HMM2SCN.PAK
                 LD   B, HMM2_BATTLE_PAGE
                 LD   HL, Battle_Enter
                 JP   Scene_RunOvl
@@ -412,6 +427,50 @@ Battle_Update_Tramp:                              ; Battle_Update вернёт A
                 OR   A
                 RET  Z
                 JP   Adventure_Enter              ; выход: назад на карту (резидент)
+
+; --- Стрим ОВЕРЛЕЯ сцены (код) в его slot3-страницу из HMM2SCN.PAK (как карта из HMM2MAP) ---
+; IN: (ScnOvlPage)=целевая страница (#A6/#A8/#A5), (ScnOvlSkip)=body-сектор оверлея в PAK.
+; В slot1 (loader ремапит slot2). Зовётся ТОЛЬКО из Enter-трамплинов (Update/Render не нужно —
+; оверлей уже в странице, она не клоберится: карта=#20-8F, курсор=#A2/3, буфер=#A1).
+Scene_LoadOverlay:
+                LD   HL, ScnPakName
+                LD   DE, MenuNameBuf
+                LD   BC, 13
+                LDIR
+                CALL Loader_Init
+                CALL Loader_Mount
+                RET  NC
+                LD   HL, MenuNameBuf
+                CALL Loader_OpenFile
+                RET  NC
+                LD   A, (ScnOvlSkip)              ; пропустить header+предыдущие оверлеи
+                CALL Scene_Skip
+                LD   A, (ScnOvlPage)              ; целевая страница оверлея
+                LD   C, A
+                LD   B, SCN_OVL_SECTORS           ; 32 сектора = 16КБ = полная страница
+                LD   HL, 0
+                CALL Loader_ReadSectors          ; оверлей с SD → страница C
+                RET
+Scene_Skip:                                      ; A = секторов пропустить (в buffer, чанками ≤32)
+.sk:            OR   A
+                RET  Z
+                LD   B, 32
+                CP   32
+                JR   NC, .full
+                LD   B, A
+.full:          PUSH AF                          ; сохранить остаток (raw_pak клоберит A/B)
+                PUSH BC                          ; сохранить размер чанка
+                LD   C, RAWPAK_BUF_PAGE
+                LD   HL, 0
+                CALL Loader_ReadSectors
+                POP  BC
+                POP  AF
+                SUB  B
+                JR   .sk
+ScnOvlPage:     DB   0
+ScnOvlSkip:     DB   0
+                include "generated_scn_stream.inc"
+
 ; Мост adventure→сцена (резидент): клик по тайлу = ВЕСТИ героя к нему. Вход в замок (24,13) / бой
 ; (22,13) — ПО ПРИБЫТИИ героя на тайл (Hero_SelectStepIfArrived), а НЕ мгновенно по клику издалека
 ; (по оригиналу fheroes2: вход = шаг героя на тайл-действие, не клик).
