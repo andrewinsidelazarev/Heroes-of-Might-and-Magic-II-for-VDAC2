@@ -609,6 +609,15 @@ def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_add
     L.append(f"RECR_PT_VX           EQU {ptx}")
     L.append(f"RECR_PT_VY           EQU {pty}")
     strtab("RecruitPerTroopTab", lambda i: str(RECRUIT_COST[i]))   # цена за 1 (число)
+    # --- числовые таблицы для live-счётчика (3b): доступно + цена-за-1 ---
+    L.append("RecruitAvailNum:                       ; [recruit idx] → доступно (DW), кламп счётчика")
+    for i in range(len(RECRUIT_AVAIL)):
+        L.append(f"                DW {RECRUIT_AVAIL[i]}")
+    L.append("RecruitCostNum:                        ; [recruit idx] → цена-за-1 (DW), для total")
+    for i in range(len(RECRUIT_COST)):
+        L.append(f"                DW {RECRUIT_COST[i]}")
+    L.append('RecruitCostPfx: DEFB "Cost: ", 0')
+    L.append('RecruitGoldSfx: DEFB " gold", 0')
     L.append("")
     L.append("                endif")
     TOWN_INC.write_text("\n".join(L), encoding="utf-8")

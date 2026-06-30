@@ -13,6 +13,11 @@ TownHoverIdx:   DEFB 0            ; здание под курсором (1-base
 TownInfoIdx:    DEFB 0            ; здание для right-click инфо-попапа (1-based; 0=попап скрыт)
 TownInfoLineY:  DEFW 0            ; текущий Y строки описания в попапе (vertex 1/16px)
 TownRecruitIdx: DEFB 255          ; диалог найма: 0..5 монстр / 255 = закрыт (Dialog::RecruitMonster)
+TownRecruitCount: DEFW 0          ; текущий счётчик найма (1..available); = available при открытии
+RecMX:          DEFW 0            ; кэш мыши X для хит-теста кнопок найма
+RecMY:          DEFW 0
+RecNumVal:      DEFW 0            ; рабочее для Render_DrawNum
+RecNumStarted:  DEFB 0
 
 ; Курсор → блок 8×8 хит-карты → индекс здания (TownHitMap). OUT: TownHoverIdx. Только в зоне замка (Y<256).
 Town_HitTest:
@@ -138,6 +143,129 @@ Recr_StrPtr:    ADD  A, A                          ; idx*2
                 LD   L, A                           ; HL = указатель строки
                 RET
 
+; Render_DrawNum — HL = беззнаковое число → десятично глифами FontGlyphTab (idx16='0') пером. Вед.нули скрыты.
+RecNumDivs:     DEFW 10000, 1000, 100, 10, 1, 0
+Render_DrawNum:
+                LD   (RecNumVal), HL
+                XOR  A
+                LD   (RecNumStarted), A
+                LD   IX, RecNumDivs
+.dl:            LD   E, (IX+0)
+                LD   D, (IX+1)
+                INC  IX
+                INC  IX
+                LD   A, D
+                OR   E
+                RET  Z                             ; делитель 0 → конец
+                LD   HL, (RecNumVal)
+                LD   B, 0
+.sub:           OR   A
+                SBC  HL, DE
+                JR   C, .done
+                INC  B
+                JR   .sub
+.done:          ADD  HL, DE                        ; восстановить остаток
+                LD   (RecNumVal), HL
+                LD   A, B
+                OR   A
+                JR   NZ, .show
+                LD   A, (RecNumStarted)
+                OR   A
+                JR   NZ, .show
+                LD   A, E                          ; цифра 0, не начато: пропуск кроме единиц (делитель==1)
+                DEC  A
+                OR   D
+                JR   NZ, .dl
+.show:          LD   A, 1
+                LD   (RecNumStarted), A
+                LD   A, B
+                ADD  A, 16                         ; '0' = FontGlyphTab idx 16
+                LD   L, A
+                LD   H, 0
+                LD   D, H
+                LD   E, L
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, DE                        ; idx*5
+                LD   DE, FontGlyphTab
+                ADD  HL, DE
+                PUSH IX
+                CALL Render_DrawSpriteEntry
+                POP  IX
+                JR   .dl
+
+; Town_Box — IX=&rect{x0,x1,y0,y1 words}. OUT: Z=курсор внутри (RecMX/RecMY).
+Town_Box:       LD   L, (IX+0)
+                LD   H, (IX+1)
+                LD   DE, (RecMX)
+                EX   DE, HL
+                OR   A
+                SBC  HL, DE                        ; MX-x0
+                JR   C, .no
+                LD   L, (IX+2)
+                LD   H, (IX+3)
+                LD   DE, (RecMX)
+                EX   DE, HL
+                OR   A
+                SBC  HL, DE                        ; MX-x1
+                JR   NC, .no
+                LD   L, (IX+4)
+                LD   H, (IX+5)
+                LD   DE, (RecMY)
+                EX   DE, HL
+                OR   A
+                SBC  HL, DE
+                JR   C, .no
+                LD   L, (IX+6)
+                LD   H, (IX+7)
+                LD   DE, (RecMY)
+                EX   DE, HL
+                OR   A
+                SBC  HL, DE
+                JR   NC, .no
+                XOR  A
+                RET                                ; внутри
+.no:            OR   1
+                RET
+
+; Прямоугольники кнопок (логич. 640×480, измерены по реальному кадру оригинала RECRBKG ×1.6).
+RecBoxUp:       DEFW 344, 402, 246, 257          ; стрелка вверх (верх ромба)
+RecBoxDn:       DEFW 344, 402, 257, 267          ; стрелка вниз (низ ромба)
+RecBoxMax:      DEFW 414, 470, 244, 266          ; MAX
+RecBoxOk:       DEFW 214, 331, 328, 359          ; OKAY
+RecBoxCancel:   DEFW 367, 459, 336, 359          ; CANCEL
+
+; Town_RecAvail — OUT: DE = доступно для текущего TownRecruitIdx (RecruitAvailNum). Портит HL,AF.
+Town_RecAvail:  LD   A, (TownRecruitIdx)
+                ADD  A, A
+                LD   L, A
+                LD   H, 0
+                LD   DE, RecruitAvailNum
+                ADD  HL, DE
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)
+                RET
+
+; Town_RecTotal — OUT: HL = TownRecruitCount × цена-за-1 (RecruitCostNum[idx]). Портит все.
+Town_RecTotal:  LD   A, (TownRecruitIdx)
+                ADD  A, A
+                LD   L, A
+                LD   H, 0
+                LD   DE, RecruitCostNum
+                ADD  HL, DE
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)                       ; DE = цена-за-1
+                LD   BC, (TownRecruitCount)
+                LD   HL, 0
+.m:             LD   A, B
+                OR   C
+                RET  Z
+                ADD  HL, DE
+                DEC  BC
+                JR   .m
+
 ; Вход в город (вызывается через Town_Enter_Tramp; чёрный кадр уже показан трамплином).
 ; Стрим композита города в RAM_G[0] + установка состояния. GameMode уже не важен здесь —
 ; ставит трамплин? нет: ставим тут, пока slot3=town (GameMode — резидентная переменная, ок).
@@ -180,7 +308,7 @@ Town_Update:
                 ; --- Диалог найма открыт → МОДАЛЬНО: клик ЛКМ закрывает, прочее игнор ---
                 LD   A, (TownRecruitIdx)
                 INC  A                             ; 255→0 (Z = найма нет)
-                JR   Z, .norecruit
+                JP   Z, .norecruit
                 CALL Input_MouseLMB
                 JR   NZ, .rec_pressed
                 XOR  A
@@ -188,14 +316,61 @@ Town_Update:
                 RET
 .rec_pressed:   LD   A, (TownExitLatch)
                 OR   A
-                JR   Z, .rec_close
-                XOR  A                             ; открывающий клик ещё зажат → игнор
+                JR   Z, .rec_act
+                XOR  A                             ; открывающий/повторный клик зажат → игнор
                 RET
-.rec_close:     LD   A, 255
-                LD   (TownRecruitIdx), A           ; закрыть диалог найма
+.rec_act:       ; ЛКМ нажата, latch=0 → ОДНО действие на клик (faithful кнопки диалога найма)
+                CALL Input_MouseX
+                LD   (RecMX), HL
+                CALL Input_MouseY
+                LD   (RecMY), HL
                 LD   A, 1
-                LD   (TownExitLatch), A            ; залатчить закрывающий клик
+                LD   (TownExitLatch), A            ; залатчить (одно действие)
+                LD   IX, RecBoxOk
+                CALL Town_Box
+                JR   Z, .rec_doclose               ; OKAY (найм — Phase 3c; пока закрыть)
+                LD   IX, RecBoxCancel
+                CALL Town_Box
+                JR   Z, .rec_doclose               ; CANCEL
+                LD   IX, RecBoxMax
+                CALL Town_Box
+                JR   Z, .rec_max
+                LD   IX, RecBoxUp
+                CALL Town_Box
+                JR   Z, .rec_up
+                LD   IX, RecBoxDn
+                CALL Town_Box
+                JR   Z, .rec_dn
+                XOR  A                             ; вне кнопок → ничего
+                RET
+.rec_doclose:   LD   A, 255
+                LD   (TownRecruitIdx), A
                 XOR  A
+                RET
+.rec_max:       CALL Town_RecAvail                 ; счётчик = доступно
+                LD   (TownRecruitCount), DE
+                XOR  A
+                RET
+.rec_up:        CALL Town_RecAvail                 ; count++ если < доступно
+                LD   HL, (TownRecruitCount)
+                OR   A
+                SBC  HL, DE
+                JR   NC, .rec_noop                 ; count >= avail
+                LD   HL, (TownRecruitCount)
+                INC  HL
+                LD   (TownRecruitCount), HL
+                XOR  A
+                RET
+.rec_dn:        LD   HL, (TownRecruitCount)        ; count-- если > 1
+                LD   DE, 1
+                OR   A
+                SBC  HL, DE
+                JR   Z, .rec_noop                  ; count==1
+                JR   C, .rec_noop                  ; count==0
+                LD   HL, (TownRecruitCount)
+                DEC  HL
+                LD   (TownRecruitCount), HL
+.rec_noop:      XOR  A
                 RET
 .norecruit:     CALL Town_HitTest                 ; здание под курсором → TownHoverIdx (для hover-имени)
                 CALL Input_MouseRMB               ; ПКМ зажата → инфо-попап по зданию (faithful Dialog::Message)
@@ -228,6 +403,8 @@ Town_Update:
                 CP   255
                 JR   Z, .exitbtn                  ; здание не жилище → проверить EXIT (даст .stay)
                 LD   (TownRecruitIdx), A            ; открыть диалог найма для монстра
+                CALL Town_RecAvail                 ; счётчик = доступно при открытии (как fheroes2 result=max)
+                LD   (TownRecruitCount), DE
                 LD   A, 1
                 LD   (TownExitLatch), A            ; залатчить открывающий клик
                 XOR  A
@@ -442,18 +619,22 @@ Render_Town:
                 LD   DE, RECR_AVAIL_VY
                 LD   (ResPenY), DE
                 CALL Render_DrawStringCentered
-                LD   A, (TownRecruitIdx)           ; "Cost: N gold"
-                LD   DE, RecruitCostTab
-                CALL Recr_StrPtr
-                LD   DE, RECR_COST_VY
-                LD   (ResPenY), DE
-                CALL Render_DrawStringCentered
-                LD   A, (TownRecruitIdx)           ; счётчик (= доступно, фаза 1)
-                LD   DE, RecruitCountTab
-                CALL Recr_StrPtr
-                LD   DE, RECR_COUNT_VY
-                LD   (ResPenY), DE
-                CALL Render_DrawStringCentered
+                LD   HL, RECR_COST_VY              ; нижняя строка: "Cost: " + count×цена + " gold"
+                LD   (ResPenY), HL
+                LD   HL, 450 * 16
+                LD   (ResPenX), HL
+                LD   HL, RecruitCostPfx
+                CALL Render_DrawString
+                CALL Town_RecTotal                 ; HL = TownRecruitCount × цена-за-1
+                CALL Render_DrawNum
+                LD   HL, RecruitGoldSfx
+                CALL Render_DrawString
+                LD   HL, RECR_COUNT_VY             ; счётчик (динамический TownRecruitCount)
+                LD   (ResPenY), HL
+                LD   HL, 505 * 16
+                LD   (ResPenX), HL
+                LD   HL, (TownRecruitCount)
+                CALL Render_DrawNum
                 LD   HL, RECR_PT_VX               ; число цены-за-1 под иконкой золота (лево-выр.)
                 LD   (ResPenX), HL
                 LD   HL, RECR_PT_VY

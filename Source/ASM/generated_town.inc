@@ -484,5 +484,21 @@ RecruitPerTroopTab_2: DEFB "200", 0
 RecruitPerTroopTab_3: DEFB "250", 0
 RecruitPerTroopTab_4: DEFB "300", 0
 RecruitPerTroopTab_5: DEFB "600", 0
+RecruitAvailNum:                       ; [recruit idx] → доступно (DW), кламп счётчика
+                DW 12
+                DW 8
+                DW 5
+                DW 4
+                DW 3
+                DW 2
+RecruitCostNum:                        ; [recruit idx] → цена-за-1 (DW), для total
+                DW 20
+                DW 150
+                DW 200
+                DW 250
+                DW 300
+                DW 600
+RecruitCostPfx: DEFB "Cost: ", 0
+RecruitGoldSfx: DEFB " gold", 0
 
                 endif
