@@ -41,8 +41,8 @@ Town_DL:
 Town_DL_SIZE EQU $ - Town_DL
 
 TOWN_RAMG_BASE       EQU #000000
-TOWN_PAYLOAD_BYTES   EQU 476946
-TOWN_PAYLOAD_SECTORS EQU 932
+TOWN_PAYLOAD_BYTES   EQU 481268
+TOWN_PAYLOAD_SECTORS EQU 940
 TOWN_BODY_SECTOR     EQU 1
 TownPakName:         DEFB "HMM2TOWN.PAK", 0
 
@@ -464,5 +464,25 @@ RecruitMonPosTab:                      ; [recruit idx] → позиция спр
                 DEFB #80, #14, #C0, #0E
                 DEFB #C0, #12, #20, #0C
                 DEFB #E0, #13, #20, #0D
+RECRUIT_GOLD_RAMG    EQU #074714
+RecruitGoldRec:                        ; запись иконки золота [lo,mid,hi,w,h] для DrawSpriteEntry
+                DEFB #14, #47, #07, 108, 40
+RECR_GOLD_VX         EQU 8816
+RECR_GOLD_VY         EQU 4176
+RECR_PT_VX           EQU 9328
+RECR_PT_VY           EQU 4944
+RecruitPerTroopTab:
+                DW RecruitPerTroopTab_0
+                DW RecruitPerTroopTab_1
+                DW RecruitPerTroopTab_2
+                DW RecruitPerTroopTab_3
+                DW RecruitPerTroopTab_4
+                DW RecruitPerTroopTab_5
+RecruitPerTroopTab_0: DEFB "20", 0
+RecruitPerTroopTab_1: DEFB "150", 0
+RecruitPerTroopTab_2: DEFB "200", 0
+RecruitPerTroopTab_3: DEFB "250", 0
+RecruitPerTroopTab_4: DEFB "300", 0
+RecruitPerTroopTab_5: DEFB "600", 0
 
                 endif

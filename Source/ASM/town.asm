@@ -418,7 +418,13 @@ Render_Town:
                 LD   DE, RecruitMonSprTab
                 ADD  HL, DE
                 CALL Render_DrawSpriteEntry        ; спрайт монстра @ перо
-                LD   HL, Town_Name_End_DL          ; закрыть BITMAPS монстра
+                LD   HL, RECR_GOLD_VX              ; иконка золота (цена-за-1) в рамке «Cost per troop»
+                LD   (ResPenX), HL
+                LD   HL, RECR_GOLD_VY
+                LD   (ResPenY), HL
+                LD   HL, RecruitGoldRec
+                CALL Render_DrawSpriteEntry        ; та же прозрачная палитра, что у монстра
+                LD   HL, Town_Name_End_DL          ; закрыть BITMAPS монстра+иконки
                 LD   BC, Town_Name_End_DL_SIZE
                 CALL Render_CmdBufCopy
                 LD   HL, Town_Name_Begin_DL       ; пролог текста (native + палитра + BEGIN BITMAPS)
@@ -448,6 +454,14 @@ Render_Town:
                 LD   DE, RECR_COUNT_VY
                 LD   (ResPenY), DE
                 CALL Render_DrawStringCentered
+                LD   HL, RECR_PT_VX               ; число цены-за-1 под иконкой золота (лево-выр.)
+                LD   (ResPenX), HL
+                LD   HL, RECR_PT_VY
+                LD   (ResPenY), HL
+                LD   A, (TownRecruitIdx)
+                LD   DE, RecruitPerTroopTab
+                CALL Recr_StrPtr
+                CALL Render_DrawString
                 LD   HL, Town_Name_End_DL
                 LD   BC, Town_Name_End_DL_SIZE
                 CALL Render_CmdBufCopy

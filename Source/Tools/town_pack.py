@@ -369,7 +369,14 @@ def bake_recruit_monsters(agg, ent):
     return out
 
 
-def build_payload(palette, town_img, strip_img, names_masks, font_masks, recruit_win, monster_sprites):
+def bake_recruit_gold(agg, ent):
+    """Иконка золота RESOURCE[6] (цена-за-1 в рамке «Cost per troop»), пред-масштаб ×1.6, прозрачная idx0."""
+    h, e = read_icn(agg_entry(agg, ent, "RESOURCE.ICN"))[6]
+    gi = decode_icn_indices(h, e)
+    return _prescale16(gi, h["w"], h["h"])         # (bytes, nw, nh)
+
+
+def build_payload(palette, town_img, strip_img, names_masks, font_masks, recruit_win, monster_sprites, gold_icon):
     payload = bytearray()
 
     def put(raw: bytes) -> int:
@@ -393,12 +400,14 @@ def build_payload(palette, town_img, strip_img, names_masks, font_masks, recruit
     recruit_addr = put(recruit_win)                              # окно найма RECRBKG (один на все жилища)
     spr_pal_addr = put(palette_argb4444(palette))                # палитра спрайтов: idx0 ПРОЗРАЧЕН
     mon_addrs = [(put(s), w, h) for (s, w, h) in monster_sprites]  # [recruit idx]=(addr,w,h)
+    gs, gw, gh = gold_icon
+    gold_addr = (put(gs), gw, gh)                                # иконка золота (цена-за-1)
     return (payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs,
-            recruit_addr, spr_pal_addr, mon_addrs)
+            recruit_addr, spr_pal_addr, mon_addrs, gold_addr)
 
 
 def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, block_hit, pak,
-             wrapped_descs, recruit_addr, spr_pal_addr, mon_addrs):
+             wrapped_descs, recruit_addr, spr_pal_addr, mon_addrs, gold_addr):
     L = []
     L.append("; Сгенерировано Source/Tools/town_pack.py — экран города (Knight, потоковый HMM2TOWN.PAK).")
     L.append("                ifndef _HMM2_GENERATED_TOWN_")
@@ -585,6 +594,21 @@ def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_add
         py = (ayb - h) * 16
         L.append(f"                DEFB #{px & 0xFF:02X}, #{(px >> 8) & 0xFF:02X}, "
                  f"#{py & 0xFF:02X}, #{(py >> 8) & 0xFF:02X}")
+    # --- цена-за-1 (gold-иконка + число) в рамке «Cost per troop» (RedrawMonsterInfo, gold-only 159,59/189,89 +offsetX10) ---
+    g_addr, g_w, g_h = gold_addr
+    L.append(f"RECRUIT_GOLD_RAMG    EQU #{g_addr:06X}")
+    L.append("RecruitGoldRec:                        ; запись иконки золота [lo,mid,hi,w,h] для DrawSpriteEntry")
+    L.append(f"                DEFB #{g_addr & 0xFF:02X}, #{(g_addr >> 8) & 0xFF:02X}, "
+             f"#{(g_addr >> 16) & 0xFF:02X}, {g_w}, {g_h}")
+    gx = (rsx + round(185 * 1.6)) * 16             # иконка золота: RECRBKG(185,75)=window(169,59)+16
+    gy = (rsy + round(75 * 1.6)) * 16
+    ptx = (rsx + round(205 * 1.6)) * 16            # число per-troop (лево-выр. под иконкой)
+    pty = (rsy + round(105 * 1.6)) * 16
+    L.append(f"RECR_GOLD_VX         EQU {gx}")
+    L.append(f"RECR_GOLD_VY         EQU {gy}")
+    L.append(f"RECR_PT_VX           EQU {ptx}")
+    L.append(f"RECR_PT_VY           EQU {pty}")
+    strtab("RecruitPerTroopTab", lambda i: str(RECRUIT_COST[i]))   # цена за 1 (число)
     L.append("")
     L.append("                endif")
     TOWN_INC.write_text("\n".join(L), encoding="utf-8")
@@ -621,9 +645,10 @@ def main() -> int:
     strip_img = load_strip(palette)
     recruit_win = bake_recruit_window(agg, ent)
     monster_sprites = bake_recruit_monsters(agg, ent)
+    gold_icon = bake_recruit_gold(agg, ent)
     (payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs,
-     recruit_addr, spr_pal_addr, mon_addrs) = build_payload(
-        palette, town_img, strip_img, names_masks, font_masks, recruit_win, monster_sprites)
+     recruit_addr, spr_pal_addr, mon_addrs, gold_addr) = build_payload(
+        palette, town_img, strip_img, names_masks, font_masks, recruit_win, monster_sprites, gold_icon)
     summary = build_pak(
         [{"type": TYPE_RAMG_BLOB, "target": TOWN_RAMG_BASE, "data": bytes(payload)}],
         TOWN_PAK_PATH,
@@ -634,7 +659,7 @@ def main() -> int:
         "body_start_sector": summary["body_start_sector"],
     }
     emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, block_hit, pak,
-             wrapped_descs, recruit_addr, spr_pal_addr, mon_addrs)
+             wrapped_descs, recruit_addr, spr_pal_addr, mon_addrs, gold_addr)
     print(f"town pack -> {TOWN_PAK_PATH.name}: {len(placed)} построек, "
           f"payload={len(payload)} байт ({pak['payload_sectors']} сект), PAK={summary['total_bytes']} байт")
     print(f"  inc: {TOWN_INC}")
