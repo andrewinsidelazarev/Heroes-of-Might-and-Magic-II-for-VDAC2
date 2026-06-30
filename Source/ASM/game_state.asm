@@ -69,11 +69,51 @@ Game_Init:
             ENDIF
                 RET
 
+; --- Стрим битмапов карты adventure (террейн/объекты/вьюпорты) с SD в их Z80-страницы ---
+; Балласт ~2.2МБ (раньше пёкся в SPG) вынесен в HMM2ADV.PAK. Грузим на входе в adventure
+; (ДО Background_Upload, который читает страницы #20-8F). MapStreamTable: на запись
+; (страница, число секторов); читаем ПОДРЯД — PAK уложен посекторно, позиция сама встаёт
+; на следующий блок. Имя — общий MenuNameBuf (slot1; raw_pak ремапит slot2). Loader_ReadSectors
+; сам гоняет SP в slot1-стек и восстанавливает slot2/3 → между записями страницы/таблица целы.
+Adventure_LoadMap:
+                LD   HL, MapPakName
+                LD   DE, MenuNameBuf
+                LD   BC, 13
+                LDIR
+                CALL Loader_Init
+                CALL Loader_Mount
+                RET  NC
+                LD   HL, MenuNameBuf
+                CALL Loader_OpenFile
+                RET  NC
+                LD   C, RAWPAK_BUF_PAGE             ; пропустить header+каталог в buffer-page
+                LD   HL, 0
+                LD   B, MAP_BODY_SECTOR
+                CALL Loader_ReadSectors
+                LD   HL, MapStreamTable
+.loop:          LD   C, (HL)                        ; страница назначения
+                INC  HL
+                LD   B, (HL)                        ; число секторов (=32, полная страница)
+                INC  HL
+                PUSH HL                             ; raw_pak КЛОБЕРИТ HL/BC/A/IX → указатель в стек
+                LD   HL, 0
+                CALL Loader_ReadSectors             ; B секторов с SD → страница C, офсет 0
+                POP  HL                             ; вернуть указатель таблицы
+                PUSH HL                             ; HL < конец таблицы?
+                LD   DE, MapStreamTable + MAP_STREAM_COUNT * 2
+                OR   A
+                SBC  HL, DE
+                POP  HL
+                JR   C, .loop                       ; ещё есть записи
+                RET
+                include "generated_map_stream.inc"
+
 ; Вход в adventure-сцену: загрузка карты в RAM_G + инициализация состояния.
 ; Вызывается из Menu_Update по клику New Game (ленивая загрузка карты).
 Adventure_Enter:
                 CALL Music_Stop                   ; погасить меню-музыку (slot3 пойдёт под loader)
                 CALL Render_BlackFrame            ; межсценный чёрный кадр ДО перезаписи RAM_G
+                CALL Adventure_LoadMap            ; стрим битмапов карты (#20-8F) с SD в их страницы
                 CALL Background_Upload            ; (иначе старый меню-DL покажет мусор поверх
                 CALL Objects_Upload              ;  частично загруженных adventure-битмапов)
                 LD   A, GAME_MODE_ADVENTURE
