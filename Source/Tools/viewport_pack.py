@@ -1544,7 +1544,9 @@ def append_cursor_sprites(agg_data: bytes, entries, palette):
     for cf in (0, 1, 3, 5, 8):                          # WAR_NONE, WAR_MOVE, WAR_ARROW, WAR_INFO, SWORD_RIGHT
         bh, be = bcur[cf]
         braw = decode_icn_sprite(bh, be, palette)
-        cursor_sprites.append(append_argb4_sprite(payload, braw, bh["w"], bh["h"], 0, 0, "CMSECO.ICN", cf, base=CURSOR_RAMG_BASE))
+        bsp = {"w": bh["w"], "h": bh["h"], "x": bh.get("ox", 0), "y": bh.get("oy", 0)}
+        box, boy = cursor_default_draw_offset(bsp)       # центрирующий hotspot (вместо top-left 0,0)
+        cursor_sprites.append(append_argb4_sprite(payload, braw, bh["w"], bh["h"], box, boy, "CMSECO.ICN", cf, base=CURSOR_RAMG_BASE))
 
     # Scroll-курсоры краёв карты (ADVMCO кадры 0x20..0x27, порядок по enum fheroes2
     # Cursor::SCROLL_*): TOP, TOPRIGHT, RIGHT, BOTTOMRIGHT, BOTTOM, BOTTOMLEFT, LEFT,

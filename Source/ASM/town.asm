@@ -826,12 +826,18 @@ Render_Town:
                 LD   HL, Town_Name_Begin_DL       ; пролог текста (native + палитра + BEGIN BITMAPS)
                 LD   BC, Town_Name_Begin_DL_SIZE
                 CALL Render_CmdBufCopy
+                LD   HL, #04FF                    ; COLOR_RGB 255,255,0 — имя ЖЁЛТОЕ (faithful normalYellow)
+                LD   DE, #FF00
+                CALL Render_CmdBufWrite32
                 LD   A, (TownRecruitIdx)           ; имя монстра
                 LD   DE, RecruitNameTab
                 CALL Recr_StrPtr
                 LD   DE, RECR_NAME_VY
                 LD   (ResPenY), DE
                 CALL Render_DrawStringCentered
+                LD   HL, #04FF                    ; COLOR_RGB 255,255,255 — остальной текст белый
+                LD   DE, #FFFF
+                CALL Render_CmdBufWrite32
                 LD   HL, RECR_AVAIL_VY             ; "Available: " + динамич. DwellAvail[idx]
                 LD   (ResPenY), HL
                 LD   HL, 448 * 16

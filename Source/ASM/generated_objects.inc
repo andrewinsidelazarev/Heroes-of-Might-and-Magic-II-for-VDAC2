@@ -88,20 +88,20 @@ CursorSpriteTable:
                 DEFW #FFF1
                 DEFW #FFF4
                 DEFB #0E, #7C, #B9, 20, 40, 32, 32, 0
-                DEFW #0000
-                DEFW #0000
+                DEFW #FFF6
+                DEFW #FFF6
                 DEFB #0E, #9C, #BC, 23, 36, 29, 37, 0
-                DEFW #0000
-                DEFW #0000
+                DEFW #FFF7
+                DEFW #FFF5
                 DEFB #0E, #D8, #BF, 24, 48, 39, 39, 0
-                DEFW #0000
-                DEFW #0000
+                DEFW #FFF4
+                DEFW #FFF4
                 DEFB #0E, #58, #C4, 18, 22, 18, 29, 0
-                DEFW #0000
-                DEFW #0000
+                DEFW #FFFB
+                DEFW #FFF7
                 DEFB #0E, #E4, #C5, 14, 62, 50, 23, 0
-                DEFW #0000
-                DEFW #0000
+                DEFW #FFF1
+                DEFW #FFF9
                 DEFB #0E, #48, #C9, 32, 16, 13, 52, 0
                 DEFW #FFFC
                 DEFW #FFF0
