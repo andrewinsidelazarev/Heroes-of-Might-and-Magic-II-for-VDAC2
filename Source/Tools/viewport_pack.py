@@ -1537,6 +1537,15 @@ def append_cursor_sprites(agg_data: bytes, entries, palette):
             )
         )
 
+    # Боевые курсоры (CMSECO.ICN = ICN::CURSOR в fheroes2): тема = младший байт enum Cursor (cursor.h):
+    # WAR_NONE=0, WAR_MOVE=1, WAR_ARROW=3, WAR_INFO=5, SWORD_RIGHT=8. Для смены ФОРМЫ курсора по hover
+    # в бою (GetBattleCursor). Базовый индекс = len здесь (до scroll → их индекс цел).
+    bcur = read_icn(agg_entry(agg_data, entries, "CMSECO.ICN"))
+    for cf in (0, 1, 3, 5, 8):                          # WAR_NONE, WAR_MOVE, WAR_ARROW, WAR_INFO, SWORD_RIGHT
+        bh, be = bcur[cf]
+        braw = decode_icn_sprite(bh, be, palette)
+        cursor_sprites.append(append_argb4_sprite(payload, braw, bh["w"], bh["h"], 0, 0, "CMSECO.ICN", cf, base=CURSOR_RAMG_BASE))
+
     # Scroll-курсоры краёв карты (ADVMCO кадры 0x20..0x27, порядок по enum fheroes2
     # Cursor::SCROLL_*): TOP, TOPRIGHT, RIGHT, BOTTOMRIGHT, BOTTOM, BOTTOMLEFT, LEFT,
     # TOPLEFT. Показываются, когда мышь в кромочной зоне экрана (как в оригинале).
@@ -2380,6 +2389,7 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
         f"CURSOR_POINTER_INDEX    EQU {CURSOR_POINTER_INDEX}",
         f"CURSOR_MOVE_BASE_INDEX  EQU {CURSOR_MOVE_BASE_INDEX}",
         f"CURSOR_SCROLL_BASE_INDEX EQU {len(cursor_sprites) - 8}",
+        f"CURSOR_BATTLE_BASE_INDEX EQU {len(cursor_sprites) - 13}",  # боевые курсоры: NONE/MOVE/ARROW/INFO/SWORD",
         "CURSOR_TABLE_ENTRY_SIZE EQU 12",
         f"UI_BORDER_W             EQU {ui_sprites['border_w']}",
         f"UI_BORDER_H             EQU {ui_sprites['border_h']}",

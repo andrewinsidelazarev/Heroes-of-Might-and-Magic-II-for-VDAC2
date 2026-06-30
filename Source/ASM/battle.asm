@@ -2955,6 +2955,35 @@ Render_Battle:
                 CALL Battle_RenderCasualties       ; потери: иконы MONS32 + счёт убитых / «None» (faithful)
 .no_result:
                 ; (жёлтая подсветка наведённой ячейки убрана — не по оригиналу; курсор поверх всего)
-                CALL Render_GlobalCursor
+                CALL Battle_RenderCursor           ; форма курсора по теме hover (GetBattleCursor)
                 CALL Render_SwapFrameDMA
                 RET
+
+; Battle_RenderCursor — ФОРМА курсора по BattleStatusMsg (faithful GetBattleCursor):
+; Turn→WAR_NONE, Move→WAR_MOVE, Attack→SWORD, Shoot→WAR_ARROW, View→WAR_INFO. (CMSECO.ICN)
+Battle_RenderCursor:
+                CALL Input_MouseX
+                LD   (CursorPixelX), HL
+                CALL Input_MouseY
+                LD   (CursorPixelY), HL
+                LD   A, (BattleStatusMsg)
+                CP   9
+                JR   C, .ok
+                XOR  A                             ; msg вне 0..8 → Turn/None
+.ok:            LD   E, A
+                LD   D, 0
+                LD   HL, BattleCursorTab
+                ADD  HL, DE
+                LD   A, (HL)
+                LD   (CursorSpriteIndex), A
+                JP   Render_CursorCmd
+BattleCursorTab:                                   ; [BattleStatusMsg] → индекс боевого курсора
+                DEFB CURSOR_BATTLE_BASE_INDEX + 0  ; 0 Turn  → WAR_NONE
+                DEFB CURSOR_BATTLE_BASE_INDEX + 1  ; 1 Move
+                DEFB CURSOR_BATTLE_BASE_INDEX + 1  ; 2 Move
+                DEFB CURSOR_BATTLE_BASE_INDEX + 4  ; 3 Attack → SWORD
+                DEFB CURSOR_BATTLE_BASE_INDEX + 4  ; 4 Attack
+                DEFB CURSOR_BATTLE_BASE_INDEX + 2  ; 5 Shoot → WAR_ARROW
+                DEFB CURSOR_BATTLE_BASE_INDEX + 2  ; 6 Shoot
+                DEFB CURSOR_BATTLE_BASE_INDEX + 3  ; 7 View  → WAR_INFO
+                DEFB CURSOR_BATTLE_BASE_INDEX + 3  ; 8 View

@@ -21,10 +21,11 @@ CURSOR_SPRITE_OY        EQU 0
 CURSOR_SPRITE_STRIDE    EQU 30
 CURSOR_SPRITE_SIZE_W    EQU 24
 CURSOR_SPRITE_SIZE_H    EQU 34
-CURSOR_SPRITE_COUNT     EQU 17
+CURSOR_SPRITE_COUNT     EQU 22
 CURSOR_POINTER_INDEX    EQU 0
 CURSOR_MOVE_BASE_INDEX  EQU 1
-CURSOR_SCROLL_BASE_INDEX EQU 9
+CURSOR_SCROLL_BASE_INDEX EQU 14
+CURSOR_BATTLE_BASE_INDEX EQU 9
 CURSOR_TABLE_ENTRY_SIZE EQU 12
 UI_BORDER_W             EQU 640
 UI_BORDER_H             EQU 480
@@ -86,28 +87,43 @@ CursorSpriteTable:
                 DEFB #0E, #C4, #B1, 26, 76, 61, 42, 0
                 DEFW #FFF1
                 DEFW #FFF4
-                DEFB #0E, #7C, #B9, 32, 16, 13, 52, 0
+                DEFB #0E, #7C, #B9, 20, 40, 32, 32, 0
+                DEFW #0000
+                DEFW #0000
+                DEFB #0E, #9C, #BC, 23, 36, 29, 37, 0
+                DEFW #0000
+                DEFW #0000
+                DEFB #0E, #D8, #BF, 24, 48, 39, 39, 0
+                DEFW #0000
+                DEFW #0000
+                DEFB #0E, #58, #C4, 18, 22, 18, 29, 0
+                DEFW #0000
+                DEFW #0000
+                DEFB #0E, #E4, #C5, 14, 62, 50, 23, 0
+                DEFW #0000
+                DEFW #0000
+                DEFB #0E, #48, #C9, 32, 16, 13, 52, 0
                 DEFW #FFFC
                 DEFW #FFF0
-                DEFB #0E, #7C, #BB, 24, 48, 39, 39, 0
+                DEFB #0E, #48, #CB, 24, 48, 39, 39, 0
                 DEFW #FFF4
                 DEFW #FFF4
-                DEFB #0E, #FC, #BF, 8, 64, 52, 13, 0
+                DEFB #0E, #C8, #CF, 8, 64, 52, 13, 0
                 DEFW #FFF0
                 DEFW #FFFC
-                DEFB #0E, #FC, #C1, 24, 48, 39, 39, 0
+                DEFB #0E, #C8, #D1, 24, 48, 39, 39, 0
                 DEFW #FFF4
                 DEFW #FFF4
-                DEFB #0E, #7C, #C6, 32, 16, 13, 52, 0
+                DEFB #0E, #48, #D6, 32, 16, 13, 52, 0
                 DEFW #FFFC
                 DEFW #FFF0
-                DEFB #0E, #7C, #C8, 24, 48, 39, 39, 0
+                DEFB #0E, #48, #D8, 24, 48, 39, 39, 0
                 DEFW #FFF4
                 DEFW #FFF4
-                DEFB #0E, #FC, #CC, 8, 64, 52, 13, 0
+                DEFB #0E, #C8, #DC, 8, 64, 52, 13, 0
                 DEFW #FFF0
                 DEFW #FFFC
-                DEFB #0E, #FC, #CE, 24, 48, 39, 39, 0
+                DEFB #0E, #C8, #DE, 24, 48, 39, 39, 0
                 DEFW #FFF4
                 DEFW #FFF4
 
@@ -795,7 +811,7 @@ Cursor_GlobalUpload:
                 LD   HL, #C000
                 LD   A, #0E
                 LD   DE, #C000
-                LD   BC, 4988
+                LD   BC, 9032
                 CALL FT.WriteMem
 .CurRestore     EQU $+1
                 LD   A, #00
