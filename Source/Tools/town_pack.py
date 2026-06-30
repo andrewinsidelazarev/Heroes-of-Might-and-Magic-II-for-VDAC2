@@ -96,6 +96,20 @@ INFO_LINE0_Y = 322                 # верх первой строки опис
 INFO_LINE_H  = 12                  # межстрочный шаг (native SMALFONT)
 INFO_WRAP_PX = 404                 # ширина обёртки текста (≈ внутренняя ширина рамки − поля)
 
+# Диалог найма (Dialog::RecruitMonster). Окно = RECRBKG[0] (321×304, оригинал, с рамками/полем
+# счётчика). 6 базовых Knight-монстров (monster_info.cpp: имя | прирост | цена золота).
+RECRUIT_NAMES = ["Peasant", "Archer", "Pikeman", "Swordsman", "Cavalry", "Paladin"]
+RECRUIT_COST  = [20, 150, 200, 250, 300, 600]     # золото за 1 (GetCost().gold)
+RECRUIT_AVAIL = [12, 8, 5, 4, 3, 2]               # базовый прирост = доступно в свежем жилище
+# building idx (1-based, параллельно KNIGHT_BUILDINGS) → recruit idx (0..5); прочее = 255 (не жилище).
+DWELLING_MAP = {9: 1, 13: 4, 14: 5, 15: 0, 16: 2, 17: 3}
+RECR_W, RECR_H = 321, 304          # размер RECRBKG[0] (native)
+# Поле счётчика на RECRBKG — (134,159) 68×19 (dialog_recruit.cpp:286). Центр = (168,164).
+RECR_COUNT_XY = (168, 162)
+RECR_NAME_Y   = 20                 # имя монстра (центр сверху)
+RECR_AVAIL_Y  = 185               # "Available: N" (центр)
+RECR_COST_Y   = 242               # "Cost: N gold" (центр, наша строка под полем)
+
 
 def load_town(palette):
     agg, ent = read_agg_index_with_expansion(AGG_PATH)
@@ -314,7 +328,17 @@ def wrap_desc(text, glyph_w):
     return lines
 
 
-def build_payload(palette, town_img, strip_img, names_masks, font_masks):
+def bake_recruit_window(agg, ent):
+    """Окно найма = RECRBKG[0] (321×304, оригинал HMM2: рамки + 'Cost per troop:' + поле счётчика
+    уже baked). Индексы в палитру KB (как town). TRANSPARENT→0 (окно непрозрачно)."""
+    h, e = read_icn(agg_entry(agg, ent, "RECRBKG.ICN"))[0]
+    gi = decode_icn_indices(h, e)
+    buf = bytearray(RECR_W * RECR_H)
+    _blit_icn(buf, gi, h["w"], h["h"], h.get("ox", 0), h.get("oy", 0), 0, 0, RECR_W, RECR_H)
+    return bytes(buf)
+
+
+def build_payload(palette, town_img, strip_img, names_masks, font_masks, recruit_win):
     payload = bytearray()
 
     def put(raw: bytes) -> int:
@@ -335,10 +359,11 @@ def build_payload(palette, town_img, strip_img, names_masks, font_masks):
     name_pal_addr = put(bytes(name_pal))
     name_addrs = [(put(m), w, h) for (m, w, h) in names_masks]   # [имя]=(addr,w,h)
     font_addrs = [(put(m), w, h) for (m, w, h) in font_masks]    # [char-32]=(addr,w,h)
-    return payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs
+    recruit_addr = put(recruit_win)                              # окно найма RECRBKG (один на все жилища)
+    return payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, recruit_addr
 
 
-def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, block_hit, pak, wrapped_descs):
+def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, block_hit, pak, wrapped_descs, recruit_addr):
     L = []
     L.append("; Сгенерировано Source/Tools/town_pack.py — экран города (Knight, потоковый HMM2TOWN.PAK).")
     L.append("                ifndef _HMM2_GENERATED_TOWN_")
@@ -411,6 +436,8 @@ def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_add
     L.append("                FT_BITMAP_TRANSFORM_D 0")
     L.append("                FT_BITMAP_TRANSFORM_E 256")
     L.append("                FT_BITMAP_TRANSFORM_F 0")
+    L.append("                FT_BITMAP_LAYOUT_H 0, 0")    # сброс высоких бит (после окна найма SIZE_H≠0)
+    L.append("                FT_BITMAP_SIZE_H 0, 0")      # иначе мелкие глифы получат +512 к ширине
     L.append("                FT_PALETTE_SOURCE TOWN_NAME_PAL_RAMG")
     L.append("                FT_BEGIN FT_BITMAPS")
     L.append("Town_Name_Begin_DL_SIZE EQU $ - Town_Name_Begin_DL")
@@ -458,6 +485,47 @@ def emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_add
     L.append(f"TOWN_INFO_LINE0_Y    EQU {INFO_LINE0_Y} * 16")
     L.append(f"TOWN_INFO_LINE_H     EQU {INFO_LINE_H} * 16")
     L.append("")
+    # --- Диалог найма (Dialog::RecruitMonster): окно RECRBKG + статичные строки на монстра ---
+    rsx = (1024 - round(RECR_W * 1.6)) // 2          # экран X окна (центр по горизонтали)
+    rsy = (768 - round(RECR_H * 1.6)) // 2           # экран Y окна
+    L.append(f"RECRUIT_WIN_RAMG     EQU #{recruit_addr:06X}")
+    L.append("Recruit_Win_DL:                        ; окно найма RECRBKG ×1.6 по центру экрана")
+    L.append("                FT_BITMAP_TRANSFORM_A 160")
+    L.append("                FT_BITMAP_TRANSFORM_B 0")
+    L.append("                FT_BITMAP_TRANSFORM_C 0")
+    L.append("                FT_BITMAP_TRANSFORM_D 0")
+    L.append("                FT_BITMAP_TRANSFORM_E 160")
+    L.append("                FT_BITMAP_TRANSFORM_F 0")
+    L.append("                FT_PALETTE_SOURCE TOWN_PAL_RAMG")
+    L.append("                FT_BEGIN FT_BITMAPS")
+    L.append("                FT_BITMAP_SOURCE RECRUIT_WIN_RAMG")
+    L.append(f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {RECR_W}, {RECR_H}")
+    # FT_BITMAP_SIZE маскирует ширину &511 → для >511 нужны высокие биты через SIZE_H (иначе клип в width&511)
+    L.append(f"                FT_BITMAP_SIZE_H {RECR_W * 16 // 10}, {RECR_H * 16 // 10}")
+    L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {RECR_W * 16 // 10}, {RECR_H * 16 // 10}")
+    L.append(f"                FT_VERTEX2F {rsx * 16}, {rsy * 16}")
+    L.append("                FT_END")
+    L.append("Recruit_Win_DL_SIZE EQU $ - Recruit_Win_DL")
+    L.append(f"RECR_NAME_VY         EQU {(rsy + round(RECR_NAME_Y * 1.6)) * 16}")
+    L.append(f"RECR_AVAIL_VY        EQU {(rsy + round(RECR_AVAIL_Y * 1.6)) * 16}")
+    L.append(f"RECR_COST_VY         EQU {(rsy + round(RECR_COST_Y * 1.6)) * 16}")
+    L.append(f"RECR_COUNT_VY        EQU {(rsy + round(RECR_COUNT_XY[1] * 1.6)) * 16}")
+    # building idx (1-based) → recruit idx (0..5) или 255 (не жилище)
+    dmap = [DWELLING_MAP.get(i, 255) for i in range(1, len(KNIGHT_BUILDINGS) + 1)]
+    L.append("TownDwellingMap:                       ; [idx-1] → recruit idx (0..5); 255 = не жилище")
+    L.append("                DEFB " + ", ".join(str(b) for b in dmap))
+    # Статичные строки на монстра (фаза 1: счётчик = доступно, без live +/-)
+    def strtab(label, fn):
+        L.append(f"{label}:")
+        for i in range(len(RECRUIT_NAMES)):
+            L.append(f"                DW {label}_{i}")
+        for i in range(len(RECRUIT_NAMES)):
+            L.append(f'{label}_{i}: DEFB "{fn(i)}", 0')
+    strtab("RecruitNameTab", lambda i: RECRUIT_NAMES[i])
+    strtab("RecruitAvailTab", lambda i: f"Available: {RECRUIT_AVAIL[i]}")
+    strtab("RecruitCostTab", lambda i: f"Cost: {RECRUIT_COST[i]} gold")
+    strtab("RecruitCountTab", lambda i: str(RECRUIT_AVAIL[i]))
+    L.append("")
     L.append("                endif")
     TOWN_INC.write_text("\n".join(L), encoding="utf-8")
 
@@ -491,8 +559,9 @@ def main() -> int:
         return 0
 
     strip_img = load_strip(palette)
-    payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs = build_payload(
-        palette, town_img, strip_img, names_masks, font_masks)
+    recruit_win = bake_recruit_window(agg, ent)
+    payload, pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, recruit_addr = build_payload(
+        palette, town_img, strip_img, names_masks, font_masks, recruit_win)
     summary = build_pak(
         [{"type": TYPE_RAMG_BLOB, "target": TOWN_RAMG_BASE, "data": bytes(payload)}],
         TOWN_PAK_PATH,
@@ -502,7 +571,7 @@ def main() -> int:
         "payload_sectors": (len(payload) + SECTOR - 1) // SECTOR,
         "body_start_sector": summary["body_start_sector"],
     }
-    emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, block_hit, pak, wrapped_descs)
+    emit_inc(pal_addr, img_addr, strip_addr, name_pal_addr, name_addrs, font_addrs, block_hit, pak, wrapped_descs, recruit_addr)
     print(f"town pack -> {TOWN_PAK_PATH.name}: {len(placed)} построек, "
           f"payload={len(payload)} байт ({pak['payload_sectors']} сект), PAK={summary['total_bytes']} байт")
     print(f"  inc: {TOWN_INC}")

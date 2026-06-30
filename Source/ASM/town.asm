@@ -12,6 +12,7 @@ TownExitLatch:  DEFB 1            ; 1 на входе (гасит «зажаты
 TownHoverIdx:   DEFB 0            ; здание под курсором (1-based из TownHitMap; 0=нет) для hover-имени
 TownInfoIdx:    DEFB 0            ; здание для right-click инфо-попапа (1-based; 0=попап скрыт)
 TownInfoLineY:  DEFW 0            ; текущий Y строки описания в попапе (vertex 1/16px)
+TownRecruitIdx: DEFB 255          ; диалог найма: 0..5 монстр / 255 = закрыт (Dialog::RecruitMonster)
 
 ; Курсор → блок 8×8 хит-карты → индекс здания (TownHitMap). OUT: TownHoverIdx. Только в зоне замка (Y<256).
 Town_HitTest:
@@ -126,6 +127,17 @@ Render_DrawStringCentered:
                 POP  HL
                 JP   Render_DrawString
 
+; Recr_StrPtr — IN: A=idx, DE=база DW-таблицы → HL = строка table[idx]. Портит AF.
+Recr_StrPtr:    ADD  A, A                          ; idx*2
+                LD   L, A
+                LD   H, 0
+                ADD  HL, DE                        ; &table[idx]
+                LD   A, (HL)
+                INC  HL
+                LD   H, (HL)
+                LD   L, A                           ; HL = указатель строки
+                RET
+
 ; Вход в город (вызывается через Town_Enter_Tramp; чёрный кадр уже показан трамплином).
 ; Стрим композита города в RAM_G[0] + установка состояния. GameMode уже не важен здесь —
 ; ставит трамплин? нет: ставим тут, пока slot3=town (GameMode — резидентная переменная, ок).
@@ -134,6 +146,10 @@ Town_Enter:
                 LD   (GameMode), A
                 LD   A, 1
                 LD   (TownExitLatch), A           ; клик-вход ещё «зажат» — не выходить сразу
+                XOR  A
+                LD   (TownInfoIdx), A             ; инфо-попап закрыт
+                LD   A, 255
+                LD   (TownRecruitIdx), A          ; диалог найма закрыт
                 CALL Town_LoadFromPak             ; стрим HMM2TOWN.PAK → RAM_G[0]
                 RET
 
@@ -161,7 +177,27 @@ Town_LoadFromPak:
 ; Опрос города: клик ЛКМ (после отпускания входного) → выход. OUT: A=1 если запрошен выход
 ; (резидентный Town_Update_Tramp по A=1 зовёт Adventure_Enter — slot3-edge).
 Town_Update:
-                CALL Town_HitTest                 ; здание под курсором → TownHoverIdx (для hover-имени)
+                ; --- Диалог найма открыт → МОДАЛЬНО: клик ЛКМ закрывает, прочее игнор ---
+                LD   A, (TownRecruitIdx)
+                INC  A                             ; 255→0 (Z = найма нет)
+                JR   Z, .norecruit
+                CALL Input_MouseLMB
+                JR   NZ, .rec_pressed
+                XOR  A
+                LD   (TownExitLatch), A            ; отпущено → сбросить latch; A=0
+                RET
+.rec_pressed:   LD   A, (TownExitLatch)
+                OR   A
+                JR   Z, .rec_close
+                XOR  A                             ; открывающий клик ещё зажат → игнор
+                RET
+.rec_close:     LD   A, 255
+                LD   (TownRecruitIdx), A           ; закрыть диалог найма
+                LD   A, 1
+                LD   (TownExitLatch), A            ; залатчить закрывающий клик
+                XOR  A
+                RET
+.norecruit:     CALL Town_HitTest                 ; здание под курсором → TownHoverIdx (для hover-имени)
                 CALL Input_MouseRMB               ; ПКМ зажата → инфо-попап по зданию (faithful Dialog::Message)
                 JR   Z, .noinfo
                 LD   A, (TownHoverIdx)            ; зажата → попап для здания под курсором (0=фон=нет)
@@ -179,9 +215,26 @@ Town_Update:
                 JR   Z, .check
                 XOR  A                             ; клик ещё «зажат» (входной) → A=0
                 RET
+                ; Клик по ЖИЛИЩУ → открыть диалог найма (Dialog::RecruitMonster). TownDwellingMap[idx-1].
+.check:         LD   A, (TownHoverIdx)
+                OR   A
+                JR   Z, .exitbtn                  ; не здание (панель) → проверить кнопку EXIT
+                DEC  A
+                LD   L, A
+                LD   H, 0
+                LD   DE, TownDwellingMap
+                ADD  HL, DE
+                LD   A, (HL)                       ; recruit idx (0..5) или 255
+                CP   255
+                JR   Z, .exitbtn                  ; здание не жилище → проверить EXIT (даст .stay)
+                LD   (TownRecruitIdx), A            ; открыть диалог найма для монстра
+                LD   A, 1
+                LD   (TownExitLatch), A            ; залатчить открывающий клик
+                XOR  A
+                RET
                 ; Выход ТОЛЬКО по кнопке EXIT (castle_dialog.cpp: BUTTON_EXIT_TOWN), не по любому клику.
                 ; TREASURY[1] 80×25 @ логич.(553,428) → X∈[553,633), Y∈[428,453).
-.check:         CALL Input_MouseX                 ; HL = логич. X
+.exitbtn:       CALL Input_MouseX                 ; HL = логич. X
                 LD   DE, 553
                 OR   A
                 SBC  HL, DE
@@ -223,6 +276,9 @@ Render_Town:
                 LD   HL, Town_DL
                 LD   BC, Town_DL_SIZE
                 CALL Render_CmdBufCopy
+                LD   A, (TownRecruitIdx)          ; диалог найма открыт → его рисуем (приоритет)
+                INC  A
+                JP   NZ, .recruit
                 LD   A, (TownInfoIdx)             ; right-click инфо-попап — приоритет над hover-именем
                 OR   A
                 JP   NZ, .popup
@@ -326,5 +382,41 @@ Render_Town:
                 LD   BC, Town_Name_End_DL_SIZE
                 CALL Render_CmdBufCopy
                 JR   .noname
+
+; --- диалог найма: окно RECRBKG ×1.6 + имя/доступно/цена/счётчик (Dialog::RecruitMonster) ---
+.recruit:       LD   HL, Recruit_Win_DL
+                LD   BC, Recruit_Win_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   HL, Town_Name_Begin_DL       ; пролог текста (native + палитра + BEGIN BITMAPS)
+                LD   BC, Town_Name_Begin_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   A, (TownRecruitIdx)           ; имя монстра
+                LD   DE, RecruitNameTab
+                CALL Recr_StrPtr
+                LD   DE, RECR_NAME_VY
+                LD   (ResPenY), DE
+                CALL Render_DrawStringCentered
+                LD   A, (TownRecruitIdx)           ; "Available: N"
+                LD   DE, RecruitAvailTab
+                CALL Recr_StrPtr
+                LD   DE, RECR_AVAIL_VY
+                LD   (ResPenY), DE
+                CALL Render_DrawStringCentered
+                LD   A, (TownRecruitIdx)           ; "Cost: N gold"
+                LD   DE, RecruitCostTab
+                CALL Recr_StrPtr
+                LD   DE, RECR_COST_VY
+                LD   (ResPenY), DE
+                CALL Render_DrawStringCentered
+                LD   A, (TownRecruitIdx)           ; счётчик (= доступно, фаза 1)
+                LD   DE, RecruitCountTab
+                CALL Recr_StrPtr
+                LD   DE, RECR_COUNT_VY
+                LD   (ResPenY), DE
+                CALL Render_DrawStringCentered
+                LD   HL, Town_Name_End_DL
+                LD   BC, Town_Name_End_DL_SIZE
+                CALL Render_CmdBufCopy
+                JP   .noname
 
 TOWN_NAME_Y     EQU 745 * 16       ; статус-бар (экран y≈745, в нижней панели), vertex 1/16px

@@ -41,8 +41,8 @@ Town_DL:
 Town_DL_SIZE EQU $ - Town_DL
 
 TOWN_RAMG_BASE       EQU #000000
-TOWN_PAYLOAD_BYTES   EQU 324000
-TOWN_PAYLOAD_SECTORS EQU 633
+TOWN_PAYLOAD_BYTES   EQU 421584
+TOWN_PAYLOAD_SECTORS EQU 824
 TOWN_BODY_SECTOR     EQU 1
 TownPakName:         DEFB "HMM2TOWN.PAK", 0
 
@@ -110,6 +110,8 @@ Town_Name_Begin_DL:                    ; пролог имени: нативно
                 FT_BITMAP_TRANSFORM_D 0
                 FT_BITMAP_TRANSFORM_E 256
                 FT_BITMAP_TRANSFORM_F 0
+                FT_BITMAP_LAYOUT_H 0, 0
+                FT_BITMAP_SIZE_H 0, 0
                 FT_PALETTE_SOURCE TOWN_NAME_PAL_RAMG
                 FT_BEGIN FT_BITMAPS
 Town_Name_Begin_DL_SIZE EQU $ - Town_Name_Begin_DL
@@ -360,5 +362,81 @@ Town_Info_Box_DL_SIZE EQU $ - Town_Info_Box_DL
 TOWN_INFO_TITLE_Y    EQU 300 * 16
 TOWN_INFO_LINE0_Y    EQU 322 * 16
 TOWN_INFO_LINE_H     EQU 12 * 16
+
+RECRUIT_WIN_RAMG     EQU #04F1A0
+Recruit_Win_DL:                        ; окно найма RECRBKG ×1.6 по центру экрана
+                FT_BITMAP_TRANSFORM_A 160
+                FT_BITMAP_TRANSFORM_B 0
+                FT_BITMAP_TRANSFORM_C 0
+                FT_BITMAP_TRANSFORM_D 0
+                FT_BITMAP_TRANSFORM_E 160
+                FT_BITMAP_TRANSFORM_F 0
+                FT_PALETTE_SOURCE TOWN_PAL_RAMG
+                FT_BEGIN FT_BITMAPS
+                FT_BITMAP_SOURCE RECRUIT_WIN_RAMG
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 321, 304
+                FT_BITMAP_SIZE_H 513, 486
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 513, 486
+                FT_VERTEX2F 4080, 2256
+                FT_END
+Recruit_Win_DL_SIZE EQU $ - Recruit_Win_DL
+RECR_NAME_VY         EQU 2768
+RECR_AVAIL_VY        EQU 6992
+RECR_COST_VY         EQU 8448
+RECR_COUNT_VY        EQU 6400
+TownDwellingMap:                       ; [idx-1] → recruit idx (0..5); 255 = не жилище
+                DEFB 255, 255, 255, 255, 255, 255, 255, 255, 1, 255, 255, 255, 4, 5, 0, 2, 3, 255, 255
+RecruitNameTab:
+                DW RecruitNameTab_0
+                DW RecruitNameTab_1
+                DW RecruitNameTab_2
+                DW RecruitNameTab_3
+                DW RecruitNameTab_4
+                DW RecruitNameTab_5
+RecruitNameTab_0: DEFB "Peasant", 0
+RecruitNameTab_1: DEFB "Archer", 0
+RecruitNameTab_2: DEFB "Pikeman", 0
+RecruitNameTab_3: DEFB "Swordsman", 0
+RecruitNameTab_4: DEFB "Cavalry", 0
+RecruitNameTab_5: DEFB "Paladin", 0
+RecruitAvailTab:
+                DW RecruitAvailTab_0
+                DW RecruitAvailTab_1
+                DW RecruitAvailTab_2
+                DW RecruitAvailTab_3
+                DW RecruitAvailTab_4
+                DW RecruitAvailTab_5
+RecruitAvailTab_0: DEFB "Available: 12", 0
+RecruitAvailTab_1: DEFB "Available: 8", 0
+RecruitAvailTab_2: DEFB "Available: 5", 0
+RecruitAvailTab_3: DEFB "Available: 4", 0
+RecruitAvailTab_4: DEFB "Available: 3", 0
+RecruitAvailTab_5: DEFB "Available: 2", 0
+RecruitCostTab:
+                DW RecruitCostTab_0
+                DW RecruitCostTab_1
+                DW RecruitCostTab_2
+                DW RecruitCostTab_3
+                DW RecruitCostTab_4
+                DW RecruitCostTab_5
+RecruitCostTab_0: DEFB "Cost: 20 gold", 0
+RecruitCostTab_1: DEFB "Cost: 150 gold", 0
+RecruitCostTab_2: DEFB "Cost: 200 gold", 0
+RecruitCostTab_3: DEFB "Cost: 250 gold", 0
+RecruitCostTab_4: DEFB "Cost: 300 gold", 0
+RecruitCostTab_5: DEFB "Cost: 600 gold", 0
+RecruitCountTab:
+                DW RecruitCountTab_0
+                DW RecruitCountTab_1
+                DW RecruitCountTab_2
+                DW RecruitCountTab_3
+                DW RecruitCountTab_4
+                DW RecruitCountTab_5
+RecruitCountTab_0: DEFB "12", 0
+RecruitCountTab_1: DEFB "8", 0
+RecruitCountTab_2: DEFB "5", 0
+RecruitCountTab_3: DEFB "4", 0
+RecruitCountTab_4: DEFB "3", 0
+RecruitCountTab_5: DEFB "2", 0
 
                 endif
