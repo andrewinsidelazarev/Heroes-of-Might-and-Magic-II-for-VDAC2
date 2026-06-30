@@ -41,8 +41,8 @@ Town_DL:
 Town_DL_SIZE EQU $ - Town_DL
 
 TOWN_RAMG_BASE       EQU #000000
-TOWN_PAYLOAD_BYTES   EQU 481268
-TOWN_PAYLOAD_SECTORS EQU 940
+TOWN_PAYLOAD_BYTES   EQU 534622
+TOWN_PAYLOAD_SECTORS EQU 1045
 TOWN_BODY_SECTOR     EQU 1
 TownPakName:         DEFB "HMM2TOWN.PAK", 0
 
@@ -514,5 +514,19 @@ GarCountInit:                          ; начальная армия по recr
                 DW 0
                 DW 0
                 DW 0
+RecruitMonhTab:                        ; [recruit idx] → MONH-портрет гарнизона ×1.6 [lo,mid,hi,w,h]
+                DEFB #F4, #57, #07, 57, 102
+                DEFB #AC, #6E, #07, 54, 105
+                DEFB #D4, #84, #07, 68, 118
+                DEFB #2C, #A4, #07, 59, 113
+                DEFB #38, #BE, #07, 115, 142
+                DEFB #04, #FE, #07, 78, 139
+GAR_ANCHOR_Y         EQU 9088
+GAR_ANCHOR_X2        EQU 8416
+GAR_CNT2_VX          EQU 9008
+GAR_ANCHOR_X3        EQU 10672
+GAR_CNT3_VX          EQU 11264
+GAR_ANCHOR_X4        EQU 12928
+GAR_CNT4_VX          EQU 13520
 
                 endif

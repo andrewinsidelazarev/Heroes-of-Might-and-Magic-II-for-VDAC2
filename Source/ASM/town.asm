@@ -23,6 +23,8 @@ TownStateInit:  DEFB 0            ; 0 = ещё не инициализирова
 KingdomGold:    DEFW 0            ; казна (золото)
 DwellAvail:     DEFW 0,0,0,0,0,0  ; доступно в жилищах [recruit idx] (декремент при найме)
 GarCount:       DEFW 0,0,0,0,0,0  ; армия гарнизона по [recruit idx] (JoinTroop: +count при найме)
+GarSlotType:    DEFB 255,255,255  ; динам.слоты армбара 2,3,4 → recruit idx нового типа (255=пусто)
+GarAnchorX:     DEFW 0            ; рабочее: X-якорь ячейки для Garrison_DrawMonh
 
 ; Курсор → блок 8×8 хит-карты → индекс здания (TownHitMap). OUT: TownHoverIdx. Только в зоне замка (Y<256).
 Town_HitTest:
@@ -271,6 +273,66 @@ Town_RecTotal:  LD   A, (TownRecruitIdx)
                 DEC  BC
                 JR   .m
 
+; Garrison_DrawMonh — A=recruit type, (GarAnchorX)=X-центр ячейки (vertex). MONH bottom-anchored. Портит всё.
+Garrison_DrawMonh:
+                LD   L, A
+                LD   H, 0
+                LD   D, H
+                LD   E, L
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, DE                        ; type*5
+                LD   DE, RecruitMonhTab
+                ADD  HL, DE                        ; &record
+                PUSH HL
+                INC  HL
+                INC  HL
+                INC  HL
+                LD   A, (HL)                        ; w
+                PUSH AF
+                INC  HL
+                LD   A, (HL)                        ; h
+                LD   L, A
+                LD   H, 0
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL                         ; h*16
+                EX   DE, HL
+                LD   HL, GAR_ANCHOR_Y
+                OR   A
+                SBC  HL, DE                         ; y = низ ячейки − h*16
+                LD   (ResPenY), HL
+                POP  AF                             ; w
+                LD   L, A
+                LD   H, 0
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL                         ; w*8 = (w/2)*16
+                EX   DE, HL
+                LD   HL, (GarAnchorX)
+                OR   A
+                SBC  HL, DE                         ; x = центр − w*8
+                LD   (ResPenX), HL
+                POP  HL                             ; record
+                JP   Render_DrawSpriteEntry
+
+; Garrison_DrawCount — A=recruit type, HL=X-позиция счётчика (vertex). Рисует GarCount[type].
+Garrison_DrawCount:
+                LD   (ResPenX), HL
+                LD   HL, GAR_CNT_VY
+                LD   (ResPenY), HL
+                ADD  A, A
+                LD   L, A
+                LD   H, 0
+                LD   DE, GarCount
+                ADD  HL, DE
+                LD   A, (HL)
+                INC  HL
+                LD   H, (HL)
+                LD   L, A                           ; HL = GarCount[type]
+                JP   Render_DrawNum
+
 ; Вход в город (вызывается через Town_Enter_Tramp; чёрный кадр уже показан трамплином).
 ; Стрим композита города в RAM_G[0] + установка состояния. GameMode уже не важен здесь —
 ; ставит трамплин? нет: ставим тут, пока slot3=town (GameMode — резидентная переменная, ок).
@@ -355,13 +417,13 @@ Town_Update:
                 JR   Z, .rec_doclose               ; CANCEL → закрыть без найма
                 LD   IX, RecBoxMax
                 CALL Town_Box
-                JR   Z, .rec_max
+                JP   Z, .rec_max
                 LD   IX, RecBoxUp
                 CALL Town_Box
-                JR   Z, .rec_up
+                JP   Z, .rec_up
                 LD   IX, RecBoxDn
                 CALL Town_Box
-                JR   Z, .rec_dn
+                JP   Z, .rec_dn
                 XOR  A                             ; вне кнопок → ничего
                 RET
 .rec_doclose:   LD   A, 255
@@ -417,6 +479,27 @@ Town_Update:
                 LD   (HL), E
                 INC  HL
                 LD   (HL), D                         ; GarCount[idx] = старое + count
+                ; новый тип (idx>=2) → назначить динам.слот армбара, если ещё не назначен
+                LD   A, (TownRecruitIdx)
+                CP   2
+                JR   C, .rec_doclose               ; Peasant/Archer = слоты 0,1 (запечены)
+                LD   C, A                            ; C = idx
+                LD   HL, GarSlotType                ; уже назначен этому типу?
+                LD   B, 3
+.rec_findasn:   LD   A, (HL)
+                CP   C
+                JR   Z, .rec_doclose               ; да → ничего
+                INC  HL
+                DJNZ .rec_findasn
+                LD   HL, GarSlotType               ; найти свободный (255) слот
+                LD   B, 3
+.rec_findfree:  LD   A, (HL)
+                CP   255
+                JR   Z, .rec_assign
+                INC  HL
+                DJNZ .rec_findfree
+                JR   .rec_doclose                 ; нет места (армия полна) — тип не показать
+.rec_assign:    LD   (HL), C                       ; GarSlotType[слот] = idx
                 JR   .rec_doclose
 .rec_max:       CALL Town_RecAvail                 ; счётчик = доступно
                 LD   (TownRecruitCount), DE
@@ -524,6 +607,31 @@ Render_Town:
                 LD   HL, Town_DL
                 LD   BC, Town_DL_SIZE
                 CALL Render_CmdBufCopy
+                ; --- MONH новых типов в динам.слотах 2-4 (прозрачная палитра) ---
+                LD   HL, Recruit_Mon_Begin_DL
+                LD   BC, Recruit_Mon_Begin_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   A, (GarSlotType + 0)
+                CP   255
+                JR   Z, .gmon_c
+                LD   HL, GAR_ANCHOR_X2
+                LD   (GarAnchorX), HL
+                CALL Garrison_DrawMonh
+.gmon_c:        LD   A, (GarSlotType + 1)
+                CP   255
+                JR   Z, .gmon_d
+                LD   HL, GAR_ANCHOR_X3
+                LD   (GarAnchorX), HL
+                CALL Garrison_DrawMonh
+.gmon_d:        LD   A, (GarSlotType + 2)
+                CP   255
+                JR   Z, .gmon_e
+                LD   HL, GAR_ANCHOR_X4
+                LD   (GarAnchorX), HL
+                CALL Garrison_DrawMonh
+.gmon_e:        LD   HL, Town_Name_End_DL
+                LD   BC, Town_Name_End_DL_SIZE
+                CALL Render_CmdBufCopy
                 ; --- живое золото на панели (всегда; число не запечено) ---
                 LD   HL, Town_Name_Begin_DL
                 LD   BC, Town_Name_Begin_DL_SIZE
@@ -546,7 +654,22 @@ Render_Town:
                 LD   (ResPenY), HL
                 LD   HL, (GarCount + 2)
                 CALL Render_DrawNum
-                LD   HL, Town_Name_End_DL
+                LD   A, (GarSlotType + 0)          ; счётчики новых типов (динам.слоты 2-4)
+                CP   255
+                JR   Z, .gcnt_c
+                LD   HL, GAR_CNT2_VX
+                CALL Garrison_DrawCount
+.gcnt_c:        LD   A, (GarSlotType + 1)
+                CP   255
+                JR   Z, .gcnt_d
+                LD   HL, GAR_CNT3_VX
+                CALL Garrison_DrawCount
+.gcnt_d:        LD   A, (GarSlotType + 2)
+                CP   255
+                JR   Z, .gcnt_e
+                LD   HL, GAR_CNT4_VX
+                CALL Garrison_DrawCount
+.gcnt_e:        LD   HL, Town_Name_End_DL
                 LD   BC, Town_Name_End_DL_SIZE
                 CALL Render_CmdBufCopy
                 LD   A, (TownRecruitIdx)          ; диалог найма открыт → его рисуем (приоритет)
