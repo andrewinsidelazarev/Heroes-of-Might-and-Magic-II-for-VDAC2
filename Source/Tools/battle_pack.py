@@ -940,13 +940,14 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
                 _b, _m, w, h, ox, oy = u["frames"][fr]
                 lx = (1 - w - ox) if s else ox
                 L.append(f"                DEFW {round(lx * 25.6)}, {round(oy * 25.6)}   ; ICN {fr}")
-    L.append("BattleCellAnchor:                       ; 99 × (ax,ay) DEFW — якорь спрайта клетки")
+    # якоря клеток — в GlobalData #91 (вынос: оверлей боя у потолка); доступ Battle_CellAnchorAddr
+    anchor_lines = ["GDBattleCellAnchor:                     ; 99 × (ax,ay) DEFW — якорь спрайта клетки"]
     for idx in range(WIDTH_IN_CELLS * 9):
         row, col = idx // WIDTH_IN_CELLS, idx % WIDTH_IN_CELLS
         px = CELL_OX - (CELL_W // 2 if row % 2 else 0) + CELL_W * col
         py = CELL_OY + ROW_STEP * row
-        L.append(f"                DEFW {round((px + CELL_W / 2) * 25.6)}, "
-                 f"{round((py + CELL_H + CELL_Y_OFFSET) * 25.6)}")
+        anchor_lines.append(f"                DEFW {round((px + CELL_W / 2) * 25.6)}, "
+                            f"{round((py + CELL_H + CELL_Y_OFFSET) * 25.6)}")
     # Последовательности групп: [type*NGROUPS+грп] → DEFW seq {DEFB len, слоты...}; 0 = группы нет.
     L.append("BattleSeqPtrTab:")
     for t, u in enumerate(units):
@@ -957,28 +958,41 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
             if g in u["seqs"]:
                 slots = [u["slot"][f] for f in u["seqs"][g]]
                 L.append(f"BattleSeq{t}_{g}: DEFB {len(slots)}, " + ", ".join(map(str, slots)))
-    # --- Тайминги (в кадрах @48.83Гц; дефолт BattleSpeed=4 → значения BIN как есть) ---
-    def _ticks(ms):
-        return max(1, round(ms / FRAME_MS))
-    anim_t = _ticks(BATTLE_FRAME_DELAY_MS)
-    move_t, shoot_t, death_d, wince_tim, atk_tim = [], [], [], [], []
+    # --- Тайминги (в кадрах @48.83Гц): БАЗА BIN = BattleSpeed 4 (дефолт fheroes2). Per-speed
+    #     наборы по Game::ApplyBattleSpeed (game_delays.cpp:224): k(s)=(10−s)/6, s=10 → 1/18;
+    #     мс-величина ×k ДО деления на кадры (как ApplyBattleSpeed(...)/animationLength). ---
+    def _speed_k(s):
+        return (10 - s) / 6.0 if s < 10 else 1.0 / 18.0
+
+    def _timings(k):
+        def _ticks(ms):
+            return max(1, round(ms * k / FRAME_MS))
+        a_t = _ticks(BATTLE_FRAME_DELAY_MS)
+        mv_t, sh_t, dd_t, wc_t, at_t = [], [], [], [], []
+        for u in units:
+            info, seqs = u["info"], u["seqs"]
+            mv_t.append(_ticks(info["move_ms"] / max(1, len(seqs["MOVE_MAIN"]))))
+            st = _ticks(info["shoot_ms"] / len(seqs["SHOOT2"])) if "SHOOT2" in seqs else a_t
+            sh_t.append(st)
+            dd_t.append(min(255, len(seqs["DEATH"]) * a_t))
+            wu = len(seqs.get("WINCE_UP", [])) * a_t
+            wc_t.append((wu, min(255, wu + len(seqs.get("WINCE_END", [])) * a_t)))
+            mp = len(seqs["ATTACK2"]) * a_t                   # пик мили = конец ATTACK2 (контакт)
+            mtot = mp + len(seqs.get("ATTACK2_END", [])) * a_t
+            if "SHOOT2" in seqs:
+                sp = len(seqs["SHOOT2"]) * st
+                stot = sp + len(seqs.get("SHOOT2_END", [])) * st
+            else:
+                sp, stot = mp, mtot
+            at_t.append((mp, min(255, mtot), sp, min(255, stot)))
+        vel = min(255, max(1, round(48 / k)))                 # 48 в-ед/тик @ k=1 → дефолт бит-в-бит
+        arrow = min(255, max(1, round(32 * k)))               # полёт стрелы (32 тика @ дефолт)
+        return a_t, mv_t, sh_t, dd_t, wc_t, at_t, vel, arrow
+
+    anim_t, move_t, shoot_t, death_d, wince_tim, atk_tim, _dvel, _darw = _timings(1.0)
     idle_min, idle_thr, static_slot, corpse_slot = [], [], [], []
     for t, u in enumerate(units):
         info, seqs = u["info"], u["seqs"]
-        move_t.append(_ticks(info["move_ms"] / max(1, len(seqs["MOVE_MAIN"]))))
-        st = _ticks(info["shoot_ms"] / len(seqs["SHOOT2"])) if "SHOOT2" in seqs else anim_t
-        shoot_t.append(st)
-        death_d.append(len(seqs["DEATH"]) * anim_t)
-        wu = len(seqs.get("WINCE_UP", [])) * anim_t
-        wince_tim.append((wu, wu + len(seqs.get("WINCE_END", [])) * anim_t))
-        mp = len(seqs["ATTACK2"]) * anim_t                    # пик мили = конец ATTACK2 (контакт)
-        mtot = mp + len(seqs.get("ATTACK2_END", [])) * anim_t
-        if "SHOOT2" in seqs:
-            sp = len(seqs["SHOOT2"]) * st
-            stot = sp + len(seqs.get("SHOOT2_END", [])) * st
-        else:
-            sp, stot = mp, mtot
-        atk_tim.append((mp, mtot, sp, stot))
         idle_min.append(round(info["idle_delay_ms"] * 0.75 / FRAME_MS))   # мин.пауза = 75% delay
         pr = info["idle_priorities"][:3]                      # пороги rand8 выбора idle-варианта
         tot = sum(pr) or 1.0
@@ -991,24 +1005,39 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
         idle_thr.append((len(pr), thr[0], thr[1]))
         static_slot.append(u["slot"][seqs["STATIC"][0]])
         corpse_slot.append(u["slot"][seqs["DEATH"][-1]])       # труп = последний DEATH-кадр
-    L.append(f"BATTLE_ANIM_TICKS EQU {anim_t}          ; BATTLE_FRAME_DELAY 120мс")
+    L.append("; --- РАБОЧИЕ тик-таблицы: 21 байт ПОДРЯД (layout = набор BattleSpeedSets);")
+    L.append(";     Battle_ApplySpeed копирует сюда набор выбранной скорости (LDIR 21) ---")
+    L.append(f"BattleAnimTicks:     DEFB {anim_t}          ; BATTLE_FRAME_DELAY (120мс @ speed4)")
     L.append("BattleMoveTickTab:   DEFB " + ", ".join(map(str, move_t)) + "   ; тиков/кадр MOVE_MAIN (moveSpeed/8)")
     L.append("BattleShootTickTab:  DEFB " + ", ".join(map(str, shoot_t)) + "   ; тиков/кадр SHOOT (shootSpeed/len)")
-    L.append("BattleDeathTicksTab: DEFB " + ", ".join(map(str, death_d)) + " ; длительность смерти (len(DEATH)×6)")
+    L.append("BattleDeathTicksTab: DEFB " + ", ".join(map(str, death_d)) + " ; длительность смерти (len(DEATH)×тик)")
     L.append("BattleWinceTimTab:                      ; [type] → DEFB up_тиков, всего_тиков")
     for wu, wt in wince_tim:
         L.append(f"                DEFB {wu}, {wt}")
     L.append("BattleAtkTimTab:                        ; [type] → DEFB мили_пик, мили_всего, выстрел_пик, выстрел_всего")
     for mp, mtot, sp, stot in atk_tim:
         L.append(f"                DEFB {mp}, {mtot}, {sp}, {stot}")
-    L.append("BattleIdleWaitMinTab: DEFW " + ", ".join(map(str, idle_min)) + " ; мин. пауза STATIC (тиков)")
+    L.append(f"BattleMoveVel:       DEFB {_dvel}         ; vertex-ед/тик (клетка 44px ≈ 23 тика @ speed4)")
+    L.append(f"BattleArrowSteps:    DEFB {_darw}         ; тиков полёта стрелы (шаг = дельта/steps)")
+    L.append("BATTLE_SPEED_SET_LEN EQU 21")
+    # выносы боя в GlobalData #91 (оверлей боя у потолка 16К); чтение GData_ReadByte
+    LS = ["; ==== АВТОГЕНЕРАЦИЯ battle_pack.py — НЕ ПРАВИТЬ (выносы боя в GlobalData #91) ====",
+          "; Battle_ApplySpeed копирует набор в рабочий блок BattleAnimTicks..BattleArrowSteps.",
+          "GDBattleSpeedSets:                      ; [speed−1] → 21Б (Game::ApplyBattleSpeed k=(10−s)/6, s10=1/18)"]
+    for s in range(1, 11):
+        a, mv, sh, dd, wc, at, vl, ar = _timings(_speed_k(s))
+        row = [a] + mv + sh + dd + [b for p in wc for b in p] + [b for q in at for b in q] + [vl, ar]
+        assert len(row) == 21
+        LS.append("                DEFB " + ", ".join(map(str, row)) + f"   ; speed {s}")
+    LS.extend(anchor_lines)
+    (BATTLE_INC.parent / "generated_battle_speed.inc").write_text("\n".join(LS) + "\n", encoding="utf-8")
+    L.append("BattleIdleWaitMinTab: DEFW " + ", ".join(map(str, idle_min)) + " ; мин. пауза STATIC (тиков; от speed НЕ зависит — BIN idleDelay)")
     L.append("BATTLE_IDLE_RND_MASK EQU 127            ; пауза = min + (rand8 & mask) ≈ ×(75..125%)")
     L.append("BattleIdleThreshTab:                    ; [type] → DEFB n_вариантов, порог1, порог2 (rand8)")
     for n, t1, t2 in idle_thr:
         L.append(f"                DEFB {n}, {t1}, {t2}")
     L.append("BattleStaticSlotTab: DEFB " + ", ".join(map(str, static_slot)) + "     ; слот кадра стойки")
     L.append("BattleCorpseSlotTab: DEFB " + ", ".join(map(str, corpse_slot)) + "   ; слот трупа (посл. DEATH)")
-    L.append("BATTLE_MOVE_VEL EQU 48                  ; vertex-единиц/тик ≈ клетка(44px)/23 тика (465мс)")
     L.append("BATTLE_ARROW_YOFS EQU -768              ; стрела на высоте груди (−30 лог.px от якоря-ног)")
     # --- СЧЁТЧИКИ ОТРЯДОВ (fheroes2 RedrawTroopCount): тёмный бар + белое число над юнитом.
     #     Бар — полупрозрачный чёрный RECTS (контраст на траве); число — DigitTable

@@ -910,106 +910,6 @@ BattleFrameOfs1_1:
                 DEFW -384, -1050   ; ICN 48
                 DEFW -512, -768   ; ICN 49
                 DEFW -486, -640   ; ICN 50
-BattleCellAnchor:                       ; 99 × (ax,ay) DEFW — якорь спрайта клетки
-                DEFW 2842, 2688
-                DEFW 3968, 2688
-                DEFW 5094, 2688
-                DEFW 6221, 2688
-                DEFW 7347, 2688
-                DEFW 8474, 2688
-                DEFW 9600, 2688
-                DEFW 10726, 2688
-                DEFW 11853, 2688
-                DEFW 12979, 2688
-                DEFW 14106, 2688
-                DEFW 2278, 3763
-                DEFW 3405, 3763
-                DEFW 4531, 3763
-                DEFW 5658, 3763
-                DEFW 6784, 3763
-                DEFW 7910, 3763
-                DEFW 9037, 3763
-                DEFW 10163, 3763
-                DEFW 11290, 3763
-                DEFW 12416, 3763
-                DEFW 13542, 3763
-                DEFW 2842, 4838
-                DEFW 3968, 4838
-                DEFW 5094, 4838
-                DEFW 6221, 4838
-                DEFW 7347, 4838
-                DEFW 8474, 4838
-                DEFW 9600, 4838
-                DEFW 10726, 4838
-                DEFW 11853, 4838
-                DEFW 12979, 4838
-                DEFW 14106, 4838
-                DEFW 2278, 5914
-                DEFW 3405, 5914
-                DEFW 4531, 5914
-                DEFW 5658, 5914
-                DEFW 6784, 5914
-                DEFW 7910, 5914
-                DEFW 9037, 5914
-                DEFW 10163, 5914
-                DEFW 11290, 5914
-                DEFW 12416, 5914
-                DEFW 13542, 5914
-                DEFW 2842, 6989
-                DEFW 3968, 6989
-                DEFW 5094, 6989
-                DEFW 6221, 6989
-                DEFW 7347, 6989
-                DEFW 8474, 6989
-                DEFW 9600, 6989
-                DEFW 10726, 6989
-                DEFW 11853, 6989
-                DEFW 12979, 6989
-                DEFW 14106, 6989
-                DEFW 2278, 8064
-                DEFW 3405, 8064
-                DEFW 4531, 8064
-                DEFW 5658, 8064
-                DEFW 6784, 8064
-                DEFW 7910, 8064
-                DEFW 9037, 8064
-                DEFW 10163, 8064
-                DEFW 11290, 8064
-                DEFW 12416, 8064
-                DEFW 13542, 8064
-                DEFW 2842, 9139
-                DEFW 3968, 9139
-                DEFW 5094, 9139
-                DEFW 6221, 9139
-                DEFW 7347, 9139
-                DEFW 8474, 9139
-                DEFW 9600, 9139
-                DEFW 10726, 9139
-                DEFW 11853, 9139
-                DEFW 12979, 9139
-                DEFW 14106, 9139
-                DEFW 2278, 10214
-                DEFW 3405, 10214
-                DEFW 4531, 10214
-                DEFW 5658, 10214
-                DEFW 6784, 10214
-                DEFW 7910, 10214
-                DEFW 9037, 10214
-                DEFW 10163, 10214
-                DEFW 11290, 10214
-                DEFW 12416, 10214
-                DEFW 13542, 10214
-                DEFW 2842, 11290
-                DEFW 3968, 11290
-                DEFW 5094, 11290
-                DEFW 6221, 11290
-                DEFW 7347, 11290
-                DEFW 8474, 11290
-                DEFW 9600, 11290
-                DEFW 10726, 11290
-                DEFW 11853, 11290
-                DEFW 12979, 11290
-                DEFW 14106, 11290
 BattleSeqPtrTab:
                 DEFW BattleSeq0_STATIC, BattleSeq0_IDLE1, BattleSeq0_IDLE2, BattleSeq0_IDLE3, BattleSeq0_MOVE_MAIN, BattleSeq0_ATTACK2, BattleSeq0_ATTACK2_END, 0, 0, BattleSeq0_DEATH, BattleSeq0_WINCE_UP, BattleSeq0_WINCE_END
                 DEFW BattleSeq1_STATIC, BattleSeq1_IDLE1, BattleSeq1_IDLE2, BattleSeq1_IDLE3, BattleSeq1_MOVE_MAIN, BattleSeq1_ATTACK2, BattleSeq1_ATTACK2_END, BattleSeq1_SHOOT2, BattleSeq1_SHOOT2_END, BattleSeq1_DEATH, BattleSeq1_WINCE_UP, BattleSeq1_WINCE_END
@@ -1035,24 +935,28 @@ BattleSeq1_SHOOT2_END: DEFB 1, 22
 BattleSeq1_DEATH: DEFB 6, 29, 30, 31, 32, 33, 34
 BattleSeq1_WINCE_UP: DEFB 3, 12, 13, 14
 BattleSeq1_WINCE_END: DEFB 2, 13, 12
-BATTLE_ANIM_TICKS EQU 6          ; BATTLE_FRAME_DELAY 120мс
+; --- РАБОЧИЕ тик-таблицы: 21 байт ПОДРЯД (layout = набор BattleSpeedSets);
+;     Battle_ApplySpeed копирует сюда набор выбранной скорости (LDIR 21) ---
+BattleAnimTicks:     DEFB 6          ; BATTLE_FRAME_DELAY (120мс @ speed4)
 BattleMoveTickTab:   DEFB 3, 3   ; тиков/кадр MOVE_MAIN (moveSpeed/8)
 BattleShootTickTab:  DEFB 6, 6   ; тиков/кадр SHOOT (shootSpeed/len)
-BattleDeathTicksTab: DEFB 42, 36 ; длительность смерти (len(DEATH)×6)
+BattleDeathTicksTab: DEFB 42, 36 ; длительность смерти (len(DEATH)×тик)
 BattleWinceTimTab:                      ; [type] → DEFB up_тиков, всего_тиков
                 DEFB 18, 24
                 DEFB 18, 30
 BattleAtkTimTab:                        ; [type] → DEFB мили_пик, мили_всего, выстрел_пик, выстрел_всего
                 DEFB 42, 54, 42, 54
                 DEFB 36, 66, 42, 48
-BattleIdleWaitMinTab: DEFW 214, 280 ; мин. пауза STATIC (тиков)
+BattleMoveVel:       DEFB 48         ; vertex-ед/тик (клетка 44px ≈ 23 тика @ speed4)
+BattleArrowSteps:    DEFB 32         ; тиков полёта стрелы (шаг = дельта/steps)
+BATTLE_SPEED_SET_LEN EQU 21
+BattleIdleWaitMinTab: DEFW 214, 280 ; мин. пауза STATIC (тиков; от speed НЕ зависит — BIN idleDelay)
 BATTLE_IDLE_RND_MASK EQU 127            ; пауза = min + (rand8 & mask) ≈ ×(75..125%)
 BattleIdleThreshTab:                    ; [type] → DEFB n_вариантов, порог1, порог2 (rand8)
                 DEFB 3, 85, 171
                 DEFB 3, 51, 154
 BattleStaticSlotTab: DEFB 0, 0     ; слот кадра стойки
 BattleCorpseSlotTab: DEFB 27, 34   ; слот трупа (посл. DEATH)
-BATTLE_MOVE_VEL EQU 48                  ; vertex-единиц/тик ≈ клетка(44px)/23 тика (465мс)
 BATTLE_ARROW_YOFS EQU -768              ; стрела на высоте груди (−30 лог.px от якоря-ног)
 Battle_CountBar_Pre_DL:
                 FT_COLOR_RGB 0, 0, 0

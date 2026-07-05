@@ -234,19 +234,19 @@ BattleIdleTick:  DEFS BATTLE_UNIT_COUNT   ; тики до следующего �
 BattleIdleWait:  DEFS BATTLE_UNIT_COUNT * 2 ; DEFW: тики STATIC до следующего idle-варианта
 BattleIdleCur:   DEFB 0           ; счётчик юнита в фоновом тике
 BattleRndSeed:   DEFB #A5         ; 8-бит LFSR (Battle_Rand8)
-; --- СТРЕЛА лучника (faithful ICN::ARCH_MSL; RedrawMissileAnimation): 32 тика полёта до пика ---
+; --- СТРЕЛА лучника (faithful ICN::ARCH_MSL; RedrawMissileAnimation): BattleArrowSteps тиков
+;     полёта до пика (32 @ speed4; в наборе BattleSpeedSets — generated_battle.inc) ---
 BattleArrowActive: DEFB 0         ; 1 = стрела в полёте (только дальний выстрел, WasMelee==0)
 BattleArrowPend: DEFB 0           ; 1 = запуск стрелы запланирован на тик BattleArrowLaunch
-BattleArrowLaunch: DEFB 0         ; тик запуска (= пик − 32; долетает точно к урону)
-BattleArrowProg: DEFB 0           ; прогресс 0..BATTLE_ARROW_STEPS
+BattleArrowLaunch: DEFB 0         ; тик запуска (= пик − полёт; долетает точно к урону)
+BattleArrowProg: DEFB 0           ; прогресс 0..BattleArrowSteps
 BattleArrowDir:  DEFB 0           ; 0 = вправо (атакующий side0) / 1 = влево (зеркало) → BattleArrowSrcTab
 BattleArrowCurX: DEFW 0           ; интерполир. позиция стрелы (vertex 1/16px)
 BattleArrowCurY: DEFW 0
 BattleArrowEndX: DEFW 0           ; цель (для расчёта шага)
 BattleArrowEndY: DEFW 0
-BattleArrowStepX: DEFW 0          ; шаг/тик = (end−start)>>5
+BattleArrowStepX: DEFW 0          ; шаг/тик = (end−start)/steps
 BattleArrowStepY: DEFW 0
-BATTLE_ARROW_STEPS EQU 32         ; тиков полёта стрелы (шаг = дельта>>5)
 BATTLE_EVT_Y    EQU 448 * 256 / 10  ; физ-Y верхней строки статуса (логич 448 ×1.6), vertex 1/16px
 BATTLE_HOVER_Y  EQU 465 * 256 / 10  ; физ-Y НИЖНЕЙ строки (hover-подсказки, как BattleStatusVertTab)
 
@@ -256,6 +256,7 @@ Battle_Enter:
                 LD   (GameMode), A
                 LD   A, 1
                 LD   (BattleExitLatch), A
+                CALL Battle_ApplySpeed             ; тик-таблицы по BattleSpeedSetting (резидент)
                 ; сброс позиций юнитов из read-only Init в мутабельную таблицу + активный юнит = 0
                 LD   HL, BattleUnitStateInit
                 LD   DE, BattleUnitState
@@ -2403,15 +2404,27 @@ Battle_EmitUnitVertex:
                 LD   (RenderPathVertexY), HL
                 JP   Render_WriteVertex2FCmd
 
-; A=клетка → HL=&BattleCellAnchor[клетка] (ax lo,hi, ay lo,hi). Портит A,DE,HL.
+; A=клетка → HL=&якорь клетки (ax lo,hi, ay lo,hi — 4Б в буфере). Таблица GDBattleCellAnchor
+; в GlobalData #91 (вынос: оверлей у потолка) — копируем 4Б резидентным GData_ReadByte.
+; Портит A,BC,DE,HL (раньше A,DE,HL — callers B не полагаются: проверено по всем 5 вызовам).
 Battle_CellAnchorAddr:
                 LD   L, A
                 LD   H, 0
                 ADD  HL, HL
                 ADD  HL, HL                        ; клетка*4
-                LD   DE, BattleCellAnchor
+                LD   DE, GDBattleCellAnchor
                 ADD  HL, DE
+                LD   DE, BattleAnchBuf
+                LD   C, 4
+.cab:           CALL GData_ReadByte                ; A=(#91:HL); HL цел, портит B
+                LD   (DE), A
+                INC  HL
+                INC  DE
+                DEC  C
+                JR   NZ, .cab
+                LD   HL, BattleAnchBuf
                 RET
+BattleAnchBuf:  DEFS 4
 
 ; A=клетка → (BattleTmpAnchX/Y) = якорь клетки. Портит A,DE,HL.
 Battle_SetCellAnchor:
@@ -2513,8 +2526,9 @@ Battle_CalcAnimSlot:
                 LD   A, (BattleDeathUnit)
                 CP   B
                 JR   NZ, .nodeath
+                LD   A, (BattleAnimTicks)
+                LD   C, A
                 LD   A, (BattleDeathProg)
-                LD   C, BATTLE_ANIM_TICKS
                 CALL Battle_DivA
                 LD   E, A
                 LD   C, BATTLE_GRP_DEATH
@@ -2528,8 +2542,9 @@ Battle_CalcAnimSlot:
                 LD   A, (BattleAtkShoot)
                 OR   A
                 JR   NZ, .shoot
-                LD   A, (BattleAtkProg)            ; мили: idx = prog/6
-                LD   C, BATTLE_ANIM_TICKS
+                LD   A, (BattleAnimTicks)          ; мили: idx = prog/тик
+                LD   C, A
+                LD   A, (BattleAtkProg)
                 CALL Battle_DivA
                 LD   E, A
                 LD   C, BATTLE_GRP_ATTACK2
@@ -2582,8 +2597,9 @@ Battle_CalcAnimSlot:
                 LD   A, (BattleWinceUnit)
                 CP   B
                 JR   NZ, .idle
+                LD   A, (BattleAnimTicks)
+                LD   C, A
                 LD   A, (BattleWinceProg)
-                LD   C, BATTLE_ANIM_TICKS
                 CALL Battle_DivA
                 LD   E, A
                 LD   C, BATTLE_GRP_WINCE_UP
@@ -2750,7 +2766,10 @@ Battle_AnimBgTick:
                 LD   A, (HL)
                 INC  A
                 LD   (HL), A
-                CP   BATTLE_ANIM_TICKS             ; кадр раз в 120мс
+                PUSH HL                            ; кадр раз в BattleAnimTicks (120мс @ speed4)
+                LD   HL, BattleAnimTicks
+                CP   (HL)
+                POP  HL
                 JP   C, .inext
                 LD   (HL), 0
                 LD   HL, BattleIdleIdx
@@ -2871,14 +2890,6 @@ Battle_DrawUnitsPass:
                 JP   NZ, .uloop
                 RET
 
-; HL >>= 5 знаково (арифметический сдвиг). Портит B.
-Battle_Asr5:
-                LD   B, 5
-.a5:            SRA  H
-                RR   L
-                DJNZ .a5
-                RET
-
 ; Запустить анимацию движения активного юнита из его клетки в BattleMoveDestCell.
 ; ПО ОРИГИНАЛУ: длительность пропорциональна дистанции (BIN moveSpeed 465мс/клетку):
 ; steps = max(|dX|,|dY|)/BATTLE_MOVE_VEL (48 v-ед/тик ≈ 44px-клетка за 23 тика), кламп 12..120.
@@ -2934,7 +2945,8 @@ Battle_StartMove:
                 ADD  HL, DE                         ; сравнить, HL восстановлен
                 JR   NC, .xmax
                 EX   DE, HL
-.xmax:          LD   C, BATTLE_MOVE_VEL
+.xmax:          LD   A, (BattleMoveVel)
+                LD   C, A
                 CALL Battle_Div16by8                ; HL = дистанция/скорость
                 LD   A, H
                 OR   A
@@ -3054,8 +3066,10 @@ Battle_StartAttack:
                 LD   A, 1                            ; ВЫСТРЕЛ: SHOOT-кадры + план запуска стрелы
                 LD   (BattleAtkShoot), A
                 LD   (BattleArrowPend), A
+                LD   A, (BattleArrowSteps)           ; запуск = пик − полёт
+                LD   C, A
                 LD   A, (BattleAtkPeak)
-                SUB  BATTLE_ARROW_STEPS              ; запуск = пик − полёт
+                SUB  C
                 JR   NC, .lok
                 XOR  A
 .lok:           LD   (BattleArrowLaunch), A
@@ -3111,17 +3125,21 @@ Battle_StartArrow:
                 LD   DE, BATTLE_ARROW_YOFS
                 ADD  HL, DE
                 LD   (BattleArrowEndY), HL
-                LD   HL, (BattleArrowEndX)          ; stepX = (End−Cur)>>5
+                LD   HL, (BattleArrowEndX)          ; stepX = (End−Cur)/steps (steps per speed)
                 LD   DE, (BattleArrowCurX)
                 OR   A
                 SBC  HL, DE
-                CALL Battle_Asr5
+                LD   A, (BattleArrowSteps)
+                LD   C, A
+                CALL Battle_SDiv16by8
                 LD   (BattleArrowStepX), HL
-                LD   HL, (BattleArrowEndY)          ; stepY = (End−Cur)>>5
+                LD   HL, (BattleArrowEndY)          ; stepY = (End−Cur)/steps
                 LD   DE, (BattleArrowCurY)
                 OR   A
                 SBC  HL, DE
-                CALL Battle_Asr5
+                LD   A, (BattleArrowSteps)
+                LD   C, A
+                CALL Battle_SDiv16by8
                 LD   (BattleArrowStepY), HL
                 XOR  A
                 LD   (BattleArrowProg), A
@@ -3157,7 +3175,8 @@ Battle_AtkTick:
                 LD   A, (BattleArrowProg)
                 INC  A
                 LD   (BattleArrowProg), A
-                CP   BATTLE_ARROW_STEPS
+                LD   HL, BattleArrowSteps
+                CP   (HL)
                 JR   C, .noarrow
                 XOR  A
                 LD   (BattleArrowActive), A         ; долетела (в момент урона)
@@ -3344,6 +3363,40 @@ Battle_AIForceEnd:
                 RET
 .fe_win:        LD   A, 1
                 LD   (BattleResult), A
+                RET
+
+; Применить скорость боя (Game::UpdateGameSpeed): скопировать набор тик-таблиц скорости
+; BattleSpeedSetting (резидент, 1..10; мусор → дефолт 4) в рабочий блок BattleAnimTicks..
+; BattleArrowSteps (21Б подряд, layout = GDBattleSpeedSets в GlobalData #91 — оверлей боя у
+; потолка 16К; чтение резидентным GData_ReadByte, HL цел). Портит A,BC,DE,HL.
+Battle_ApplySpeed:
+                LD   A, (BattleSpeedSetting)
+                DEC  A                              ; 1..10 → 0..9
+                CP   10
+                JR   C, .vs
+                LD   A, 4                           ; вне диапазона (холодный старт) → 4
+                LD   (BattleSpeedSetting), A
+                LD   A, 3
+.vs:            LD   L, A                           ; HL = GDBattleSpeedSets + idx×21 (#91-окно)
+                LD   H, 0
+                LD   E, L
+                LD   D, H
+                ADD  HL, HL                         ; 2
+                ADD  HL, HL                         ; 4
+                ADD  HL, DE                         ; 5
+                ADD  HL, HL                         ; 10
+                ADD  HL, HL                         ; 20
+                ADD  HL, DE                         ; 21
+                LD   DE, GDBattleSpeedSets
+                ADD  HL, DE
+                LD   DE, BattleAnimTicks            ; рабочий блок (21Б подряд)
+                LD   C, BATTLE_SPEED_SET_LEN
+.cp:            CALL GData_ReadByte                 ; A = (#91:HL); HL цел, портит B
+                LD   (DE), A
+                INC  HL
+                INC  DE
+                DEC  C
+                JR   NZ, .cp
                 RET
 
 ; ★Battle_EvalThreat — Troop::evaluateThreatForUnit (battle_troop.cpp): насколько ВРАГ C (как

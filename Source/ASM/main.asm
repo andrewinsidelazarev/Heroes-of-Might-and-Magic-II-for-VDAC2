@@ -89,6 +89,8 @@ UI_HeroMoveButtonState EQU UI_ButtonStates + 1
 UI_EndTurnButtonState  EQU UI_ButtonStates + 4
 HeroWalkActive   EQU #427C       ; 1 = герой шагает по маршруту, 0 = ждёт команды (клик/кнопка)
 StatusState      EQU #427D        ; вид статус-окна (клик переключает, как в оригинале)
+BattleSpeedSetting EQU #427E      ; скорость боя 1..10 (Settings; вне диапазона → дефолт 4);
+                                  ; живёт в резиденте — battle-оверлей рестримится каждый бой
 ; Порядок = клик-цикл оригинала NextStatus при фокус-герое (interface_status.cpp:188-204):
 ; ARMY → DATE(DAY) → FUNDS → ARMY. INC-wrap StatusState 0→1→2→0 даёт ровно этот порядок.
 STATUS_ARMY      EQU 0            ; армия фокус-героя (MONS32 + счётчики) — ДЕФОЛТ
@@ -704,6 +706,7 @@ GlobalData_Start:
                 include "generated_monsters.inc"    ; MonsterStats @ #C000 (72×10=720Б)
                 include "generated_minimap_tab.inc" ; цвета тайлов мини-карты (1296Б; вынос из резидента)
                 include "generated_town_hit.inc"    ; GDTownHitMap 2.5К (вынос: оверлей города упёрся в 16К)
+                include "generated_battle_speed.inc" ; наборы тик-таблиц боя per speed (210Б; бой у потолка)
 GLOBAL_STATE_BASE EQU $                             ; ← мутабельное глоб.состояние начинается здесь
 GlobalData_End:
                 ASSERT GlobalData_End <= #FFFF
