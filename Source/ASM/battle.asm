@@ -152,6 +152,14 @@ BattleDefK:         DEFB 0        ; счётчик направлений
 BattleDefAdjBase:   DEFW 0        ; &BattleAdjTab[Fcell*6]
 BattleDefCoverD:    DEFB 0        ; дистанция до cover-клетки (Reach; #FF-origin → 0)
 BattleDefEIdx:      DEFB 0        ; scratch: индекс врага во вложенных циклах
+; --- scratch Battle_AICautiousStop (findOptimalPositionForSubsequentAttack :351) ---
+BattleCautLen:      DEFB 0        ; длина пути (шагов, ≤12)
+BattleCautPath:     DEFS 12       ; клетки пути: [0]=dest … [len-1]=первый шаг от origin
+BattleCautThr:      DEFS 12*2     ; threat16 шага = Σ угроз врагов, достающих соседей клетки
+BattleCautEIdx:     DEFB 0        ; scratch: индекс врага
+BattleCautStep:     DEFB 0        ; scratch: индекс шага пути
+BattleCautTmp:      DEFB 0        ; scratch: клетка-родитель при реконструкции
+BattleCautMin:      DEFW 0        ; scratch: минимальная угроза при выборе
 ; приоритет направлений прикрытия (castle_dialog… нет: ai_battle.cpp:1800-1806, не-wide):
 ; side0 (смотрит вправо): R,TR,BR,TL,BL,L; side1 (reflect): L,TL,BL,TR,BR,R. Индексы BattleAdjTab {TL,TR,L,R,BL,BR}.
 BattleDefPrioS0:    DEFB 3,1,5,0,4,2
@@ -3206,10 +3214,13 @@ Battle_DeathTick:
                 JP   Battle_EndTurn
 
 ; ============================================================================
-; AI боя (ai_battle.cpp planUnitTurn, упрощённо для безгеройного skirmish — без спеллов/
-; ретрита/осады). Дерево: найти лучшую цель (угроза=урон×count) → СТРЕЛОК: выстрелить лучшую;
-; МИЛИ: цель в досягаемости → ударить, иначе подойти к ней (ближайшая достижимая клетка) и
-; ударить, если стал соседом; иначе — пропуск. После действия — ответка/след.ход/конец.
+; AI боя = AI::BattlePlanner planUnitTurn (ai_battle.cpp) для безгеройного skirmish.
+; Не переносится по скоупу порта: спеллы (Step 2/3 — у монстров карты нет героя-командира,
+; ретрит/сдача/каст неприменимы), осада (замковых боёв нет). Дерево по оригиналу:
+; analyzeBattleState (тактика Def/Off + cautious) → СТРЕЛОК: archerDecision (кайтинг/
+; мили-в-упоре/выстрел по max threat); МИЛИ Defense: прикрыть стрелков/бить блокирующих;
+; МИЛИ Offense: getMeleeBestOutcome (атакуемая-в-ход цель, posValue→threat) → иначе подход
+; (2 прохода non-evader; при cautious — стоп на пути с мин. угрозой) → SKIP.
 ; ============================================================================
 
 ; Управляет ли AI текущим активным? Авто-режим → да (обе стороны); иначе только защитник (side1).
@@ -3293,6 +3304,9 @@ Battle_AITurn:
                 CP   #FF
                 JP   Z, .endturn                     ; врагов нет (не должно) → пропуск
                 CALL Battle_AIMoveToward             ; Reach уже посчитан выше → ближайшая достижимая клетка к цели
+                LD   A, (BattleCautious)             ; _cautiousOffensive → стоп на пути с мин. угрозой (:1628)
+                OR   A
+                CALL NZ, Battle_AICautiousStop
                 LD   A, (BattleActiveUnit)            ; некуда идти (dest==текущая)? → пропуск хода
                 CALL Battle_UnitAddr
                 INC  HL
@@ -5104,6 +5118,207 @@ Battle_CellRowCol:
                 INC  B
                 JR   .rcloop
 .rcdone:        RET
+
+; ★Battle_AICautiousStop — findOptimalPositionForSubsequentAttack (ai_battle.cpp:351): при
+; _cautiousOffensive (у врага почти нет стрелков) мили-юнит идёт к цели, но останавливается на
+; САМОМ ДАЛЬНЕМ шаге пути с МИНИМАЛЬНОЙ угрозой (не подставляться в конце хода). Путь =
+; реконструкция по волне флуда (BattleReach: от dest к origin по убыванию волны — один из
+; кратчайших, эквивалент GetPath). Угроза шага = Σ threatCache[e] по полноценным врагам
+; (НЕ «слабый» AIArcEnemyWeak: свободный стрелок/speed0 — оригинал исключает стрелков не в
+; упоре, speed0 отсеет isUnitAbleToApproachPosition), способным подойти: флуд за врага
+; (ComputeReachEx, активный «снят» = UnitRemover) достигает СОСЕДА шага (вкл. клетку врага:
+; origin=#FF≠0). Обход буфера от dest к origin со СТРОГИМ < ⇔ оригинальный обход от начала
+; пути с ≤ (оба дают самый дальний глобальный минимум). Отступление: кандидаты только в
+; пределах этого хода (оригинал оценивает весь многоходовый путь и обрезает по достижимости).
+; IN: BattleMoveDestCell (от MoveToward), BattleReach (флуд активного).
+; OUT: BattleMoveDestCell. Портит всё (в т.ч. BattleReachEn).
+Battle_AICautiousStop:
+                LD   A, (BattleActiveUnit)           ; dest==origin → идти некуда, выходим
+                CALL Battle_UnitAddr
+                INC  HL
+                LD   A, (HL)
+                LD   HL, BattleMoveDestCell
+                CP   (HL)
+                RET  Z
+                ; --- реконструкция пути: c=dest; родитель = сосед с волной Reach[c]−1 ---
+                XOR  A
+                LD   (BattleCautLen), A
+                LD   A, (HL)                         ; c = dest
+.csrec:         LD   C, A                            ; C = c
+                LD   A, (BattleCautLen)
+                CP   12
+                JR   NC, .cszero                     ; страховка переполнения буфера
+                LD   HL, BattleCautPath              ; path[len] = c
+                CALL Battle_IdxByte
+                LD   (HL), C
+                LD   HL, BattleCautLen
+                INC  (HL)
+                LD   A, C                            ; r = Reach[c] (1..spd)
+                LD   L, A
+                LD   H, 0
+                LD   DE, BattleReach
+                ADD  HL, DE
+                LD   A, (HL)
+                CP   1
+                JR   Z, .cszero                      ; волна 1 → родитель = origin, путь готов
+                DEC  A
+                LD   B, A                            ; B = искомая волна r−1
+                LD   A, C                            ; HL = &adj[c*6]
+                LD   L, A
+                LD   H, 0
+                LD   D, H
+                LD   E, L
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, DE
+                ADD  HL, DE
+                LD   DE, BattleAdjTab
+                ADD  HL, DE
+                LD   C, 6
+.csadj:         LD   A, (HL)
+                CP   #FF
+                JR   Z, .csan
+                LD   (BattleCautTmp), A              ; кандидат-родитель
+                PUSH HL
+                LD   L, A
+                LD   H, 0
+                LD   DE, BattleReach
+                ADD  HL, DE
+                LD   A, (HL)
+                POP  HL
+                CP   B
+                JR   Z, .csstep                      ; волна r−1 → шаг к origin
+.csan:          INC  HL
+                DEC  C
+                JR   NZ, .csadj
+                JR   .cszero                         ; родителя нет (не должно) → путь как есть
+.csstep:        LD   A, (BattleCautTmp)
+                JR   .csrec
+                ; --- обнулить threat-аккумулятор пути ---
+.cszero:        LD   HL, BattleCautThr
+                LD   B, 12*2
+                XOR  A
+.cszl:          LD   (HL), A
+                INC  HL
+                DJNZ .cszl
+                ; --- по врагам: полноценный → флуд → добавить threat шагам с достижимым соседом ---
+                XOR  A
+.csen:          LD   (BattleCautEIdx), A
+                LD   HL, BattleEnemyCache            ; живой враг?
+                CALL Battle_IdxByte
+                LD   A, (HL)
+                OR   A
+                JR   Z, .csennext
+                LD   A, (BattleCautEIdx)             ; «слабый» (свободный стрелок/speed0) → мимо
+                CALL Battle_AIArcEnemyWeak
+                OR   A
+                JR   NZ, .csennext
+                LD   A, (BattleCautEIdx)             ; флуд за врага, активный снят (UnitRemover)
+                LD   (BattleReachUnit), A
+                LD   HL, BattleReachEn
+                LD   (BattleReachBufPtr), HL
+                LD   A, (BattleActiveUnit)
+                LD   (BattleFindIgnore), A
+                CALL Battle_ComputeReachEx
+                XOR  A                               ; шаги пути
+.csst:          LD   (BattleCautStep), A
+                LD   HL, BattleCautPath
+                CALL Battle_IdxByte
+                LD   A, (HL)                         ; клетка шага
+                CALL Battle_CellAdjReachEn           ; сосед достижим врагом?
+                OR   A
+                JR   Z, .cssn
+                LD   A, (BattleCautEIdx)             ; thr[step] += threatCache[e] (cap FFFF)
+                CALL Battle_ThreatCacheGet           ; DE = threat врага
+                LD   A, (BattleCautStep)
+                ADD  A, A
+                LD   HL, BattleCautThr
+                CALL Battle_IdxByte                  ; HL = &thr[step].lo
+                LD   C, (HL)
+                INC  HL
+                LD   B, (HL)                         ; BC = текущая сумма, HL = &hi
+                PUSH HL
+                LD   H, B
+                LD   L, C
+                ADD  HL, DE
+                JR   NC, .csok
+                LD   HL, #FFFF
+.csok:          EX   DE, HL                          ; DE = новая сумма
+                POP  HL                              ; HL = &hi
+                LD   (HL), D
+                DEC  HL
+                LD   (HL), E
+.cssn:          LD   A, (BattleCautStep)
+                INC  A
+                LD   HL, BattleCautLen
+                CP   (HL)
+                JR   C, .csst
+.csennext:      LD   A, (BattleCautEIdx)
+                INC  A
+                CP   BATTLE_UNIT_COUNT
+                JR   C, .csen
+                ; --- выбор: от dest (path[0]) к origin, обновление при СТРОГО меньшей угрозе ---
+                LD   A, (BattleCautPath)             ; старт: dest
+                LD   (BattleMoveDestCell), A
+                LD   HL, (BattleCautThr)             ; min = thr[0]
+                LD   (BattleCautMin), HL
+                LD   A, 1
+.cspick:        LD   (BattleCautStep), A
+                LD   HL, BattleCautLen
+                CP   (HL)
+                RET  NC                              ; все шаги пройдены
+                ADD  A, A                            ; DE = thr[step]
+                LD   HL, BattleCautThr
+                CALL Battle_IdxByte
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)
+                LD   HL, (BattleCautMin)             ; thr < min ? (min−thr: NC и NZ)
+                OR   A
+                SBC  HL, DE
+                JR   C, .cspn
+                JR   Z, .cspn
+                LD   (BattleCautMin), DE             ; новый минимум → стоп-клетка ближе к origin
+                LD   A, (BattleCautStep)
+                LD   HL, BattleCautPath
+                CALL Battle_IdxByte
+                LD   A, (HL)
+                LD   (BattleMoveDestCell), A
+.cspn:          LD   A, (BattleCautStep)
+                INC  A
+                JR   .cspick
+
+; A=cell → A=1 если у клетки есть сосед с ReachEn≠0 (вкл. origin врага #FF), иначе 0. Портит A,B,DE,HL.
+Battle_CellAdjReachEn:
+                LD   L, A
+                LD   H, 0
+                LD   D, H
+                LD   E, L
+                ADD  HL, HL                          ; 2c
+                ADD  HL, HL                          ; 4c
+                ADD  HL, DE                          ; 5c
+                ADD  HL, DE                          ; 6c
+                LD   DE, BattleAdjTab
+                ADD  HL, DE                          ; &adj[cell*6]
+                LD   B, 6
+.carl:          LD   A, (HL)
+                CP   #FF
+                JR   Z, .carn
+                PUSH HL
+                LD   L, A
+                LD   H, 0
+                LD   DE, BattleReachEn
+                ADD  HL, DE
+                LD   A, (HL)
+                POP  HL
+                OR   A
+                JR   NZ, .caryes
+.carn:          INC  HL
+                DJNZ .carl
+                XOR  A
+                RET
+.caryes:        LD   A, 1
+                RET
 
 ; ★Гекс-6 ДИСТАНЦИЯ (battle_board.cpp GetDistance) — фундамент AI/угрозы. x=i%11, y=i÷11;
 ; du=yB−yA; dv=(xB+yB÷2)−(xA+yA÷2); знаки du,dv ОДИНАКОВЫ → max(|du|,|dv|), иначе |du|+|dv|.
