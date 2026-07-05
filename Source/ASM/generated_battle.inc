@@ -3,8 +3,8 @@
                 define _HMM2_GENERATED_BATTLE_
 
 BATTLE_PAL_RAMG      EQU #000000
-BATTLE_TOP_RAMG      EQU #03D9CC
-BATTLE_BOT_RAMG      EQU #0631CC
+BATTLE_TOP_RAMG      EQU #051264
+BATTLE_BOT_RAMG      EQU #076A64
 BATTLE_SHADOW_PAL_RAMG EQU #000580
 BATTLE_SHADOW_RAMG   EQU #0005A0
 BATTLE_CONTOUR_PAL_RAMG EQU #000E90
@@ -311,159 +311,125 @@ Battle_Status_End_DL:
                 FT_END
 Battle_Status_End_DL_SIZE EQU $ - Battle_Status_End_DL
 BattleStatusPreTab:
-                DEFW Battle_Status_Pre_0, Battle_Status_Pre_1, Battle_Status_Pre_2, Battle_Status_Pre_3, Battle_Status_Pre_4, Battle_Status_Pre_5, Battle_Status_Pre_6, Battle_Status_Pre_7
+                DEFW Battle_Status_Pre_0, Battle_Status_Pre_1, Battle_Status_Pre_2, Battle_Status_Pre_3, Battle_Status_Pre_4, Battle_Status_Pre_5, Battle_Status_Pre_6, Battle_Status_Pre_7, Battle_Status_Pre_8, Battle_Status_Pre_9, Battle_Status_Pre_10
 Battle_Status_Pre_0:
                 FT_BITMAP_SOURCE #001290
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 119, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 119, 9
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 264, 22
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 264, 22
 Battle_Status_Pre_1:
-                FT_BITMAP_SOURCE #0016C0
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 115, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 115, 9
+                FT_BITMAP_SOURCE #002940
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 258, 22
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 258, 22
 Battle_Status_Pre_2:
-                FT_BITMAP_SOURCE #001ACC
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 97, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 97, 9
+                FT_BITMAP_SOURCE #003F6C
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 219, 22
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 219, 22
 Battle_Status_Pre_3:
-                FT_BITMAP_SOURCE #001E38
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 93, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 93, 9
+                FT_BITMAP_SOURCE #005240
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 213, 22
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 213, 22
 Battle_Status_Pre_4:
-                FT_BITMAP_SOURCE #002180
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 168, 10
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 168, 10
+                FT_BITMAP_SOURCE #006490
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 72, 22
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 72, 22
 Battle_Status_Pre_5:
-                FT_BITMAP_SOURCE #002810
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 164, 10
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 164, 10
+                FT_BITMAP_SOURCE #006AC0
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 72, 22
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 72, 22
 Battle_Status_Pre_6:
-                FT_BITMAP_SOURCE #002E78
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 116, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 116, 9
+                FT_BITMAP_SOURCE #0070F0
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 251, 22
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 251, 22
 Battle_Status_Pre_7:
-                FT_BITMAP_SOURCE #00328C
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 112, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 112, 9
+                FT_BITMAP_SOURCE #008684
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 245, 22
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 245, 22
+Battle_Status_Pre_8:
+                FT_BITMAP_SOURCE #009B94
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 338, 22
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 338, 22
+Battle_Status_Pre_9:
+                FT_BITMAP_SOURCE #00B8A0
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 341, 27
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 341, 27
+Battle_Status_Pre_10:
+                FT_BITMAP_SOURCE #00DC98
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 174, 27
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 174, 27
 BATTLE_STATUS_PRE_SIZE EQU Battle_Status_Pre_1 - Battle_Status_Pre_0
-BattleStatusVertTab:                   ; центр физ. (512, y=717); текст НАТИВНЫЙ (без ×1.6)
-                FT_VERTEX2F 7248, 11468
-                FT_VERTEX2F 7280, 11468
-                FT_VERTEX2F 7424, 11468
-                FT_VERTEX2F 7456, 11468
-                FT_VERTEX2F 6848, 11468
-                FT_VERTEX2F 6880, 11468
-                FT_VERTEX2F 7264, 11468
-                FT_VERTEX2F 7296, 11468
-BATTLE_STATUS_COUNT EQU 8
-
-BattleTurnPreTab:
-                DEFW Battle_Turn_Pre_0, Battle_Turn_Pre_1, Battle_Turn_Pre_2, Battle_Turn_Pre_3, Battle_Turn_Pre_4, Battle_Turn_Pre_5, Battle_Turn_Pre_6, Battle_Turn_Pre_7, Battle_Turn_Pre_8, Battle_Turn_Pre_9
-Battle_Turn_Pre_0:
-                FT_BITMAP_SOURCE #00367C
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 38, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 38, 9
-Battle_Turn_Pre_1:
-                FT_BITMAP_SOURCE #0037D4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 40, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 40, 9
-Battle_Turn_Pre_2:
-                FT_BITMAP_SOURCE #00393C
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 40, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 40, 9
-Battle_Turn_Pre_3:
-                FT_BITMAP_SOURCE #003AA4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 40, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 40, 9
-Battle_Turn_Pre_4:
-                FT_BITMAP_SOURCE #003C0C
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 40, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 40, 9
-Battle_Turn_Pre_5:
-                FT_BITMAP_SOURCE #003D74
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 40, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 40, 9
-Battle_Turn_Pre_6:
-                FT_BITMAP_SOURCE #003EDC
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 40, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 40, 9
-Battle_Turn_Pre_7:
-                FT_BITMAP_SOURCE #004044
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 40, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 40, 9
-Battle_Turn_Pre_8:
-                FT_BITMAP_SOURCE #0041AC
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 40, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 40, 9
-Battle_Turn_Pre_9:
-                FT_BITMAP_SOURCE #004314
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 43, 9
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 43, 9
-BATTLE_TURN_PRE_SIZE EQU Battle_Turn_Pre_1 - Battle_Turn_Pre_0
-BattleTurnVertTab:                     ; центр физ. (512, y=717); текст НАТИВНЫЙ (без ×1.6)
-                FT_VERTEX2F 7888, 11468
-                FT_VERTEX2F 7872, 11468
-                FT_VERTEX2F 7872, 11468
-                FT_VERTEX2F 7872, 11468
-                FT_VERTEX2F 7872, 11468
-                FT_VERTEX2F 7872, 11468
-                FT_VERTEX2F 7872, 11468
-                FT_VERTEX2F 7872, 11468
-                FT_VERTEX2F 7872, 11468
-                FT_VERTEX2F 7856, 11468
-BATTLE_TURN_MAX EQU 10
+BattleStatusVertTab:                   ; hover = НИЖНЯЯ строка бара (лог.Y≈465), центр X=512
+                FT_VERTEX2F 6080, 11904
+                FT_VERTEX2F 6128, 11904
+                FT_VERTEX2F 6448, 11904
+                FT_VERTEX2F 6496, 11904
+                FT_VERTEX2F 7616, 11904
+                FT_VERTEX2F 7616, 11904
+                FT_VERTEX2F 6192, 11904
+                FT_VERTEX2F 6240, 11904
+                FT_VERTEX2F 5488, 11904
+                FT_VERTEX2F 5472, 11904
+                FT_VERTEX2F 6800, 11904
+BATTLE_STATUS_COUNT EQU 11
 
 EVT_ENTRY_SIZE EQU 5
 BattleEvtAtkTab:                       ; «<atk> do/does » idx=type×2+(count==1)
-                DEFB #98, #44, #00, 166, 22
-                DEFB #DC, #52, #00, 181, 22
-                DEFB #6C, #62, #00, 160, 22
-                DEFB #2C, #70, #00, 174, 22
+                DEFB #F4, #EE, #00, 166, 22
+                DEFB #38, #FD, #00, 181, 22
+                DEFB #C8, #0C, #01, 160, 22
+                DEFB #88, #1A, #01, 174, 22
 BattleEvtDmgSfx:                       ; « damage.»
-                DEFB #20, #7F, #00, 117, 27
+                DEFB #7C, #29, #01, 117, 27
 BattleEvtSpace:                        ; « » (между damage. и числом гибели)
-                DEFB #78, #8B, #00, 10, 2
+                DEFB #D4, #35, #01, 10, 2
 BattleEvtPerishTab:                    ; « <def> perish(es).» idx=type×2+(killed==1)
-                DEFB #8C, #8B, #00, 222, 27
-                DEFB #F8, #A2, #00, 237, 27
-                DEFB #F8, #BB, #00, 216, 27
-                DEFB #C0, #D2, #00, 230, 27
+                DEFB #E8, #35, #01, 222, 27
+                DEFB #54, #4D, #01, 237, 27
+                DEFB #54, #66, #01, 216, 27
+                DEFB #1C, #7D, #01, 230, 27
 BattleEvtDigitTab:                     ; «0».. «9» (тот же шрифт, что слова)
-                DEFB #04, #EB, #00, 14, 22
-                DEFB #38, #EC, #00, 8, 22
-                DEFB #E8, #EC, #00, 13, 22
-                DEFB #08, #EE, #00, 13, 22
-                DEFB #28, #EF, #00, 14, 22
-                DEFB #5C, #F0, #00, 13, 22
-                DEFB #7C, #F1, #00, 13, 22
-                DEFB #9C, #F2, #00, 13, 22
-                DEFB #BC, #F3, #00, 13, 22
-                DEFB #DC, #F4, #00, 13, 22
+                DEFB #60, #95, #01, 14, 22
+                DEFB #94, #96, #01, 8, 22
+                DEFB #44, #97, #01, 13, 22
+                DEFB #64, #98, #01, 13, 22
+                DEFB #84, #99, #01, 14, 22
+                DEFB #B8, #9A, #01, 13, 22
+                DEFB #D8, #9B, #01, 13, 22
+                DEFB #F8, #9C, #01, 13, 22
+                DEFB #18, #9E, #01, 13, 22
+                DEFB #38, #9F, #01, 13, 22
 BattleEvtMoveHead:                     ; «Moved »
-                DEFB #FC, #F5, #00, 42, 9
+                DEFB #58, #A0, #01, 94, 22
 BattleEvtMoveNameTab:                  ; «Peasants: »/«Archers: » idx=type
-                DEFB #78, #F7, #00, 59, 9
-                DEFB #8C, #F9, #00, 55, 9
+                DEFB #6C, #A8, #01, 131, 22
+                DEFB #B0, #B3, #01, 125, 22
 BattleEvtMoveFrom:                     ; «from [»
-                DEFB #7C, #FB, #00, 38, 10
+                DEFB #70, #BE, #01, 85, 22
 BattleEvtMoveMid:                      ; «] to [»
-                DEFB #F8, #FC, #00, 27, 10
+                DEFB #C0, #C5, #01, 64, 22
 BattleEvtMoveEnd:                      ; «].»
-                DEFB #08, #FE, #00, 6, 10
+                DEFB #40, #CB, #01, 14, 22
 BattleEvtComma:                        ; «, » (между row и col)
-                DEFB #44, #FE, #00, 7, 11
+                DEFB #74, #CC, #01, 16, 24
 BattleEvtMoveDigitTab:                 ; нативные цифры «0».. «9» для координат движения
-                DEFB #94, #FE, #00, 5, 9
-                DEFB #C4, #FE, #00, 3, 9
-                DEFB #E0, #FE, #00, 5, 9
-                DEFB #10, #FF, #00, 5, 9
-                DEFB #40, #FF, #00, 5, 9
-                DEFB #70, #FF, #00, 5, 9
-                DEFB #A0, #FF, #00, 5, 9
-                DEFB #D0, #FF, #00, 5, 9
-                DEFB #00, #00, #01, 5, 9
-                DEFB #30, #00, #01, 5, 9
+                DEFB #F4, #CD, #01, 14, 22
+                DEFB #28, #CF, #01, 8, 22
+                DEFB #D8, #CF, #01, 13, 22
+                DEFB #F8, #D0, #01, 13, 22
+                DEFB #18, #D2, #01, 14, 22
+                DEFB #4C, #D3, #01, 13, 22
+                DEFB #6C, #D4, #01, 13, 22
+                DEFB #8C, #D5, #01, 13, 22
+                DEFB #AC, #D6, #01, 13, 22
+                DEFB #CC, #D7, #01, 13, 22
+BattleShootHeadTab:                    ; «Shoot Peasants (»/«Shoot Archers (» idx=target.type
+                DEFB #EC, #D8, #01, 216, 24
+                DEFB #2C, #ED, #01, 210, 24
+BattleShootTailPl:                     ; « shots left)»
+                DEFB #DC, #00, #02, 141, 24
+BattleShootTailSg:                     ; « shot left)» (N==1)
+                DEFB #14, #0E, #02, 128, 24
 
-BATTLE_YELLOW_PAL_RAMG EQU #039884
+BATTLE_YELLOW_PAL_RAMG EQU #04D11C
 Battle_WinTitle_Begin_DL:              ; пролог заголовка победы (жёлтая палитра, нативно)
                 FT_BITMAP_TRANSFORM_A 256
                 FT_BITMAP_TRANSFORM_E 256
@@ -473,47 +439,47 @@ Battle_WinTitle_Begin_DL_SIZE EQU $ - Battle_WinTitle_Begin_DL
 WIN_TEXT_REC EQU 11
 BATTLE_WIN_TEXT_COUNT EQU 13
 BattleWinTextTab:
-                DEFB #84, #9A, #03, 34, 22, 1
+                DEFB #1C, #D3, #04, 34, 22, 1
                 DEFW 6224, 4812
                 DEFB 1      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #70, #9D, #03, 114, 27, 1
+                DEFB #08, #D6, #04, 114, 27, 1
                 DEFW 6768, 4812
                 DEFB 1      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #78, #A9, #03, 99, 27, 1
+                DEFB #10, #E2, #04, 99, 27, 1
                 DEFW 8592, 4812
                 DEFB 1      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #EC, #B3, #03, 54, 14, 0
+                DEFB #84, #EC, #04, 54, 14, 0
                 DEFW 5600, 4812
                 DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #E0, #B6, #03, 64, 14, 0
+                DEFB #78, #EF, #04, 64, 14, 0
                 DEFW 6464, 4812
                 DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #60, #BA, #03, 66, 14, 0
+                DEFB #F8, #F2, #04, 66, 14, 0
                 DEFW 7488, 4812
                 DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #FC, #BD, #03, 18, 14, 0
+                DEFB #94, #F6, #04, 18, 14, 0
                 DEFW 8544, 4812
                 DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #F8, #BE, #03, 61, 14, 0
+                DEFB #90, #F7, #04, 61, 14, 0
                 DEFW 8832, 4812
                 DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #50, #C2, #03, 61, 14, 0
+                DEFB #E8, #FA, #04, 61, 14, 0
                 DEFW 9808, 4812
                 DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #A8, #C5, #03, 102, 14, 0
+                DEFB #40, #FE, #04, 102, 14, 0
                 DEFW 6608, 7270
                 DEFB 0      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #3C, #CB, #03, 96, 14, 0
+                DEFB #D4, #03, #05, 96, 14, 0
                 DEFW 8240, 7270
                 DEFB 0      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #7C, #D0, #03, 85, 14, 0
+                DEFB #14, #09, #05, 85, 14, 0
                 DEFW 7520, 7654
                 DEFB 0      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #24, #D5, #03, 85, 14, 0
+                DEFB #BC, #0D, #05, 85, 14, 0
                 DEFW 7520, 9190
                 DEFB 0      ; видимость: 0=всегда, 1=победа, 2=поражение
 
-BATTLE_WIN_DLG_RAMG EQU #010060
+BATTLE_WIN_DLG_RAMG EQU #022E00
 Battle_WinDlg_DL:
                 FT_BITMAP_TRANSFORM_A 160
                 FT_BITMAP_TRANSFORM_E 160
@@ -537,494 +503,557 @@ Battle_Units_Begin_DL_SIZE EQU $ - Battle_Units_Begin_DL
 Battle_Units_End_DL:
                 FT_END
 Battle_Units_End_DL_SIZE EQU $ - Battle_Units_End_DL
-BATTLE_UNIT_FRAME_COUNT EQU 16
-BattleUnitSrcTab:                       ; [вариант*N+кадр] → FT_BITMAP_SOURCE (4Б)
-                FT_BITMAP_SOURCE #0889CC
-                FT_BITMAP_SOURCE #08A010
-                FT_BITMAP_SOURCE #08B654
-                FT_BITMAP_SOURCE #08CC98
-                FT_BITMAP_SOURCE #08E2DC
-                FT_BITMAP_SOURCE #08F920
-                FT_BITMAP_SOURCE #090F64
-                FT_BITMAP_SOURCE #0925A8
-                FT_BITMAP_SOURCE #093BEC
-                FT_BITMAP_SOURCE #095230
-                FT_BITMAP_SOURCE #096874
-                FT_BITMAP_SOURCE #097EB8
-                FT_BITMAP_SOURCE #0994FC
-                FT_BITMAP_SOURCE #09AB40
-                FT_BITMAP_SOURCE #09C184
-                FT_BITMAP_SOURCE #09D7C8
-                FT_BITMAP_SOURCE #09EE0C
-                FT_BITMAP_SOURCE #0A0450
-                FT_BITMAP_SOURCE #0A1A94
-                FT_BITMAP_SOURCE #0A30D8
-                FT_BITMAP_SOURCE #0A471C
-                FT_BITMAP_SOURCE #0A5D60
-                FT_BITMAP_SOURCE #0A73A4
-                FT_BITMAP_SOURCE #0A89E8
-                FT_BITMAP_SOURCE #0AA02C
-                FT_BITMAP_SOURCE #0AB670
-                FT_BITMAP_SOURCE #0ACCB4
-                FT_BITMAP_SOURCE #0AE2F8
-                FT_BITMAP_SOURCE #0AF93C
-                FT_BITMAP_SOURCE #0B0F80
-                FT_BITMAP_SOURCE #0B25C4
-                FT_BITMAP_SOURCE #0B3C08
-                FT_BITMAP_SOURCE #0B524C
-                FT_BITMAP_SOURCE #0B675C
-                FT_BITMAP_SOURCE #0B7C6C
-                FT_BITMAP_SOURCE #0B917C
-                FT_BITMAP_SOURCE #0BA68C
-                FT_BITMAP_SOURCE #0BBB9C
-                FT_BITMAP_SOURCE #0BD0AC
-                FT_BITMAP_SOURCE #0BE5BC
-                FT_BITMAP_SOURCE #0BFACC
-                FT_BITMAP_SOURCE #0C0FDC
-                FT_BITMAP_SOURCE #0C24EC
-                FT_BITMAP_SOURCE #0C39FC
-                FT_BITMAP_SOURCE #0C4F0C
-                FT_BITMAP_SOURCE #0C641C
-                FT_BITMAP_SOURCE #0C792C
-                FT_BITMAP_SOURCE #0C8E3C
-                FT_BITMAP_SOURCE #0CA34C
-                FT_BITMAP_SOURCE #0CB85C
-                FT_BITMAP_SOURCE #0CCD6C
-                FT_BITMAP_SOURCE #0CE27C
-                FT_BITMAP_SOURCE #0CF78C
-                FT_BITMAP_SOURCE #0D0C9C
-                FT_BITMAP_SOURCE #0D21AC
-                FT_BITMAP_SOURCE #0D36BC
-                FT_BITMAP_SOURCE #0D4BCC
-                FT_BITMAP_SOURCE #0D60DC
-                FT_BITMAP_SOURCE #0D75EC
-                FT_BITMAP_SOURCE #0D8AFC
-                FT_BITMAP_SOURCE #0DA00C
-                FT_BITMAP_SOURCE #0DB51C
-                FT_BITMAP_SOURCE #0DCA2C
-                FT_BITMAP_SOURCE #0DDF3C
-BATTLE_UNIT_SRC_SIZE EQU 4
-BattleUnitLayTab:                       ; [вариант] → LAYOUT+SIZE (общий канвас кадров, 8Б)
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 77, 74
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 123, 118
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 77, 74
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 123, 118
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 70, 77
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 112, 123
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 70, 77
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 112, 123
-BATTLE_UNIT_LAY_SIZE EQU 8
-BattleUnitVertsTab:
-                DEFW BattleUnitVerts0, BattleUnitVerts1
-BattleUnitVerts0:                    ; спрайт top-left @ каждой из 99 ячеек (тип 0)
-                FT_VERTEX2F 1843, 1024
-                FT_VERTEX2F 2969, 1024
-                FT_VERTEX2F 4096, 1024
-                FT_VERTEX2F 5222, 1024
-                FT_VERTEX2F 6348, 1024
-                FT_VERTEX2F 7475, 1024
-                FT_VERTEX2F 8601, 1024
-                FT_VERTEX2F 9728, 1024
-                FT_VERTEX2F 10854, 1024
-                FT_VERTEX2F 11980, 1024
-                FT_VERTEX2F 13107, 1024
-                FT_VERTEX2F 1280, 2099
-                FT_VERTEX2F 2406, 2099
-                FT_VERTEX2F 3532, 2099
-                FT_VERTEX2F 4659, 2099
-                FT_VERTEX2F 5785, 2099
-                FT_VERTEX2F 6912, 2099
-                FT_VERTEX2F 8038, 2099
-                FT_VERTEX2F 9164, 2099
-                FT_VERTEX2F 10291, 2099
-                FT_VERTEX2F 11417, 2099
-                FT_VERTEX2F 12544, 2099
-                FT_VERTEX2F 1843, 3174
-                FT_VERTEX2F 2969, 3174
-                FT_VERTEX2F 4096, 3174
-                FT_VERTEX2F 5222, 3174
-                FT_VERTEX2F 6348, 3174
-                FT_VERTEX2F 7475, 3174
-                FT_VERTEX2F 8601, 3174
-                FT_VERTEX2F 9728, 3174
-                FT_VERTEX2F 10854, 3174
-                FT_VERTEX2F 11980, 3174
-                FT_VERTEX2F 13107, 3174
-                FT_VERTEX2F 1280, 4249
-                FT_VERTEX2F 2406, 4249
-                FT_VERTEX2F 3532, 4249
-                FT_VERTEX2F 4659, 4249
-                FT_VERTEX2F 5785, 4249
-                FT_VERTEX2F 6912, 4249
-                FT_VERTEX2F 8038, 4249
-                FT_VERTEX2F 9164, 4249
-                FT_VERTEX2F 10291, 4249
-                FT_VERTEX2F 11417, 4249
-                FT_VERTEX2F 12544, 4249
-                FT_VERTEX2F 1843, 5324
-                FT_VERTEX2F 2969, 5324
-                FT_VERTEX2F 4096, 5324
-                FT_VERTEX2F 5222, 5324
-                FT_VERTEX2F 6348, 5324
-                FT_VERTEX2F 7475, 5324
-                FT_VERTEX2F 8601, 5324
-                FT_VERTEX2F 9728, 5324
-                FT_VERTEX2F 10854, 5324
-                FT_VERTEX2F 11980, 5324
-                FT_VERTEX2F 13107, 5324
-                FT_VERTEX2F 1280, 6400
-                FT_VERTEX2F 2406, 6400
-                FT_VERTEX2F 3532, 6400
-                FT_VERTEX2F 4659, 6400
-                FT_VERTEX2F 5785, 6400
-                FT_VERTEX2F 6912, 6400
-                FT_VERTEX2F 8038, 6400
-                FT_VERTEX2F 9164, 6400
-                FT_VERTEX2F 10291, 6400
-                FT_VERTEX2F 11417, 6400
-                FT_VERTEX2F 12544, 6400
-                FT_VERTEX2F 1843, 7475
-                FT_VERTEX2F 2969, 7475
-                FT_VERTEX2F 4096, 7475
-                FT_VERTEX2F 5222, 7475
-                FT_VERTEX2F 6348, 7475
-                FT_VERTEX2F 7475, 7475
-                FT_VERTEX2F 8601, 7475
-                FT_VERTEX2F 9728, 7475
-                FT_VERTEX2F 10854, 7475
-                FT_VERTEX2F 11980, 7475
-                FT_VERTEX2F 13107, 7475
-                FT_VERTEX2F 1280, 8550
-                FT_VERTEX2F 2406, 8550
-                FT_VERTEX2F 3532, 8550
-                FT_VERTEX2F 4659, 8550
-                FT_VERTEX2F 5785, 8550
-                FT_VERTEX2F 6912, 8550
-                FT_VERTEX2F 8038, 8550
-                FT_VERTEX2F 9164, 8550
-                FT_VERTEX2F 10291, 8550
-                FT_VERTEX2F 11417, 8550
-                FT_VERTEX2F 12544, 8550
-                FT_VERTEX2F 1843, 9625
-                FT_VERTEX2F 2969, 9625
-                FT_VERTEX2F 4096, 9625
-                FT_VERTEX2F 5222, 9625
-                FT_VERTEX2F 6348, 9625
-                FT_VERTEX2F 7475, 9625
-                FT_VERTEX2F 8601, 9625
-                FT_VERTEX2F 9728, 9625
-                FT_VERTEX2F 10854, 9625
-                FT_VERTEX2F 11980, 9625
-                FT_VERTEX2F 13107, 9625
-BattleUnitVerts1:                    ; спрайт top-left @ каждой из 99 ячеек (тип 1)
-                FT_VERTEX2F 1945, 947
-                FT_VERTEX2F 3072, 947
-                FT_VERTEX2F 4198, 947
-                FT_VERTEX2F 5324, 947
-                FT_VERTEX2F 6451, 947
-                FT_VERTEX2F 7577, 947
-                FT_VERTEX2F 8704, 947
-                FT_VERTEX2F 9830, 947
-                FT_VERTEX2F 10956, 947
-                FT_VERTEX2F 12083, 947
-                FT_VERTEX2F 13209, 947
-                FT_VERTEX2F 1382, 2022
-                FT_VERTEX2F 2508, 2022
-                FT_VERTEX2F 3635, 2022
-                FT_VERTEX2F 4761, 2022
-                FT_VERTEX2F 5888, 2022
-                FT_VERTEX2F 7014, 2022
-                FT_VERTEX2F 8140, 2022
-                FT_VERTEX2F 9267, 2022
-                FT_VERTEX2F 10393, 2022
-                FT_VERTEX2F 11520, 2022
-                FT_VERTEX2F 12646, 2022
-                FT_VERTEX2F 1945, 3097
-                FT_VERTEX2F 3072, 3097
-                FT_VERTEX2F 4198, 3097
-                FT_VERTEX2F 5324, 3097
-                FT_VERTEX2F 6451, 3097
-                FT_VERTEX2F 7577, 3097
-                FT_VERTEX2F 8704, 3097
-                FT_VERTEX2F 9830, 3097
-                FT_VERTEX2F 10956, 3097
-                FT_VERTEX2F 12083, 3097
-                FT_VERTEX2F 13209, 3097
-                FT_VERTEX2F 1382, 4172
-                FT_VERTEX2F 2508, 4172
-                FT_VERTEX2F 3635, 4172
-                FT_VERTEX2F 4761, 4172
-                FT_VERTEX2F 5888, 4172
-                FT_VERTEX2F 7014, 4172
-                FT_VERTEX2F 8140, 4172
-                FT_VERTEX2F 9267, 4172
-                FT_VERTEX2F 10393, 4172
-                FT_VERTEX2F 11520, 4172
-                FT_VERTEX2F 12646, 4172
-                FT_VERTEX2F 1945, 5248
-                FT_VERTEX2F 3072, 5248
-                FT_VERTEX2F 4198, 5248
-                FT_VERTEX2F 5324, 5248
-                FT_VERTEX2F 6451, 5248
-                FT_VERTEX2F 7577, 5248
-                FT_VERTEX2F 8704, 5248
-                FT_VERTEX2F 9830, 5248
-                FT_VERTEX2F 10956, 5248
-                FT_VERTEX2F 12083, 5248
-                FT_VERTEX2F 13209, 5248
-                FT_VERTEX2F 1382, 6323
-                FT_VERTEX2F 2508, 6323
-                FT_VERTEX2F 3635, 6323
-                FT_VERTEX2F 4761, 6323
-                FT_VERTEX2F 5888, 6323
-                FT_VERTEX2F 7014, 6323
-                FT_VERTEX2F 8140, 6323
-                FT_VERTEX2F 9267, 6323
-                FT_VERTEX2F 10393, 6323
-                FT_VERTEX2F 11520, 6323
-                FT_VERTEX2F 12646, 6323
-                FT_VERTEX2F 1945, 7398
-                FT_VERTEX2F 3072, 7398
-                FT_VERTEX2F 4198, 7398
-                FT_VERTEX2F 5324, 7398
-                FT_VERTEX2F 6451, 7398
-                FT_VERTEX2F 7577, 7398
-                FT_VERTEX2F 8704, 7398
-                FT_VERTEX2F 9830, 7398
-                FT_VERTEX2F 10956, 7398
-                FT_VERTEX2F 12083, 7398
-                FT_VERTEX2F 13209, 7398
-                FT_VERTEX2F 1382, 8473
-                FT_VERTEX2F 2508, 8473
-                FT_VERTEX2F 3635, 8473
-                FT_VERTEX2F 4761, 8473
-                FT_VERTEX2F 5888, 8473
-                FT_VERTEX2F 7014, 8473
-                FT_VERTEX2F 8140, 8473
-                FT_VERTEX2F 9267, 8473
-                FT_VERTEX2F 10393, 8473
-                FT_VERTEX2F 11520, 8473
-                FT_VERTEX2F 12646, 8473
-                FT_VERTEX2F 1945, 9548
-                FT_VERTEX2F 3072, 9548
-                FT_VERTEX2F 4198, 9548
-                FT_VERTEX2F 5324, 9548
-                FT_VERTEX2F 6451, 9548
-                FT_VERTEX2F 7577, 9548
-                FT_VERTEX2F 8704, 9548
-                FT_VERTEX2F 9830, 9548
-                FT_VERTEX2F 10956, 9548
-                FT_VERTEX2F 12083, 9548
-                FT_VERTEX2F 13209, 9548
-BATTLE_UNIT_IDLE_BASE EQU 0
-BATTLE_UNIT_WALK_BASE EQU 4
-BATTLE_UNIT_WALK_N EQU 4
-BATTLE_UNIT_ATK_BASE EQU 8
-BATTLE_UNIT_ATK_N EQU 4
-BATTLE_UNIT_DEATH_BASE EQU 12
-BATTLE_UNIT_DEATH_N EQU 4
-BattleUnitPixTab:                       ; [тип] → 99×(x,y) DEFW (top-left спрайта в клетке)
-                DEFW BattleUnitPix0, BattleUnitPix1
-BattleUnitPix0:
-                DEFW 1843, 1024
-                DEFW 2969, 1024
-                DEFW 4096, 1024
-                DEFW 5222, 1024
-                DEFW 6348, 1024
-                DEFW 7475, 1024
-                DEFW 8601, 1024
-                DEFW 9728, 1024
-                DEFW 10854, 1024
-                DEFW 11980, 1024
-                DEFW 13107, 1024
-                DEFW 1280, 2099
-                DEFW 2406, 2099
-                DEFW 3532, 2099
-                DEFW 4659, 2099
-                DEFW 5785, 2099
-                DEFW 6912, 2099
-                DEFW 8038, 2099
-                DEFW 9164, 2099
-                DEFW 10291, 2099
-                DEFW 11417, 2099
-                DEFW 12544, 2099
-                DEFW 1843, 3174
-                DEFW 2969, 3174
-                DEFW 4096, 3174
-                DEFW 5222, 3174
-                DEFW 6348, 3174
-                DEFW 7475, 3174
-                DEFW 8601, 3174
-                DEFW 9728, 3174
-                DEFW 10854, 3174
-                DEFW 11980, 3174
-                DEFW 13107, 3174
-                DEFW 1280, 4249
-                DEFW 2406, 4249
-                DEFW 3532, 4249
-                DEFW 4659, 4249
-                DEFW 5785, 4249
-                DEFW 6912, 4249
-                DEFW 8038, 4249
-                DEFW 9164, 4249
-                DEFW 10291, 4249
-                DEFW 11417, 4249
-                DEFW 12544, 4249
-                DEFW 1843, 5324
-                DEFW 2969, 5324
-                DEFW 4096, 5324
-                DEFW 5222, 5324
-                DEFW 6348, 5324
-                DEFW 7475, 5324
-                DEFW 8601, 5324
-                DEFW 9728, 5324
-                DEFW 10854, 5324
-                DEFW 11980, 5324
-                DEFW 13107, 5324
-                DEFW 1280, 6400
-                DEFW 2406, 6400
-                DEFW 3532, 6400
-                DEFW 4659, 6400
-                DEFW 5785, 6400
-                DEFW 6912, 6400
-                DEFW 8038, 6400
-                DEFW 9164, 6400
-                DEFW 10291, 6400
-                DEFW 11417, 6400
-                DEFW 12544, 6400
-                DEFW 1843, 7475
-                DEFW 2969, 7475
-                DEFW 4096, 7475
-                DEFW 5222, 7475
-                DEFW 6348, 7475
-                DEFW 7475, 7475
-                DEFW 8601, 7475
-                DEFW 9728, 7475
-                DEFW 10854, 7475
-                DEFW 11980, 7475
-                DEFW 13107, 7475
-                DEFW 1280, 8550
-                DEFW 2406, 8550
-                DEFW 3532, 8550
-                DEFW 4659, 8550
-                DEFW 5785, 8550
-                DEFW 6912, 8550
-                DEFW 8038, 8550
-                DEFW 9164, 8550
-                DEFW 10291, 8550
-                DEFW 11417, 8550
-                DEFW 12544, 8550
-                DEFW 1843, 9625
-                DEFW 2969, 9625
-                DEFW 4096, 9625
-                DEFW 5222, 9625
-                DEFW 6348, 9625
-                DEFW 7475, 9625
-                DEFW 8601, 9625
-                DEFW 9728, 9625
-                DEFW 10854, 9625
-                DEFW 11980, 9625
-                DEFW 13107, 9625
-BattleUnitPix1:
-                DEFW 1945, 947
-                DEFW 3072, 947
-                DEFW 4198, 947
-                DEFW 5324, 947
-                DEFW 6451, 947
-                DEFW 7577, 947
-                DEFW 8704, 947
-                DEFW 9830, 947
-                DEFW 10956, 947
-                DEFW 12083, 947
-                DEFW 13209, 947
-                DEFW 1382, 2022
-                DEFW 2508, 2022
-                DEFW 3635, 2022
-                DEFW 4761, 2022
-                DEFW 5888, 2022
-                DEFW 7014, 2022
-                DEFW 8140, 2022
-                DEFW 9267, 2022
-                DEFW 10393, 2022
-                DEFW 11520, 2022
-                DEFW 12646, 2022
-                DEFW 1945, 3097
-                DEFW 3072, 3097
-                DEFW 4198, 3097
-                DEFW 5324, 3097
-                DEFW 6451, 3097
-                DEFW 7577, 3097
-                DEFW 8704, 3097
-                DEFW 9830, 3097
-                DEFW 10956, 3097
-                DEFW 12083, 3097
-                DEFW 13209, 3097
-                DEFW 1382, 4172
-                DEFW 2508, 4172
-                DEFW 3635, 4172
-                DEFW 4761, 4172
-                DEFW 5888, 4172
-                DEFW 7014, 4172
-                DEFW 8140, 4172
-                DEFW 9267, 4172
-                DEFW 10393, 4172
-                DEFW 11520, 4172
-                DEFW 12646, 4172
-                DEFW 1945, 5248
-                DEFW 3072, 5248
-                DEFW 4198, 5248
-                DEFW 5324, 5248
-                DEFW 6451, 5248
-                DEFW 7577, 5248
-                DEFW 8704, 5248
-                DEFW 9830, 5248
-                DEFW 10956, 5248
-                DEFW 12083, 5248
-                DEFW 13209, 5248
-                DEFW 1382, 6323
-                DEFW 2508, 6323
-                DEFW 3635, 6323
-                DEFW 4761, 6323
-                DEFW 5888, 6323
-                DEFW 7014, 6323
-                DEFW 8140, 6323
-                DEFW 9267, 6323
-                DEFW 10393, 6323
-                DEFW 11520, 6323
-                DEFW 12646, 6323
-                DEFW 1945, 7398
-                DEFW 3072, 7398
-                DEFW 4198, 7398
-                DEFW 5324, 7398
-                DEFW 6451, 7398
-                DEFW 7577, 7398
-                DEFW 8704, 7398
-                DEFW 9830, 7398
-                DEFW 10956, 7398
-                DEFW 12083, 7398
-                DEFW 13209, 7398
-                DEFW 1382, 8473
-                DEFW 2508, 8473
-                DEFW 3635, 8473
-                DEFW 4761, 8473
-                DEFW 5888, 8473
-                DEFW 7014, 8473
-                DEFW 8140, 8473
-                DEFW 9267, 8473
-                DEFW 10393, 8473
-                DEFW 11520, 8473
-                DEFW 12646, 8473
-                DEFW 1945, 9548
-                DEFW 3072, 9548
-                DEFW 4198, 9548
-                DEFW 5324, 9548
-                DEFW 6451, 9548
-                DEFW 7577, 9548
-                DEFW 8704, 9548
-                DEFW 9830, 9548
-                DEFW 10956, 9548
-                DEFW 12083, 9548
-                DEFW 13209, 9548
+BATTLE_NGROUPS EQU 12
+BATTLE_GRP_STATIC EQU 0
+BATTLE_GRP_IDLE1 EQU 1
+BATTLE_GRP_IDLE2 EQU 2
+BATTLE_GRP_IDLE3 EQU 3
+BATTLE_GRP_MOVE_MAIN EQU 4
+BATTLE_GRP_ATTACK2 EQU 5
+BATTLE_GRP_ATTACK2_END EQU 6
+BATTLE_GRP_SHOOT2 EQU 7
+BATTLE_GRP_SHOOT2_END EQU 8
+BATTLE_GRP_DEATH EQU 9
+BATTLE_GRP_WINCE_UP EQU 10
+BATTLE_GRP_WINCE_END EQU 11
+BattleFrameSrcTab:                      ; [вариант=type*2+side] → FT_BITMAP_SOURCE ×кадры (4Б)
+                DEFW BattleFrameSrc0_0, BattleFrameSrc0_1, BattleFrameSrc1_0, BattleFrameSrc1_1
+BattleFrameSrc0_0:
+                FT_BITMAP_SOURCE #09C264   ; ICN 1
+                FT_BITMAP_SOURCE #09D464   ; ICN 2
+                FT_BITMAP_SOURCE #09E664   ; ICN 3
+                FT_BITMAP_SOURCE #09F864   ; ICN 4
+                FT_BITMAP_SOURCE #0A0A64   ; ICN 5
+                FT_BITMAP_SOURCE #0A1BD4   ; ICN 6
+                FT_BITMAP_SOURCE #0A2EBC   ; ICN 7
+                FT_BITMAP_SOURCE #0A42C4   ; ICN 8
+                FT_BITMAP_SOURCE #0A55D4   ; ICN 9
+                FT_BITMAP_SOURCE #0A660C   ; ICN 10
+                FT_BITMAP_SOURCE #0A7734   ; ICN 11
+                FT_BITMAP_SOURCE #0A8B3C   ; ICN 12
+                FT_BITMAP_SOURCE #0A9D2C   ; ICN 13
+                FT_BITMAP_SOURCE #0AB31C   ; ICN 14
+                FT_BITMAP_SOURCE #0AC50C   ; ICN 15
+                FT_BITMAP_SOURCE #0AD34C   ; ICN 16
+                FT_BITMAP_SOURCE #0AE51C   ; ICN 17
+                FT_BITMAP_SOURCE #0AF4DC   ; ICN 18
+                FT_BITMAP_SOURCE #0B0964   ; ICN 23
+                FT_BITMAP_SOURCE #0B1DEC   ; ICN 24
+                FT_BITMAP_SOURCE #0B3274   ; ICN 25
+                FT_BITMAP_SOURCE #0B4A5C   ; ICN 26
+                FT_BITMAP_SOURCE #0B6864   ; ICN 27
+                FT_BITMAP_SOURCE #0B830C   ; ICN 28
+                FT_BITMAP_SOURCE #0B9CBC   ; ICN 34
+                FT_BITMAP_SOURCE #0BA70C   ; ICN 35
+                FT_BITMAP_SOURCE #0BAF8C   ; ICN 36
+                FT_BITMAP_SOURCE #0BB684   ; ICN 37
+BattleFrameSrc0_1:
+                FT_BITMAP_SOURCE #09CB64   ; ICN 1
+                FT_BITMAP_SOURCE #09DD64   ; ICN 2
+                FT_BITMAP_SOURCE #09EF64   ; ICN 3
+                FT_BITMAP_SOURCE #0A0164   ; ICN 4
+                FT_BITMAP_SOURCE #0A131C   ; ICN 5
+                FT_BITMAP_SOURCE #0A2548   ; ICN 6
+                FT_BITMAP_SOURCE #0A38C0   ; ICN 7
+                FT_BITMAP_SOURCE #0A4C4C   ; ICN 8
+                FT_BITMAP_SOURCE #0A5DF0   ; ICN 9
+                FT_BITMAP_SOURCE #0A6EA0   ; ICN 10
+                FT_BITMAP_SOURCE #0A8138   ; ICN 11
+                FT_BITMAP_SOURCE #0A9434   ; ICN 12
+                FT_BITMAP_SOURCE #0AA824   ; ICN 13
+                FT_BITMAP_SOURCE #0ABC14   ; ICN 14
+                FT_BITMAP_SOURCE #0ACC2C   ; ICN 15
+                FT_BITMAP_SOURCE #0ADC34   ; ICN 16
+                FT_BITMAP_SOURCE #0AECFC   ; ICN 17
+                FT_BITMAP_SOURCE #0AFF20   ; ICN 18
+                FT_BITMAP_SOURCE #0B13A8   ; ICN 23
+                FT_BITMAP_SOURCE #0B2830   ; ICN 24
+                FT_BITMAP_SOURCE #0B3E68   ; ICN 25
+                FT_BITMAP_SOURCE #0B5960   ; ICN 26
+                FT_BITMAP_SOURCE #0B75B8   ; ICN 27
+                FT_BITMAP_SOURCE #0B8FE4   ; ICN 28
+                FT_BITMAP_SOURCE #0BA1E4   ; ICN 34
+                FT_BITMAP_SOURCE #0BAB4C   ; ICN 35
+                FT_BITMAP_SOURCE #0BB308   ; ICN 36
+                FT_BITMAP_SOURCE #0BB9F0   ; ICN 37
+BattleFrameSrc1_0:
+                FT_BITMAP_SOURCE #0BBD5C   ; ICN 1
+                FT_BITMAP_SOURCE #0BCEE4   ; ICN 2
+                FT_BITMAP_SOURCE #0BDFEC   ; ICN 3
+                FT_BITMAP_SOURCE #0BF0F4   ; ICN 4
+                FT_BITMAP_SOURCE #0C0174   ; ICN 5
+                FT_BITMAP_SOURCE #0C11F4   ; ICN 6
+                FT_BITMAP_SOURCE #0C2234   ; ICN 7
+                FT_BITMAP_SOURCE #0C3664   ; ICN 8
+                FT_BITMAP_SOURCE #0C4624   ; ICN 9
+                FT_BITMAP_SOURCE #0C55E4   ; ICN 10
+                FT_BITMAP_SOURCE #0C679C   ; ICN 11
+                FT_BITMAP_SOURCE #0C7954   ; ICN 12
+                FT_BITMAP_SOURCE #0C8AD4   ; ICN 13
+                FT_BITMAP_SOURCE #0C995C   ; ICN 14
+                FT_BITMAP_SOURCE #0CA79C   ; ICN 15
+                FT_BITMAP_SOURCE #0CB484   ; ICN 16
+                FT_BITMAP_SOURCE #0CC404   ; ICN 17
+                FT_BITMAP_SOURCE #0CD304   ; ICN 18
+                FT_BITMAP_SOURCE #0CE55C   ; ICN 19
+                FT_BITMAP_SOURCE #0CF9DC   ; ICN 24
+                FT_BITMAP_SOURCE #0D156C   ; ICN 25
+                FT_BITMAP_SOURCE #0D2DB4   ; ICN 26
+                FT_BITMAP_SOURCE #0D43A4   ; ICN 27
+                FT_BITMAP_SOURCE #0D5674   ; ICN 32
+                FT_BITMAP_SOURCE #0D6824   ; ICN 34
+                FT_BITMAP_SOURCE #0D7464   ; ICN 35
+                FT_BITMAP_SOURCE #0D8264   ; ICN 39
+                FT_BITMAP_SOURCE #0D9064   ; ICN 40
+                FT_BITMAP_SOURCE #0DA864   ; ICN 41
+                FT_BITMAP_SOURCE #0DC474   ; ICN 45
+                FT_BITMAP_SOURCE #0DD534   ; ICN 46
+                FT_BITMAP_SOURCE #0DE584   ; ICN 47
+                FT_BITMAP_SOURCE #0DF1E4   ; ICN 48
+                FT_BITMAP_SOURCE #0DFACC   ; ICN 49
+                FT_BITMAP_SOURCE #0E033C   ; ICN 50
+BattleFrameSrc1_1:
+                FT_BITMAP_SOURCE #0BC620   ; ICN 1
+                FT_BITMAP_SOURCE #0BD768   ; ICN 2
+                FT_BITMAP_SOURCE #0BE870   ; ICN 3
+                FT_BITMAP_SOURCE #0BF934   ; ICN 4
+                FT_BITMAP_SOURCE #0C09B4   ; ICN 5
+                FT_BITMAP_SOURCE #0C1A14   ; ICN 6
+                FT_BITMAP_SOURCE #0C2C4C   ; ICN 7
+                FT_BITMAP_SOURCE #0C3E44   ; ICN 8
+                FT_BITMAP_SOURCE #0C4E04   ; ICN 9
+                FT_BITMAP_SOURCE #0C5EC0   ; ICN 10
+                FT_BITMAP_SOURCE #0C7078   ; ICN 11
+                FT_BITMAP_SOURCE #0C8214   ; ICN 12
+                FT_BITMAP_SOURCE #0C9218   ; ICN 13
+                FT_BITMAP_SOURCE #0CA07C   ; ICN 14
+                FT_BITMAP_SOURCE #0CAE10   ; ICN 15
+                FT_BITMAP_SOURCE #0CBC44   ; ICN 16
+                FT_BITMAP_SOURCE #0CCB84   ; ICN 17
+                FT_BITMAP_SOURCE #0CDC30   ; ICN 18
+                FT_BITMAP_SOURCE #0CEF9C   ; ICN 19
+                FT_BITMAP_SOURCE #0D07A4   ; ICN 24
+                FT_BITMAP_SOURCE #0D2190   ; ICN 25
+                FT_BITMAP_SOURCE #0D38AC   ; ICN 26
+                FT_BITMAP_SOURCE #0D4D0C   ; ICN 27
+                FT_BITMAP_SOURCE #0D5F4C   ; ICN 32
+                FT_BITMAP_SOURCE #0D6E44   ; ICN 34
+                FT_BITMAP_SOURCE #0D7B64   ; ICN 35
+                FT_BITMAP_SOURCE #0D8964   ; ICN 39
+                FT_BITMAP_SOURCE #0D9C64   ; ICN 40
+                FT_BITMAP_SOURCE #0DB66C   ; ICN 41
+                FT_BITMAP_SOURCE #0DCCD4   ; ICN 45
+                FT_BITMAP_SOURCE #0DDD5C   ; ICN 46
+                FT_BITMAP_SOURCE #0DEBB4   ; ICN 47
+                FT_BITMAP_SOURCE #0DF658   ; ICN 48
+                FT_BITMAP_SOURCE #0DFF04   ; ICN 49
+                FT_BITMAP_SOURCE #0E0698   ; ICN 50
+BattleFrameLayTab:                      ; [тип] → LAYOUT+SIZE ×кадры (8Б; общие для зеркала)
+                DEFW BattleFrameLay0, BattleFrameLay1
+BattleFrameLay0:
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 64
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 102
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 64
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 102
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 64
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 102
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 64
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 102
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 99
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 39, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 62, 99
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 42, 61
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 67, 97
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 40, 61
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 64, 97
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 34, 61
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 54, 97
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 61
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 97
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 42, 61
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 67, 97
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 37, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 59, 99
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 46, 61
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 73, 97
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 41, 56
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 65, 89
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 38, 48
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 60, 76
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 34, 67
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 54, 107
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 28, 72
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 44, 115
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 73
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 116
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 73
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 116
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 73
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 116
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 45, 68
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 72, 108
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 63, 61
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 100, 97
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 55, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 88, 99
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 53, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 84, 99
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 33, 40
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 52, 64
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 32, 34
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 51, 54
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 33, 27
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 52, 43
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 35, 25
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 56, 40
+BattleFrameLay1:
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 34, 66
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 54, 105
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 33, 66
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 52, 105
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 33, 66
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 52, 105
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 32, 66
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 51, 105
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 33, 64
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 52, 102
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 33, 63
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 52, 100
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 41, 63
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 65, 100
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 32, 63
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 51, 100
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 32, 63
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 51, 100
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 63
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 100
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 63
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 100
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 35, 64
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 56, 102
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 30, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 48, 99
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 32, 57
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 51, 91
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 30, 55
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 48, 88
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 31, 64
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 49, 102
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 30, 64
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 48, 102
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 34, 69
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 54, 110
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 41, 64
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 65, 102
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 49, 72
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 78, 115
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 45, 69
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 72, 110
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 39, 72
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 62, 115
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 37, 65
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 59, 104
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 39, 58
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 62, 92
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 27, 58
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 43, 92
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 28, 64
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 44, 102
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 28, 64
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 44, 102
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 48, 64
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 76, 102
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 57, 63
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 91, 100
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 34, 63
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 54, 100
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 58
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 92
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 31, 51
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 49, 81
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 30, 38
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 48, 60
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 40, 27
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 64, 43
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 39, 22
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 62, 35
+BattleFrameOfsTab:                      ; [вариант] → (ofsX,ofsY) DEFW ×кадры (4Б/кадр)
+                DEFW BattleFrameOfs0_0, BattleFrameOfs0_1, BattleFrameOfs1_0, BattleFrameOfs1_1
+BattleFrameOfs0_0:
+                DEFW -384, -1613   ; ICN 1
+                DEFW -384, -1613   ; ICN 2
+                DEFW -410, -1613   ; ICN 3
+                DEFW -384, -1613   ; ICN 4
+                DEFW -358, -1587   ; ICN 5
+                DEFW -333, -1587   ; ICN 6
+                DEFW -333, -1562   ; ICN 7
+                DEFW -51, -1587   ; ICN 8
+                DEFW 205, -1587   ; ICN 9
+                DEFW 256, -1587   ; ICN 10
+                DEFW 307, -1562   ; ICN 11
+                DEFW 614, -1587   ; ICN 12
+                DEFW -435, -1562   ; ICN 13
+                DEFW -461, -1434   ; ICN 14
+                DEFW -486, -1229   ; ICN 15
+                DEFW -358, -1715   ; ICN 16
+                DEFW -333, -1843   ; ICN 17
+                DEFW -589, -1869   ; ICN 18
+                DEFW -512, -1869   ; ICN 23
+                DEFW -333, -1869   ; ICN 24
+                DEFW -307, -1741   ; ICN 25
+                DEFW -307, -1562   ; ICN 26
+                DEFW -307, -1587   ; ICN 27
+                DEFW -333, -1587   ; ICN 28
+                DEFW -486, -1050   ; ICN 34
+                DEFW -435, -947   ; ICN 35
+                DEFW -461, -819   ; ICN 36
+                DEFW -512, -717   ; ICN 37
+BattleFrameOfs0_1:
+                DEFW -512, -1613   ; ICN 1
+                DEFW -512, -1613   ; ICN 2
+                DEFW -486, -1613   ; ICN 3
+                DEFW -512, -1613   ; ICN 4
+                DEFW -538, -1587   ; ICN 5
+                DEFW -640, -1587   ; ICN 6
+                DEFW -717, -1562   ; ICN 7
+                DEFW -947, -1587   ; ICN 8
+                DEFW -1050, -1587   ; ICN 9
+                DEFW -1152, -1587   ; ICN 10
+                DEFW -1357, -1562   ; ICN 11
+                DEFW -1536, -1587   ; ICN 12
+                DEFW -717, -1562   ; ICN 13
+                DEFW -563, -1434   ; ICN 14
+                DEFW -461, -1229   ; ICN 15
+                DEFW -486, -1715   ; ICN 16
+                DEFW -358, -1843   ; ICN 17
+                DEFW -307, -1869   ; ICN 18
+                DEFW -384, -1869   ; ICN 23
+                DEFW -563, -1869   ; ICN 24
+                DEFW -819, -1741   ; ICN 25
+                DEFW -1280, -1562   ; ICN 26
+                DEFW -1075, -1587   ; ICN 27
+                DEFW -998, -1587   ; ICN 28
+                DEFW -333, -1050   ; ICN 34
+                DEFW -358, -947   ; ICN 35
+                DEFW -358, -819   ; ICN 36
+                DEFW -358, -717   ; ICN 37
+BattleFrameOfs1_0:
+                DEFW -461, -1664   ; ICN 1
+                DEFW -435, -1664   ; ICN 2
+                DEFW -435, -1664   ; ICN 3
+                DEFW -410, -1664   ; ICN 4
+                DEFW -435, -1638   ; ICN 5
+                DEFW -384, -1613   ; ICN 6
+                DEFW -307, -1613   ; ICN 7
+                DEFW 26, -1638   ; ICN 8
+                DEFW 102, -1638   ; ICN 9
+                DEFW 154, -1638   ; ICN 10
+                DEFW 384, -1613   ; ICN 11
+                DEFW 538, -1638   ; ICN 12
+                DEFW -384, -1613   ; ICN 13
+                DEFW -486, -1485   ; ICN 14
+                DEFW -538, -1408   ; ICN 15
+                DEFW -410, -1638   ; ICN 16
+                DEFW -384, -1638   ; ICN 17
+                DEFW -410, -1766   ; ICN 18
+                DEFW -512, -1638   ; ICN 19
+                DEFW -384, -1843   ; ICN 24
+                DEFW -282, -1766   ; ICN 25
+                DEFW -282, -1843   ; ICN 26
+                DEFW -410, -1664   ; ICN 27
+                DEFW -333, -1485   ; ICN 32
+                DEFW -333, -1485   ; ICN 34
+                DEFW -435, -1638   ; ICN 35
+                DEFW -435, -1638   ; ICN 39
+                DEFW -410, -1638   ; ICN 40
+                DEFW -384, -1613   ; ICN 41
+                DEFW -435, -1638   ; ICN 45
+                DEFW -410, -1510   ; ICN 46
+                DEFW -358, -1357   ; ICN 47
+                DEFW -358, -1050   ; ICN 48
+                DEFW -486, -768   ; ICN 49
+                DEFW -486, -640   ; ICN 50
+BattleFrameOfs1_1:
+                DEFW -384, -1664   ; ICN 1
+                DEFW -384, -1664   ; ICN 2
+                DEFW -384, -1664   ; ICN 3
+                DEFW -384, -1664   ; ICN 4
+                DEFW -384, -1638   ; ICN 5
+                DEFW -435, -1613   ; ICN 6
+                DEFW -717, -1613   ; ICN 7
+                DEFW -819, -1638   ; ICN 8
+                DEFW -896, -1638   ; ICN 9
+                DEFW -1050, -1638   ; ICN 10
+                DEFW -1280, -1613   ; ICN 11
+                DEFW -1408, -1638   ; ICN 12
+                DEFW -358, -1613   ; ICN 13
+                DEFW -307, -1485   ; ICN 14
+                DEFW -205, -1408   ; ICN 15
+                DEFW -358, -1638   ; ICN 16
+                DEFW -358, -1638   ; ICN 17
+                DEFW -435, -1766   ; ICN 18
+                DEFW -512, -1638   ; ICN 19
+                DEFW -845, -1843   ; ICN 24
+                DEFW -845, -1766   ; ICN 25
+                DEFW -691, -1843   ; ICN 26
+                DEFW -512, -1664   ; ICN 27
+                DEFW -640, -1485   ; ICN 32
+                DEFW -333, -1485   ; ICN 34
+                DEFW -256, -1638   ; ICN 35
+                DEFW -256, -1638   ; ICN 39
+                DEFW -794, -1638   ; ICN 40
+                DEFW -1050, -1613   ; ICN 41
+                DEFW -410, -1638   ; ICN 45
+                DEFW -486, -1510   ; ICN 46
+                DEFW -410, -1357   ; ICN 47
+                DEFW -384, -1050   ; ICN 48
+                DEFW -512, -768   ; ICN 49
+                DEFW -486, -640   ; ICN 50
+BattleCellAnchor:                       ; 99 × (ax,ay) DEFW — якорь спрайта клетки
+                DEFW 2842, 2688
+                DEFW 3968, 2688
+                DEFW 5094, 2688
+                DEFW 6221, 2688
+                DEFW 7347, 2688
+                DEFW 8474, 2688
+                DEFW 9600, 2688
+                DEFW 10726, 2688
+                DEFW 11853, 2688
+                DEFW 12979, 2688
+                DEFW 14106, 2688
+                DEFW 2278, 3763
+                DEFW 3405, 3763
+                DEFW 4531, 3763
+                DEFW 5658, 3763
+                DEFW 6784, 3763
+                DEFW 7910, 3763
+                DEFW 9037, 3763
+                DEFW 10163, 3763
+                DEFW 11290, 3763
+                DEFW 12416, 3763
+                DEFW 13542, 3763
+                DEFW 2842, 4838
+                DEFW 3968, 4838
+                DEFW 5094, 4838
+                DEFW 6221, 4838
+                DEFW 7347, 4838
+                DEFW 8474, 4838
+                DEFW 9600, 4838
+                DEFW 10726, 4838
+                DEFW 11853, 4838
+                DEFW 12979, 4838
+                DEFW 14106, 4838
+                DEFW 2278, 5914
+                DEFW 3405, 5914
+                DEFW 4531, 5914
+                DEFW 5658, 5914
+                DEFW 6784, 5914
+                DEFW 7910, 5914
+                DEFW 9037, 5914
+                DEFW 10163, 5914
+                DEFW 11290, 5914
+                DEFW 12416, 5914
+                DEFW 13542, 5914
+                DEFW 2842, 6989
+                DEFW 3968, 6989
+                DEFW 5094, 6989
+                DEFW 6221, 6989
+                DEFW 7347, 6989
+                DEFW 8474, 6989
+                DEFW 9600, 6989
+                DEFW 10726, 6989
+                DEFW 11853, 6989
+                DEFW 12979, 6989
+                DEFW 14106, 6989
+                DEFW 2278, 8064
+                DEFW 3405, 8064
+                DEFW 4531, 8064
+                DEFW 5658, 8064
+                DEFW 6784, 8064
+                DEFW 7910, 8064
+                DEFW 9037, 8064
+                DEFW 10163, 8064
+                DEFW 11290, 8064
+                DEFW 12416, 8064
+                DEFW 13542, 8064
+                DEFW 2842, 9139
+                DEFW 3968, 9139
+                DEFW 5094, 9139
+                DEFW 6221, 9139
+                DEFW 7347, 9139
+                DEFW 8474, 9139
+                DEFW 9600, 9139
+                DEFW 10726, 9139
+                DEFW 11853, 9139
+                DEFW 12979, 9139
+                DEFW 14106, 9139
+                DEFW 2278, 10214
+                DEFW 3405, 10214
+                DEFW 4531, 10214
+                DEFW 5658, 10214
+                DEFW 6784, 10214
+                DEFW 7910, 10214
+                DEFW 9037, 10214
+                DEFW 10163, 10214
+                DEFW 11290, 10214
+                DEFW 12416, 10214
+                DEFW 13542, 10214
+                DEFW 2842, 11290
+                DEFW 3968, 11290
+                DEFW 5094, 11290
+                DEFW 6221, 11290
+                DEFW 7347, 11290
+                DEFW 8474, 11290
+                DEFW 9600, 11290
+                DEFW 10726, 11290
+                DEFW 11853, 11290
+                DEFW 12979, 11290
+                DEFW 14106, 11290
+BattleSeqPtrTab:
+                DEFW BattleSeq0_STATIC, BattleSeq0_IDLE1, BattleSeq0_IDLE2, BattleSeq0_IDLE3, BattleSeq0_MOVE_MAIN, BattleSeq0_ATTACK2, BattleSeq0_ATTACK2_END, 0, 0, BattleSeq0_DEATH, BattleSeq0_WINCE_UP, BattleSeq0_WINCE_END
+                DEFW BattleSeq1_STATIC, BattleSeq1_IDLE1, BattleSeq1_IDLE2, BattleSeq1_IDLE3, BattleSeq1_MOVE_MAIN, BattleSeq1_ATTACK2, BattleSeq1_ATTACK2_END, BattleSeq1_SHOOT2, BattleSeq1_SHOOT2_END, BattleSeq1_DEATH, BattleSeq1_WINCE_UP, BattleSeq1_WINCE_END
+BattleSeq0_STATIC: DEFB 1, 0
+BattleSeq0_IDLE1: DEFB 1, 1
+BattleSeq0_IDLE2: DEFB 1, 2
+BattleSeq0_IDLE3: DEFB 1, 3
+BattleSeq0_MOVE_MAIN: DEFB 8, 4, 5, 6, 7, 8, 9, 10, 11
+BattleSeq0_ATTACK2: DEFB 7, 15, 16, 17, 18, 19, 20, 21
+BattleSeq0_ATTACK2_END: DEFB 2, 22, 23
+BattleSeq0_DEATH: DEFB 7, 12, 13, 14, 24, 25, 26, 27
+BattleSeq0_WINCE_UP: DEFB 3, 12, 13, 14
+BattleSeq0_WINCE_END: DEFB 1, 13
+BattleSeq1_STATIC: DEFB 1, 0
+BattleSeq1_IDLE1: DEFB 4, 1, 2, 3, 2
+BattleSeq1_IDLE2: DEFB 2, 1, 2
+BattleSeq1_IDLE3: DEFB 3, 2, 3, 2
+BattleSeq1_MOVE_MAIN: DEFB 8, 4, 5, 6, 7, 8, 9, 10, 11
+BattleSeq1_ATTACK2: DEFB 6, 23, 24, 25, 26, 27, 28
+BattleSeq1_ATTACK2_END: DEFB 5, 27, 26, 25, 24, 23
+BattleSeq1_SHOOT2: DEFB 7, 15, 16, 17, 18, 19, 20, 21
+BattleSeq1_SHOOT2_END: DEFB 1, 22
+BattleSeq1_DEATH: DEFB 6, 29, 30, 31, 32, 33, 34
+BattleSeq1_WINCE_UP: DEFB 3, 12, 13, 14
+BattleSeq1_WINCE_END: DEFB 2, 13, 12
+BATTLE_ANIM_TICKS EQU 6          ; BATTLE_FRAME_DELAY 120мс
+BattleMoveTickTab:   DEFB 3, 3   ; тиков/кадр MOVE_MAIN (moveSpeed/8)
+BattleShootTickTab:  DEFB 6, 6   ; тиков/кадр SHOOT (shootSpeed/len)
+BattleDeathTicksTab: DEFB 42, 36 ; длительность смерти (len(DEATH)×6)
+BattleWinceTimTab:                      ; [type] → DEFB up_тиков, всего_тиков
+                DEFB 18, 24
+                DEFB 18, 30
+BattleAtkTimTab:                        ; [type] → DEFB мили_пик, мили_всего, выстрел_пик, выстрел_всего
+                DEFB 42, 54, 42, 54
+                DEFB 36, 66, 42, 48
+BattleIdleWaitMinTab: DEFW 214, 280 ; мин. пауза STATIC (тиков)
+BATTLE_IDLE_RND_MASK EQU 127            ; пауза = min + (rand8 & mask) ≈ ×(75..125%)
+BattleIdleThreshTab:                    ; [type] → DEFB n_вариантов, порог1, порог2 (rand8)
+                DEFB 3, 85, 171
+                DEFB 3, 51, 154
+BattleStaticSlotTab: DEFB 0, 0     ; слот кадра стойки
+BattleCorpseSlotTab: DEFB 27, 34   ; слот трупа (посл. DEATH)
+BATTLE_MOVE_VEL EQU 48                  ; vertex-единиц/тик ≈ клетка(44px)/23 тика (465мс)
+BATTLE_ARROW_YOFS EQU -768              ; стрела на высоте груди (−30 лог.px от якоря-ног)
 Battle_CountBar_Pre_DL:
                 FT_COLOR_RGB 0, 0, 0
                 FT_COLOR_A 150
@@ -1057,314 +1086,19 @@ Battle_Count_End_DL:
                 FT_END
 Battle_Count_End_DL_SIZE EQU $ - Battle_Count_End_DL
 BattleCasualtyIconTab:                 ; иконы MONS32 type 0/1 [lo,mid,hi,w,h] (палитра юнитов)
-                DEFB #18, #8E, #03, 17, 29
-                DEFB #08, #90, #03, 22, 31
+                DEFB #B0, #C6, #04, 17, 29
+                DEFB #A0, #C8, #04, 22, 31
 BattleNoneSprite:                      ; «None» ×1.6 бел. [lo,mid,hi,w,h] (статус-палитра)
-                DEFB #B4, #92, #03, 48, 14
+                DEFB #4C, #CB, #04, 48, 14
 BATTLE_CAS_ATK_Y     EQU 8140
 BATTLE_CAS_DEF_Y     EQU 9676
 BattleArrowSrcTab:                     ; стрела ARCH_MSL[4] ×1.6 [lo,mid,hi,w,h]; [0]=вправо [1]=влево
-                DEFB #54, #95, #03, 51, 8
-                DEFB #EC, #96, #03, 51, 8
-BattleCountBarVerts:                   ; 99 ячеек × 2 FT_VERTEX2F (тёмный бар под числом)
-                FT_VERTEX2F 2508, 2508
-                FT_VERTEX2F 3174, 2841
-                FT_VERTEX2F 3635, 2508
-                FT_VERTEX2F 4300, 2841
-                FT_VERTEX2F 4761, 2508
-                FT_VERTEX2F 5427, 2841
-                FT_VERTEX2F 5888, 2508
-                FT_VERTEX2F 6553, 2841
-                FT_VERTEX2F 7014, 2508
-                FT_VERTEX2F 7680, 2841
-                FT_VERTEX2F 8140, 2508
-                FT_VERTEX2F 8806, 2841
-                FT_VERTEX2F 9267, 2508
-                FT_VERTEX2F 9932, 2841
-                FT_VERTEX2F 10393, 2508
-                FT_VERTEX2F 11059, 2841
-                FT_VERTEX2F 11520, 2508
-                FT_VERTEX2F 12185, 2841
-                FT_VERTEX2F 12646, 2508
-                FT_VERTEX2F 13312, 2841
-                FT_VERTEX2F 13772, 2508
-                FT_VERTEX2F 14438, 2841
-                FT_VERTEX2F 1945, 3584
-                FT_VERTEX2F 2611, 3916
-                FT_VERTEX2F 3072, 3584
-                FT_VERTEX2F 3737, 3916
-                FT_VERTEX2F 4198, 3584
-                FT_VERTEX2F 4864, 3916
-                FT_VERTEX2F 5324, 3584
-                FT_VERTEX2F 5990, 3916
-                FT_VERTEX2F 6451, 3584
-                FT_VERTEX2F 7116, 3916
-                FT_VERTEX2F 7577, 3584
-                FT_VERTEX2F 8243, 3916
-                FT_VERTEX2F 8704, 3584
-                FT_VERTEX2F 9369, 3916
-                FT_VERTEX2F 9830, 3584
-                FT_VERTEX2F 10496, 3916
-                FT_VERTEX2F 10956, 3584
-                FT_VERTEX2F 11622, 3916
-                FT_VERTEX2F 12083, 3584
-                FT_VERTEX2F 12748, 3916
-                FT_VERTEX2F 13209, 3584
-                FT_VERTEX2F 13875, 3916
-                FT_VERTEX2F 2508, 4659
-                FT_VERTEX2F 3174, 4992
-                FT_VERTEX2F 3635, 4659
-                FT_VERTEX2F 4300, 4992
-                FT_VERTEX2F 4761, 4659
-                FT_VERTEX2F 5427, 4992
-                FT_VERTEX2F 5888, 4659
-                FT_VERTEX2F 6553, 4992
-                FT_VERTEX2F 7014, 4659
-                FT_VERTEX2F 7680, 4992
-                FT_VERTEX2F 8140, 4659
-                FT_VERTEX2F 8806, 4992
-                FT_VERTEX2F 9267, 4659
-                FT_VERTEX2F 9932, 4992
-                FT_VERTEX2F 10393, 4659
-                FT_VERTEX2F 11059, 4992
-                FT_VERTEX2F 11520, 4659
-                FT_VERTEX2F 12185, 4992
-                FT_VERTEX2F 12646, 4659
-                FT_VERTEX2F 13312, 4992
-                FT_VERTEX2F 13772, 4659
-                FT_VERTEX2F 14438, 4992
-                FT_VERTEX2F 1945, 5734
-                FT_VERTEX2F 2611, 6067
-                FT_VERTEX2F 3072, 5734
-                FT_VERTEX2F 3737, 6067
-                FT_VERTEX2F 4198, 5734
-                FT_VERTEX2F 4864, 6067
-                FT_VERTEX2F 5324, 5734
-                FT_VERTEX2F 5990, 6067
-                FT_VERTEX2F 6451, 5734
-                FT_VERTEX2F 7116, 6067
-                FT_VERTEX2F 7577, 5734
-                FT_VERTEX2F 8243, 6067
-                FT_VERTEX2F 8704, 5734
-                FT_VERTEX2F 9369, 6067
-                FT_VERTEX2F 9830, 5734
-                FT_VERTEX2F 10496, 6067
-                FT_VERTEX2F 10956, 5734
-                FT_VERTEX2F 11622, 6067
-                FT_VERTEX2F 12083, 5734
-                FT_VERTEX2F 12748, 6067
-                FT_VERTEX2F 13209, 5734
-                FT_VERTEX2F 13875, 6067
-                FT_VERTEX2F 2508, 6809
-                FT_VERTEX2F 3174, 7142
-                FT_VERTEX2F 3635, 6809
-                FT_VERTEX2F 4300, 7142
-                FT_VERTEX2F 4761, 6809
-                FT_VERTEX2F 5427, 7142
-                FT_VERTEX2F 5888, 6809
-                FT_VERTEX2F 6553, 7142
-                FT_VERTEX2F 7014, 6809
-                FT_VERTEX2F 7680, 7142
-                FT_VERTEX2F 8140, 6809
-                FT_VERTEX2F 8806, 7142
-                FT_VERTEX2F 9267, 6809
-                FT_VERTEX2F 9932, 7142
-                FT_VERTEX2F 10393, 6809
-                FT_VERTEX2F 11059, 7142
-                FT_VERTEX2F 11520, 6809
-                FT_VERTEX2F 12185, 7142
-                FT_VERTEX2F 12646, 6809
-                FT_VERTEX2F 13312, 7142
-                FT_VERTEX2F 13772, 6809
-                FT_VERTEX2F 14438, 7142
-                FT_VERTEX2F 1945, 7884
-                FT_VERTEX2F 2611, 8217
-                FT_VERTEX2F 3072, 7884
-                FT_VERTEX2F 3737, 8217
-                FT_VERTEX2F 4198, 7884
-                FT_VERTEX2F 4864, 8217
-                FT_VERTEX2F 5324, 7884
-                FT_VERTEX2F 5990, 8217
-                FT_VERTEX2F 6451, 7884
-                FT_VERTEX2F 7116, 8217
-                FT_VERTEX2F 7577, 7884
-                FT_VERTEX2F 8243, 8217
-                FT_VERTEX2F 8704, 7884
-                FT_VERTEX2F 9369, 8217
-                FT_VERTEX2F 9830, 7884
-                FT_VERTEX2F 10496, 8217
-                FT_VERTEX2F 10956, 7884
-                FT_VERTEX2F 11622, 8217
-                FT_VERTEX2F 12083, 7884
-                FT_VERTEX2F 12748, 8217
-                FT_VERTEX2F 13209, 7884
-                FT_VERTEX2F 13875, 8217
-                FT_VERTEX2F 2508, 8960
-                FT_VERTEX2F 3174, 9292
-                FT_VERTEX2F 3635, 8960
-                FT_VERTEX2F 4300, 9292
-                FT_VERTEX2F 4761, 8960
-                FT_VERTEX2F 5427, 9292
-                FT_VERTEX2F 5888, 8960
-                FT_VERTEX2F 6553, 9292
-                FT_VERTEX2F 7014, 8960
-                FT_VERTEX2F 7680, 9292
-                FT_VERTEX2F 8140, 8960
-                FT_VERTEX2F 8806, 9292
-                FT_VERTEX2F 9267, 8960
-                FT_VERTEX2F 9932, 9292
-                FT_VERTEX2F 10393, 8960
-                FT_VERTEX2F 11059, 9292
-                FT_VERTEX2F 11520, 8960
-                FT_VERTEX2F 12185, 9292
-                FT_VERTEX2F 12646, 8960
-                FT_VERTEX2F 13312, 9292
-                FT_VERTEX2F 13772, 8960
-                FT_VERTEX2F 14438, 9292
-                FT_VERTEX2F 1945, 10035
-                FT_VERTEX2F 2611, 10368
-                FT_VERTEX2F 3072, 10035
-                FT_VERTEX2F 3737, 10368
-                FT_VERTEX2F 4198, 10035
-                FT_VERTEX2F 4864, 10368
-                FT_VERTEX2F 5324, 10035
-                FT_VERTEX2F 5990, 10368
-                FT_VERTEX2F 6451, 10035
-                FT_VERTEX2F 7116, 10368
-                FT_VERTEX2F 7577, 10035
-                FT_VERTEX2F 8243, 10368
-                FT_VERTEX2F 8704, 10035
-                FT_VERTEX2F 9369, 10368
-                FT_VERTEX2F 9830, 10035
-                FT_VERTEX2F 10496, 10368
-                FT_VERTEX2F 10956, 10035
-                FT_VERTEX2F 11622, 10368
-                FT_VERTEX2F 12083, 10035
-                FT_VERTEX2F 12748, 10368
-                FT_VERTEX2F 13209, 10035
-                FT_VERTEX2F 13875, 10368
-                FT_VERTEX2F 2508, 11110
-                FT_VERTEX2F 3174, 11443
-                FT_VERTEX2F 3635, 11110
-                FT_VERTEX2F 4300, 11443
-                FT_VERTEX2F 4761, 11110
-                FT_VERTEX2F 5427, 11443
-                FT_VERTEX2F 5888, 11110
-                FT_VERTEX2F 6553, 11443
-                FT_VERTEX2F 7014, 11110
-                FT_VERTEX2F 7680, 11443
-                FT_VERTEX2F 8140, 11110
-                FT_VERTEX2F 8806, 11443
-                FT_VERTEX2F 9267, 11110
-                FT_VERTEX2F 9932, 11443
-                FT_VERTEX2F 10393, 11110
-                FT_VERTEX2F 11059, 11443
-                FT_VERTEX2F 11520, 11110
-                FT_VERTEX2F 12185, 11443
-                FT_VERTEX2F 12646, 11110
-                FT_VERTEX2F 13312, 11443
-                FT_VERTEX2F 13772, 11110
-                FT_VERTEX2F 14438, 11443
-BattleCountPen:                        ; 99 ячеек × {DEFW penX, DEFW penY} центр-низ (vertex)
-                DEFW 2841, 2595
-                DEFW 3968, 2595
-                DEFW 5094, 2595
-                DEFW 6220, 2595
-                DEFW 7347, 2595
-                DEFW 8473, 2595
-                DEFW 9600, 2595
-                DEFW 10726, 2595
-                DEFW 11852, 2595
-                DEFW 12979, 2595
-                DEFW 14105, 2595
-                DEFW 2278, 3670
-                DEFW 3404, 3670
-                DEFW 4531, 3670
-                DEFW 5657, 3670
-                DEFW 6784, 3670
-                DEFW 7910, 3670
-                DEFW 9036, 3670
-                DEFW 10163, 3670
-                DEFW 11289, 3670
-                DEFW 12416, 3670
-                DEFW 13542, 3670
-                DEFW 2841, 4745
-                DEFW 3968, 4745
-                DEFW 5094, 4745
-                DEFW 6220, 4745
-                DEFW 7347, 4745
-                DEFW 8473, 4745
-                DEFW 9600, 4745
-                DEFW 10726, 4745
-                DEFW 11852, 4745
-                DEFW 12979, 4745
-                DEFW 14105, 4745
-                DEFW 2278, 5820
-                DEFW 3404, 5820
-                DEFW 4531, 5820
-                DEFW 5657, 5820
-                DEFW 6784, 5820
-                DEFW 7910, 5820
-                DEFW 9036, 5820
-                DEFW 10163, 5820
-                DEFW 11289, 5820
-                DEFW 12416, 5820
-                DEFW 13542, 5820
-                DEFW 2841, 6896
-                DEFW 3968, 6896
-                DEFW 5094, 6896
-                DEFW 6220, 6896
-                DEFW 7347, 6896
-                DEFW 8473, 6896
-                DEFW 9600, 6896
-                DEFW 10726, 6896
-                DEFW 11852, 6896
-                DEFW 12979, 6896
-                DEFW 14105, 6896
-                DEFW 2278, 7971
-                DEFW 3404, 7971
-                DEFW 4531, 7971
-                DEFW 5657, 7971
-                DEFW 6784, 7971
-                DEFW 7910, 7971
-                DEFW 9036, 7971
-                DEFW 10163, 7971
-                DEFW 11289, 7971
-                DEFW 12416, 7971
-                DEFW 13542, 7971
-                DEFW 2841, 9046
-                DEFW 3968, 9046
-                DEFW 5094, 9046
-                DEFW 6220, 9046
-                DEFW 7347, 9046
-                DEFW 8473, 9046
-                DEFW 9600, 9046
-                DEFW 10726, 9046
-                DEFW 11852, 9046
-                DEFW 12979, 9046
-                DEFW 14105, 9046
-                DEFW 2278, 10121
-                DEFW 3404, 10121
-                DEFW 4531, 10121
-                DEFW 5657, 10121
-                DEFW 6784, 10121
-                DEFW 7910, 10121
-                DEFW 9036, 10121
-                DEFW 10163, 10121
-                DEFW 11289, 10121
-                DEFW 12416, 10121
-                DEFW 13542, 10121
-                DEFW 2841, 11196
-                DEFW 3968, 11196
-                DEFW 5094, 11196
-                DEFW 6220, 11196
-                DEFW 7347, 11196
-                DEFW 8473, 11196
-                DEFW 9600, 11196
-                DEFW 10726, 11196
-                DEFW 11852, 11196
-                DEFW 12979, 11196
-                DEFW 14105, 11196
+                DEFB #EC, #CD, #04, 51, 8
+                DEFB #84, #CF, #04, 51, 8
+BATTLE_CNTBAR_DX  EQU 333               ; 13 лог.px ×25.6 (полуширина бара)
+BATTLE_CNTBAR_DY0 EQU -179              ; верх бара = якорьY − 7 лог.px
+BATTLE_CNTBAR_DY1 EQU 154               ; низ бара = якорьY + 6 лог.px
+BATTLE_CNTPEN_DY  EQU -93               ; перо числа = якорьY − 3.6 лог.px (центр бара)
 BattleAdjTab:                          ; 99 ячеек × 6 соседей (#FF=нет)
                 DEFB 255, 255, 255, 1, 11, 12
                 DEFB 255, 255, 0, 2, 12, 13
@@ -1479,9 +1213,83 @@ BattleUnitStateInit:                   ; read-only старт; Battle_Enter → 
                 DEFW 2
 
 BATTLE_RAMG_BASE     EQU #000000
-BATTLE_PAYLOAD_BYTES EQU 914506
-BATTLE_PAYLOAD_SECTORS EQU 1787
+BATTLE_PAYLOAD_BYTES EQU 920050
+BATTLE_PAYLOAD_SECTORS EQU 1797
 BATTLE_BODY_SECTOR   EQU 1
 BattlePakName:       DEFB "HMM2BATL.PAK", 0
+
+; ПКМ-попап инфо отряда (Dialog::ArmyInfo): 2 композита по типу в PAK; RAM_G-адрес =
+; ОБЛАСТЬ ФИНАЛЬНОГО ОКНА (не живут одновременно; при конце боя финал РЕстримится).
+ARMYINFO_W           EQU 551
+ARMYINFO_H           EQU 283
+ARMYINFO_BYTES       EQU 155933
+ARMYINFO_SECTORS     EQU 305
+ArmyInfoSecTab:      DEFW 1798, 2103   ; сектор попапа по типу (в PAK)
+WINDLG_SEC           EQU 280      ; сектор финала внутри payload (рестрим)
+WINDLG_SECTORS       EQU 327
+ARMYINFO_X           EQU 44      ; экранное лево окна (лог.640×480)
+ARMYINFO_Y           EQU 98
+; значения статов: value @ x+406; Hit Points Left/Shots Left по типу (#FF=нет строки):
+ArmyInfoHplYTab:     DEFB 103, 119   ; лок.Y строки Hit Points Left
+ArmyInfoShotYTab:    DEFB 255, 71 ; лок.Y Shots Left (255=нет)
+ARMYINFO_VAL_X       EQU 406    ; лок.X значений статов
+; бокс счётчика (dialog_armyinfo.cpp:64): (80,223) 125×23, число по центру, normalWhite
+ARMYINFO_CNT_X       EQU 80
+ARMYINFO_CNT_Y       EQU 223
+ARMYINFO_CNT_W       EQU 125
+ARMYINFO_CNT_H       EQU 23
+; точка ног монстра (x+520/4+16, y+175); спрайт из атласа юнитов, reflect по стороне
+ARMYINFO_MON_X       EQU 146
+ARMYINFO_MON_Y       EQU 175
+; цифры '0'-'9' динамики: антиалиас-маски FONT ×1.6 (рисовать со status_pal, transform 256):
+ArmyInfoDigitTab:                     ; 5 байт: addr24, w, h
+                DEFB #B8, #BB, #04, 14, 22
+                DEFB #EC, #BC, #04, 8, 22
+                DEFB #9C, #BD, #04, 13, 22
+                DEFB #BC, #BE, #04, 13, 22
+                DEFB #DC, #BF, #04, 14, 22
+                DEFB #10, #C1, #04, 13, 22
+                DEFB #30, #C2, #04, 13, 22
+                DEFB #50, #C3, #04, 13, 22
+                DEFB #70, #C4, #04, 13, 22
+                DEFB #90, #C5, #04, 13, 22
+Battle_ArmyInfo_DL:
+                FT_BITMAP_TRANSFORM_A 160
+                FT_BITMAP_TRANSFORM_E 160
+                FT_PALETTE_SOURCE BATTLE_UNIT_PAL_RAMG
+                FT_BEGIN FT_BITMAPS
+                FT_BITMAP_SOURCE BATTLE_WIN_DLG_RAMG
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 551, 283
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 881, 452
+                FT_BITMAP_SIZE_H 881, 452
+                FT_VERTEX2F 1126, 2508
+Battle_ArmyInfo_DL_SIZE EQU $ - Battle_ArmyInfo_DL
+Battle_ArmyInfo_Post_DL:              ; после окна: сброс SIZE_H (ловушка &511)
+                FT_BITMAP_SIZE_H 0, 0
+Battle_ArmyInfo_Post_DL_SIZE EQU $ - Battle_ArmyInfo_Post_DL
+ArmyInfoMonAnchor:                    ; [type] → (ax,ay) DEFW — якорь ног монстра
+                DEFW 4864, 6989
+                DEFW 4864, 6989
+Battle_AIExitBtn0_DL:               ; отжата
+                FT_BITMAP_SOURCE #021A14
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 94, 25
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 150, 40
+                FT_VERTEX2F 11801, 8166
+Battle_AIExitBtn0_DL_SIZE EQU $ - Battle_AIExitBtn0_DL
+Battle_AIExitBtn1_DL:               ; нажата
+                FT_BITMAP_SOURCE #022344
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 94, 25
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 150, 40
+                FT_VERTEX2F 11801, 8166
+Battle_AIExitBtn1_DL_SIZE EQU $ - Battle_AIExitBtn1_DL
+AIEXIT_X0            EQU 461     ; hit-зона кнопки EXIT (лог. 640×480)
+AIEXIT_X1            EQU 555
+AIEXIT_Y0            EQU 319
+AIEXIT_Y1            EQU 344
+ARMYINFO_CNT_CX16    EQU 4761   ; центр бокса счётчика ×16 (минус tw×8)
+ARMYINFO_CNT_Y16     EQU 8374   ; верх цифр счётчика ×16
+ARMYINFO_VALX16      EQU 11520  ; лево значений статов ×16
+ArmyInfoHplY16Tab:   DEFW 5145, 5555   ; Y строки Hit Points Left ×16 (по типу)
+ArmyInfoShotY16Tab:  DEFW 0, 4326   ; Y строки Shots Left ×16 (0=нет строки)
 
                 endif

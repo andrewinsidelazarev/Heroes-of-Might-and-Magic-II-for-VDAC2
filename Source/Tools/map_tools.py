@@ -699,7 +699,8 @@ def write_manifest(path: Path, header, tiles, passability, path_metadata):
     path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
 
-def write_include(path: Path, symbol_prefix: str, header, map_binary: Path, pass_binary: Path, path_binary: Path):
+def write_include(path: Path, symbol_prefix: str, header, map_binary: Path, pass_binary: Path, path_binary: Path,
+                  monsters=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     size = map_binary.stat().st_size
     pass_size = pass_binary.stat().st_size
@@ -720,7 +721,49 @@ def write_include(path: Path, symbol_prefix: str, header, map_binary: Path, pass
 {symbol_prefix}_PATH_COST_ADDR EQU {symbol_prefix}_PATH_ADDR
 {symbol_prefix}_PATH_FLAGS_ADDR EQU {symbol_prefix}_PATH_ADDR + {symbol_prefix}_TILES
 """
+    if monsters is not None:
+        lines = ["", "; Бродячие монстры (random разрешён при конвертации, см. resolve_random_monsters):",
+                 "; запись 6Б: x, y, monsterId(1=Peasant,2=Archer), countLo, countHi, alive(1; мутаб. в RAM)",
+                 f"MAP_MONSTER_COUNT EQU {len(monsters)}",
+                 "MapMonsterTab:"]
+        for m in monsters:
+            lines.append(f"                DB {m['x']}, {m['y']}, {m['id']}, "
+                         f"{m['count'] & 0xFF}, {(m['count'] >> 8) & 0xFF}, 1"
+                         f"   ; ({m['x']},{m['y']}) id{m['id']} x{m['count']}")
+        text += "\n".join(lines) + "\n"
     path.write_text(text, encoding="utf-8")
+
+
+# --- РАЗРЕШЕНИЕ RANDOM-МОНСТРОВ при загрузке карты (fheroes2 maps_tiles_helper.cpp:160
+#     setMonsterOnTile + updateRandomMonster): тип тайла → OBJ_MONSTER(152), спрайт =
+#     MONS32[GetID()−1], count: quantity>0 → задан картостроителем, иначе GetRNDSize
+#     (monster.cpp:165: Peasant=80 outlier; дефолт {0,50,30,25,25,12,8} по уровню монстра).
+#     ★ГЕЙТ ПОРТА: боевые BIN-кадры пока ТОЛЬКО у Peasant/Archer → Monster::Rand(level)
+#     ограничен ими (fheroes2 роллит из всех рас уровня; расширить с добавлением кадров).
+#     Ролл детерминирован сидом (в оригинале — при каждом старте карты). ---
+RND_MONSTER_LEVEL = {179: 0, 180: 1, 181: 2, 182: 3, 183: 4}   # OBJ_RANDOM_MONSTER[_WEAK..VERY_STRONG]
+RND_ROLL_BY_LEVEL = {0: (1, 2), 1: (1,), 2: (2,), 3: (2,), 4: (2,)}   # id: 1=Peasant, 2=Archer
+MONSTER_RND_SIZE = {1: 80, 2: 30}                              # Monster::GetRNDSize()
+
+
+def resolve_random_monsters(header, tiles):
+    import random as _random
+    rng = _random.Random(0x484D4D32)          # детерминизм сборки
+    monsters = []
+    width = header["width"]
+    for i, t in enumerate(tiles):
+        lvl = RND_MONSTER_LEVEL.get(t["map_object"])
+        if lvl is None:
+            continue
+        mid = rng.choice(RND_ROLL_BY_LEVEL[lvl])
+        if t["quantity1"] or t["quantity2"]:  # заданный картостроителем count (на SKIRMISH нет)
+            count = (t["quantity1"] << 8) | t["quantity2"]
+        else:
+            count = MONSTER_RND_SIZE[mid]
+        monsters.append({"x": i % width, "y": i // width, "id": mid, "count": count})
+        t["map_object"] = OBJ_MONSTER          # 152
+        t["bottom_icn"] = mid - 1              # MONS32-иконка реального монстра на карте
+    return monsters
 
 
 def main():
@@ -732,6 +775,7 @@ def main():
     args = parser.parse_args()
 
     header, tiles, addons = read_mp2(args.map)
+    monsters = resolve_random_monsters(header, tiles)   # ДО всех write_* (map.bin уже с настоящими)
     stem = args.map.stem.upper()
     bin_path = args.out_dir / f"{stem}.map.bin"
     pass_path = args.out_dir / f"{stem}.pass.bin"
@@ -744,7 +788,8 @@ def main():
     write_passability_binary(pass_path, passability)
     write_path_metadata_binary(path_path, path_metadata)
     write_manifest(manifest_path, header, tiles, passability, path_metadata)
-    write_include(args.include, args.symbol_prefix, header, bin_path, pass_path, path_path)
+    write_include(args.include, args.symbol_prefix, header, bin_path, pass_path, path_path, monsters)
+    print(f"монстры (random разрешён): {[(m['x'], m['y'], m['id'], m['count']) for m in monsters]}")
 
     print(f"{args.map.name}: {header['name']} {header['width']}x{header['height']}, тайлов={header['tile_count']}")
     print(f"addon-записей: {len(addons)}")

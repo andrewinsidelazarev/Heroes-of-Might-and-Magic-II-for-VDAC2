@@ -20,7 +20,7 @@ for t in range(20):
     if gm()==0: break
     time.sleep(1)
 move_to(24,15); move_to(24,13)
-for t in range(16):
+for t in range(60):
     if gm()==1: break
     time.sleep(0.5)
 print("town gm=",gm(), flush=True)

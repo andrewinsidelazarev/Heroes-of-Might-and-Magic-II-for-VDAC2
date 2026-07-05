@@ -78,26 +78,52 @@ def make_hex_shadow_mask(horiz_space=1):
         i += 2
     return bytes(mask)
 
-# Боевые юниты — ДИНАМИЧЕСКИЕ: спрайты-стойки в RAM_G (отдельно от фона), Render_Battle
-# рисует их по таблице состояния → можно двигать. Типы (боевой ICN, кадр СТОЙКИ=[1]):
+# Боевые юниты — ДИНАМИЧЕСКИЕ: спрайты в RAM_G (отдельно от фона), Render_Battle рисует по
+# таблице состояния. ★АНИМАЦИЯ ПО ОРИГИНАЛУ (BIN <MON>_FRM.BIN, парсинг = fheroes2 bin_info.cpp):
+# кадры ТРИМЛЕНЫ по факт. bbox (полные faithful-наборы 280К < прежних прорежённых паддед 415К),
+# per-кадр запись (addrN, addrR, w, h, size, ox/oy в 1/16 суперпикселей) + таблицы
+# последовательностей per (тип, группа). Позиция кадра = anchor клетки (центр-X, низ+cellYOffset)
+# + кадровые ox/oy (GetTroopPosition, battle_interface.cpp:502; reflect: x=cx−w−ox+1).
+# ТАЙМИНГИ (дефолт BattleSpeed=4 → как в BIN): общий тик 120мс=6 кадров@48.83Гц;
+# движение moveSpeed/8 (465/8≈58мс=3к); стрельба shootSpeed/len (850/7≈121мс=6к);
+# idle: STATIC + раз в idleDelay×(75..125%) один вариант по priorities.
 UNIT_TYPES = [("PEASANT.ICN", 1), ("ARCHER.ICN", 1)]   # 0=Peasant, 1=Archer
-# Анимация по BIN PEAS_FRM/ARCHRFRM. ЕДИНАЯ раскладка 12 кадров/вариант (фикс. смещения групп):
-#   idle@0 (4 кадра, дыхание), walk@4 (8 кадров MOVE_MAIN 5-12). Все паддятся до ОБЩЕГО канваса
-#   (union bbox idle+walk → тело монстра на месте при любом кадре). Атака — следующим шагом.
-# Кадры по BIN (КОРРЕКТНЫЕ индексы enum с TEMPORARY=6/DOUBLEHEX-дырами):
-#   Peasant: STATIC1 IDLE2/3, MOVE_MAIN5-12, ATTACK2(мили)=16,18,24,26, DEATH=13,15,35,37.
-#   Archer:  STATIC1 IDLE2-4,  MOVE_MAIN5-12, SHOOT2(стрельба)=16,18,20,22, DEATH=45,47,49,50.
-# 16 кадров/вариант (по 4 на группу) — компромисс RAM_G (1МБ, аппаратный предел): ходьба прорежена 8→4.
-UNIT_IDLE_FRAMES = [[1, 2, 3, 2], [1, 2, 3, 4]]
-UNIT_WALK_FRAMES = [[5, 7, 9, 11], [5, 7, 9, 11]]
-UNIT_ATTACK_FRAMES = [[16, 18, 24, 26], [16, 18, 20, 22]]
-UNIT_DEATH_FRAMES = [[13, 15, 35, 37], [45, 47, 49, 50]]
-UNIT_ANIM_FRAMES = [UNIT_IDLE_FRAMES[t] + UNIT_WALK_FRAMES[t] + UNIT_ATTACK_FRAMES[t] + UNIT_DEATH_FRAMES[t] for t in range(2)]  # 16/тип
-UNIT_FRAME_COUNT = 16
-UNIT_IDLE_BASE, UNIT_IDLE_N = 0, 4
-UNIT_WALK_BASE, UNIT_WALK_N = 4, 4
-UNIT_ATK_BASE, UNIT_ATK_N = 8, 4
-UNIT_DEATH_BASE, UNIT_DEATH_N = 12, 4
+UNIT_BIN = ["PEAS_FRM.BIN", "ARCHRFRM.BIN"]
+BIN_ANIM_NAMES = ["MOVE_START", "MOVE_TILE_START", "MOVE_MAIN", "MOVE_TILE_END", "MOVE_STOP",
+                  "MOVE_ONE", "TEMPORARY", "STATIC", "IDLE1", "IDLE2", "IDLE3", "IDLE4", "IDLE5",
+                  "DEATH", "WINCE_UP", "WINCE_END", "ATTACK1", "ATTACK1_END", "DOUBLEHEX1",
+                  "DOUBLEHEX1_END", "ATTACK2", "ATTACK2_END", "DOUBLEHEX2", "DOUBLEHEX2_END",
+                  "ATTACK3", "ATTACK3_END", "DOUBLEHEX3", "DOUBLEHEX3_END",
+                  "SHOOT1", "SHOOT1_END", "SHOOT2", "SHOOT2_END", "SHOOT3", "SHOOT3_END"]
+FRAME_MS = 1000.0 / 48.828            # кадр TS-Config ≈ 20.48мс
+BATTLE_FRAME_DELAY_MS = 120           # game_delays.cpp:114 (idle/атака/смерть/wince кадр)
+CELL_Y_OFFSET = -9                    # battle_interface.cpp:91
+
+
+def parse_frm_bin(data):
+    """BIN → dict групп (bin_info.cpp:236: count@243+idx, кадры@277+idx*16) + тайминги/приоритеты."""
+    import struct as _s
+    seqs = {}
+    for idx, name in enumerate(BIN_ANIM_NAMES):
+        cnt = data[243 + idx]
+        if 0 < cnt <= 16:
+            seqs[name] = [data[277 + idx * 16 + f] for f in range(cnt)]
+    idle_n = min(data[117], 5)
+    return {
+        "seqs": seqs,
+        "idle_n": idle_n,
+        "idle_priorities": [_s.unpack_from("<f", data, 118 + i * 4)[0] for i in range(idle_n)],
+        "idle_delay_ms": _s.unpack_from("<I", data, 158)[0],
+        "move_ms": _s.unpack_from("<I", data, 162)[0],
+        "shoot_ms": _s.unpack_from("<I", data, 166)[0],
+    }
+
+
+# Группы, используемые нашим аниматором (компромисс: атака/выстрел — ЦЕНТР-угол ATTACK2/SHOOT2;
+# верх/низ по углу цели — с расширением RAM_G). Порядок = коды групп для Z80.
+ANIM_GROUPS = ["STATIC", "IDLE1", "IDLE2", "IDLE3", "MOVE_MAIN",
+               "ATTACK2", "ATTACK2_END", "SHOOT2", "SHOOT2_END",
+               "DEATH", "WINCE_UP", "WINCE_END"]
 # Состояние юнитов: (тип, cell, side, count). Раскладка fheroes2 battle_army.cpp:85 GROUPED:
 # атак. Peasant×40@22/Archer×4@33 (вправо, side0), защ. Peasant×20@32/Archer×2@43 (зеркало side1).
 UNIT_STATE = [(0, 22, 0, 40), (1, 33, 0, 4), (0, 32, 1, 20), (1, 43, 1, 2)]
@@ -150,39 +176,43 @@ def load_battle(palette):
     return bytes(canvas)
 
 
+def _crop_icn_frame(agg, ent, name, fr, put):
+    """ICN-кадр с кропом (2,0,w−2,h−1) — как fheroes2 agg_image.cpp:1198 для малых кнопок
+    (срезает запечённую тень). Возврат (addr, w, h) через put()."""
+    h, e = read_icn(agg_entry(agg, ent, name))[fr]
+    idx = decode_icn_indices(h, e)
+    w, hh = h["w"], h["h"]
+    cw, ch = w - 2, hh - 1
+    out = bytearray(cw * ch)
+    for y in range(ch):
+        out[y * cw:(y + 1) * cw] = idx[y * w + 2:y * w + 2 + cw]
+    return (put(bytes(out)), cw, ch)
+
+
 def load_units(agg, ent):
-    # 4 варианта × N кадров idle: [Peasant_n, Peasant_m, Archer_n, Archer_m]. mirror = горизонт. флип.
-    # Кадры типа паддятся до ОБЩЕГО канваса (union bbox по ox/oy → тело монстра на месте при свапе).
-    # Возврат: per variant (frame_blobs[N], w, h).
+    # ★ПО ОРИГИНАЛУ: тримленные кадры (свой bbox из ICN — ox/oy = якорные смещения fheroes2)
+    # + зеркала + BIN-последовательности групп + тайминги. Возврат: список per ТИП:
+    #   {order: [icnIdx...], slot: {icn→номер}, frames: {icn: (blobN, blobR, w, h, ox, oy)},
+    #    seqs: {группа: [icnIdx...]}, info: тайминги BIN}
     out = []
     for ti, (name, _stand) in enumerate(UNIT_TYPES):
         icn = read_icn(agg_entry(agg, ent, name))
-        raw = []
-        for fr in UNIT_ANIM_FRAMES[ti]:
+        info = parse_frm_bin(agg_entry(agg, ent, UNIT_BIN[ti]))
+        seqs = {g: info["seqs"][g] for g in ANIM_GROUPS if g in info["seqs"]}
+        order = sorted({f for s in seqs.values() for f in s})
+        frames = {}
+        for fr in order:
             h, e = icn[fr]
-            raw.append((decode_icn_indices(h, e), h["w"], h["h"], h.get("ox", 0), h.get("oy", 0)))
-        min_ox = min(ox for _, _, _, ox, _ in raw)
-        min_oy = min(oy for _, _, _, _, oy in raw)
-        CW = max(ox + w for _, w, _, ox, _ in raw) - min_ox
-        CH = max(oy + h for _, _, h, _, oy in raw) - min_oy
-        frames = []
-        for idx, w, h, ox, oy in raw:                              # положить кадр в общий канвас
-            cv = bytearray(CW * CH)
-            dx, dy = ox - min_ox, oy - min_oy
-            for y in range(h):
-                for x in range(w):
-                    cv[(dy + y) * CW + (dx + x)] = idx[y * w + x]
-            frames.append(bytes(cv))
-        out.append((frames, CW, CH))                              # normal (вправо)
-        mir = []
-        for blob in frames:                                       # mirror (защитник влево)
-            m = bytearray(CW * CH)
-            for y in range(CH):
-                for x in range(CW):
-                    m[y * CW + x] = blob[y * CW + (CW - 1 - x)]
-            mir.append(bytes(m))
-        out.append((mir, CW, CH))                                 # mirror (влево)
-    return out                                                     # [P_n, P_m, A_n, A_m], each (frames[N],w,h)
+            blob = bytes(decode_icn_indices(h, e))
+            w, hh = h["w"], h["h"]
+            m = bytearray(w * hh)                                  # зеркало (горизонт. флип)
+            for y in range(hh):
+                row = blob[y * w:(y + 1) * w]
+                m[y * w:(y + 1) * w] = row[::-1]
+            frames[fr] = (blob, bytes(m), w, hh, h.get("ox", 0), h.get("oy", 0))
+        out.append({"order": order, "slot": {f: i for i, f in enumerate(order)},
+                    "frames": frames, "seqs": seqs, "info": info})
+    return out
 
 
 # Статус-сообщения нижней панели — РЕАЛЬНЫЕ строки fheroes2 (battle_interface.cpp:2889/2914/2928/3009):
@@ -193,11 +223,15 @@ def load_units(agg, ent):
 # Shoot: оригинал append " (%{count} shots left)"; в нашей безгеройной модели shots Archer=12 фикс
 # (не вычитается → аппаратно-упрощённая модель), поэтому строка статична "(12 shots left)".
 # View: оригинал GetMultiName() (plural) + "View %{monster} info" (battle_interface.cpp:2889).
-ARCHER_SHOTS = 12                    # generated_monsters.inc [2] Archer shots=12 (faithful fheroes2)
+# Shoot-подсказка — СОСТАВНАЯ с живым остатком выстрелов (ориг.: «Shoot X (%{count} shots left)»,
+# «(1 shot left)» в единственном): head[type] + число (evt-цифры) + tail. Слоты 5/6 в
+# STATUS_MESSAGES — заглушки (индексация 1..8 сохраняется, ASM рисует Shoot своей веткой).
+# 9..11 — hover-подсказки КНОПОК панели (ориг. battle_interface.cpp:3277/3290/3304).
 STATUS_MESSAGES = ["Move Peasants here", "Move Archers here",
                    "Attack Peasants", "Attack Archers",
-                   f"Shoot Peasants ({ARCHER_SHOTS} shots left)", f"Shoot Archers ({ARCHER_SHOTS} shots left)",
-                   "View Peasants info", "View Archers info"]
+                   "Shoot", "Shoot",
+                   "View Peasants info", "View Archers info",
+                   "Automatic combat modes", "Customize system options", "Skip this unit"]
 STATUS_TURN_MAX = 10                 # предрендер "Turn 1".."Turn 10" (номер раунда, fheroes2 "Turn %{turn}")
 
 
@@ -274,8 +308,10 @@ def compose_win_dialog(agg, ent, victory=True):
     """Окно итога боя строго по DialogBattleSummary: StandardWindow (углы/верт.края WINLOSE[0],
     гориз.края SURDRBKG[0], тайл-фон STONEBAK[0]) + регион анимации WINLOSE[0]{43,32,231,133}
     с кадром WINCMBT (победа)/CMBTLOS (поражение) + заголовок + блок потерь + кнопка OK.
-    Один PALETTED-спрайт глоб.палитры (всё непрозрачно). Аппаратная уступка: статичный кадр
-    вместо looped-анимации; дизеринг-швы/внешняя тень опущены."""
+    Один PALETTED-спрайт глоб.палитры (всё непрозрачно). Рамка — faithful render_standard_window
+    (dithering-переходы бордюр↔фон, точно по ui_window.cpp). Аппаратная уступка: статичный кадр
+    вместо looped-анимации; внешняя тень — глобальная рантайм-процедура Render_WindowShadowDL."""
+    from standard_window import render_standard_window
     PAL = read_palette(agg_entry(agg, ent, "KB.PAL"))
 
     def spr(name, fr=0):
@@ -316,69 +352,12 @@ def compose_win_dialog(agg, ent, victory=True):
             cx += gw
 
     activeW, activeH = WIN_TEXTW + 32, 424
-    V, VW, VH, _, _ = spr("WINLOSE.ICN")
-    Hs, HW, HH, _, _ = spr("SURDRBKG.ICN")
-    S, SW, SH, _, _ = spr("STONEBAK.ICN")
-    cs = WIN_BGOFS
-    waW, waH = activeW + 2*WIN_BORDER, activeH + 2*WIN_BORDER
-    CW, CH = waW, waH
-    cv = bytearray([BACKDROP]) * (CW*CH)
-    rcoX, bcoY = waW-cs, waH-cs
-    rcsX, bcsY = VW-cs, VH-cs
-    # фон STONEBAK тайлами (renderBackgroundImage, borderOffset=22)
-    bw, bh = waW-WIN_BGOFS*2, waH-WIN_BGOFS*2
-    yy = 0
-    while yy < bh:
-        xx = 0
-        chh = min(SH, bh-yy)
-        while xx < bw:
-            _wblit(cv, CW, CH, S, SW, 0, 0, WIN_BGOFS+xx, WIN_BGOFS+yy, min(SW, bw-xx), chh)
-            xx += SW
-        yy += SH
-    # углы + расширения краёв (verticalSprite WINLOSE)
-    for sX, sY, dX, dY in ((0, 0, 0, 0), (rcsX, 0, rcoX, 0), (0, bcsY, 0, bcoY), (rcsX, bcsY, rcoX, bcoY)):
-        _wblit(cv, CW, CH, V, VW, sX, sY, dX, dY, cs, cs)
-    ex = WIN_EDGE-cs
-    rbe, bbe = VW-WIN_EDGE, VH-WIN_EDGE
-    _wblit(cv, CW, CH, V, VW, cs, 0, cs, 0, ex, cs)
-    _wblit(cv, CW, CH, V, VW, 0, cs, 0, cs, cs, ex)
-    _wblit(cv, CW, CH, V, VW, rbe, 0, rcoX-ex, 0, ex, cs)
-    _wblit(cv, CW, CH, V, VW, rcsX, cs, rcoX, cs, cs, ex)
-    _wblit(cv, CW, CH, V, VW, cs, bcsY, cs, bcoY, ex, cs)
-    _wblit(cv, CW, CH, V, VW, 0, bbe, 0, bcoY-ex, cs, ex)
-    _wblit(cv, CW, CH, V, VW, rbe, bcsY, rcoX-ex, bcoY, ex, cs)
-    _wblit(cv, CW, CH, V, VW, rcsX, bbe, rcoX, bcoY-ex, cs, ex)
-    # вертикальные края WINLOSE (повтор)
-    dbe = WIN_EDGE*2
-    vch = min(waH, VH)-dbe
-    _wblit(cv, CW, CH, V, VW, 0, WIN_EDGE, 0, WIN_EDGE, cs, vch)
-    _wblit(cv, CW, CH, V, VW, rcsX, WIN_EDGE, rcoX, WIN_EDGE, cs, vch)
-    vcop = (waH-dbe-1-WIN_TRANS)//(bbe-WIN_EDGE-WIN_TRANS)
-    toY, stepY, frY = WIN_EDGE+vch, vch-WIN_TRANS, WIN_EDGE+WIN_TRANS
-    for _ in range(max(0, vcop)):
-        chh = min(vch, waH-WIN_EDGE-toY)
-        if chh <= 0:
-            break
-        _wblit(cv, CW, CH, V, VW, 0, frY, 0, toY, cs, chh)
-        _wblit(cv, CW, CH, V, VW, rcsX, frY, rcoX, toY, cs, chh)
-        toY += stepY
-    # горизонтальные края SURDRBKG (повтор)
-    hsW, hsH = HW-WIN_BORDER, HH-WIN_BORDER
-    hcw = min(waW, hsW)-dbe
-    hcsX = WIN_EDGE+WIN_BORDER
-    bbso = hsH-cs
-    _wblit(cv, CW, CH, Hs, HW, hcsX, 0, WIN_EDGE, 0, hcw, cs)
-    _wblit(cv, CW, CH, Hs, HW, hcsX, bbso, WIN_EDGE, bcoY, hcw, cs)
-    hcop = (waW-dbe-1-WIN_TRANS)//(hsW-dbe-WIN_TRANS)
-    toX, stepX, frX = WIN_EDGE+hcw, hcw-WIN_TRANS, hcsX+WIN_TRANS
-    for _ in range(max(0, hcop)):
-        cwid = min(hcw, waW-WIN_EDGE-toX)
-        if cwid <= 0:
-            break
-        _wblit(cv, CW, CH, Hs, HW, frX, 0, toX, 0, cwid, cs)
-        _wblit(cv, CW, CH, Hs, HW, frX, bbso, toX, bcoY, cwid, cs)
-        toX += stepX
+    # ★Рамка окна = faithful StandardWindow (dithering-переходы, углы/бордюры/фон точно по
+    # ui_window.cpp render()). Возвращает paletted-буфер _windowArea; контент рисуем поверх @ (16,16).
+    _fb, CW, CH, _bo = render_standard_window(agg, ent, activeW, activeH, True)
+    cv = bytearray(_fb)
     # регион анимации WINLOSE[0]{43,32,231,133} + кадр WINCMBT/CMBTLOS
+    V, VW, VH, _, _ = spr("WINLOSE.ICN")
     roiX, roiY = WIN_BORDER, WIN_BORDER
     animX, animY = roiX + (activeW-231)//2 + 4, roiY + 21
     _wblit(cv, CW, CH, V, VW, 43, 32, animX-4, animY-4, 231, 133)
@@ -427,11 +406,114 @@ def compose_win_dialog(agg, ent, victory=True):
     return bytes(cv), CW, CH, texts, cas_atk_ly, cas_def_ly
 
 
+# --- ПКМ-попап инфо отряда (Dialog::ArmyInfo, dialog_armyinfo.cpp:516, flags=ZERO) ---
+# Жёлтый шрифт fheroes2 = CopyICNWithPalette(FONT, PAL::YELLOW_FONT) = индекс-ремап yellowTextTable
+# (engine/pal.cpp:31): глиф-индексы 10..36 → жёлтые оттенки KB.PAL 114..130.
+YELLOW_TEXT_TABLE = {
+    10: 114, 11: 115, 12: 115, 13: 116, 14: 117, 15: 117, 16: 118, 17: 119, 18: 119,
+    19: 120, 20: 121, 21: 121, 22: 122, 23: 123, 24: 123, 25: 124, 26: 125, 27: 125,
+    28: 126, 29: 127, 30: 127, 31: 128, 32: 129, 33: 129, 34: 130, 35: 130, 36: 130,
+}
+AI_SPEED_STR = ["Standing", "Crawling", "Very Slow", "Slow", "Average", "Fast",
+                "Very Fast", "Ultra Fast", "Blazing", "Instant"]     # Speed::String (speed.cpp:84)
+AI_NAMES = ["Peasants", "Archers"]   # Troop::GetName=GetPluralName(count); ед.число при count==1 —
+                                     # отклонение (имя запечено; TODO при свободном RAM_G)
+AI_STATS = {0: dict(atk=1, dfn=1, dmin=1, dmax=1, hp=1, spd=2, shots=0),      # из monster_info.cpp
+            1: dict(atk=5, dfn=3, dmin=2, dmax=3, hp=10, spd=2, shots=12)}
+
+
+def compose_armyinfo(agg, ent, unit_type):
+    """Попап ПКМ-инфо отряда: ГОТОВЫЙ спрайт VIEWARMY[0] + имя (normalYellow, ремап) + статы
+    (DrawMonsterStats @ (x+400,y+37): лейбл право-выровнен к x+397, ':' на x+397, значение от
+    x+406, шаг 16, normalWhite=глифы FONT.ICN как есть) + описания способностей (у Peasant/Archer
+    пусты). ДИНАМИКУ (Count в боксе 80/223/125×23, Hit Points Left, Shots Left) и спрайт монстра
+    (атлас юнитов боя, reflect по стороне) рисует РАНТАЙМ. Возврат (buf, W, H, hpl_y, shots_y)."""
+    h, e = read_icn(agg_entry(agg, ent, "VIEWARMY.ICN"))[0]
+    W, H = h["w"], h["h"]
+    cv = bytearray(decode_icn_indices(h, e))
+    st = AI_STATS[unit_type]
+    fnt = read_icn(agg_entry(agg, ent, "FONT.ICN"))
+    fsm = read_icn(agg_entry(agg, ent, "SMALFONT.ICN"))
+    SPACE_W = {"FONT.ICN": 6, "SMALFONT.ICN": 4}
+
+    def glyphs_w(f, fname, text):
+        return sum(SPACE_W[fname] if c == " " else f[ord(c) - 32][0]["w"] for c in text)
+
+    def draw(f, fname, text, x, y, remap=None):
+        """Faithful-блит глифов ИНДЕКСАМИ (не одноцветно): белый = как есть, жёлтый = remap."""
+        cx = x
+        for c in text:
+            if c == " ":
+                cx += SPACE_W[fname]
+                continue
+            gh, ge = f[ord(c) - 32]
+            gi = decode_icn_indices(gh, ge)
+            gw, gy, goy = gh["w"], gh["h"], gh.get("oy", 0)
+            for yy in range(gy):
+                py = y + goy + yy
+                if not (0 <= py < H):
+                    continue
+                for xx in range(gw):
+                    v = gi[yy * gw + xx]
+                    if v == TRANSPARENT:
+                        continue
+                    if remap is not None:
+                        v = remap.get(v, v)
+                    if 0 <= cx + xx < W:
+                        cv[py * W + cx + xx] = v
+            cx += gw
+        return cx
+
+    # имя: normalYellow @ (29 + (227−w)/2, 37+2)
+    name = AI_NAMES[unit_type]
+    nw = glyphs_w(fnt, "FONT.ICN", name)
+    draw(fnt, "FONT.ICN", name, 29 + (227 - nw) // 2, 37 + 2, remap=YELLOW_TEXT_TABLE)
+    # статы (DrawMonsterStats @ dst=(400,37)): колонки эталона
+    dstX, dstY = 400, 37
+    right_x = dstX - 3                    # ':' и правый край лейбла
+    left_x = dstX + 6                     # значения
+    y = dstY + 2
+    hpl_y = shots_y = 0xFF
+
+    def stat_row(label, value, yrow, dynamic=False):
+        draw(fnt, "FONT.ICN", ":", right_x, yrow)
+        lw = glyphs_w(fnt, "FONT.ICN", label)
+        draw(fnt, "FONT.ICN", label, max(right_x - lw, dstX - 123), yrow)
+        if not dynamic:
+            draw(fnt, "FONT.ICN", value, left_x, yrow)
+
+    stat_row("Attack Skill", str(st["atk"]), y);              y += 16
+    stat_row("Defense Skill", str(st["dfn"]), y);             y += 16
+    if st["shots"] > 0:
+        stat_row("Shots Left", "", y, dynamic=True)           # значение — рантайм (трекинг шотов)
+        shots_y = y;                                          y += 16
+    dmg = str(st["dmin"]) if st["dmin"] == st["dmax"] else f"{st['dmin']}-{st['dmax']}"
+    stat_row("Damage", dmg, y);                               y += 16
+    stat_row("Hit Points", str(st["hp"]), y);                 y += 16
+    stat_row("Hit Points Left", "", y, dynamic=True)          # в бою count>0 всегда; значение — рантайм
+    hpl_y = y;                                                y += 16
+    stat_row("Speed", AI_SPEED_STR[st["spd"]], y);            y += 16
+    stat_row("Morale", "Normal", y);                          y += 16   # без героя мораль/удача Normal
+    stat_row("Luck", "Normal", y)
+    # описания способностей (getMonsterPropertiesDescription): у Peasant/Archer abilities пусты →
+    # блок пуст (для будущих типов — smallWhite @ (37,185), 3 строки по 210px).
+    return bytes(cv), W, H, hpl_y, shots_y
+
+
 def build_payload(palette, img, units, agg, ent):
     payload = bytearray()
 
     def put(raw: bytes) -> int:
         addr = BATTLE_RAMG_BASE + align(len(payload), 4)
+        while BATTLE_RAMG_BASE + len(payload) < addr:
+            payload.append(0)
+        payload.extend(raw)
+        return addr
+
+    def put_sector(raw: bytes) -> int:
+        """Выровнять на 512 = границу СЕКТОРА PAK (payload-entry сама на границе сектора) —
+        кусок можно РЕстримить по сектору: sec = body_start + (addr−BASE)//512 (попап↔финал)."""
+        addr = BATTLE_RAMG_BASE + align(len(payload), SECTOR)
         while BATTLE_RAMG_BASE + len(payload) < addr:
             payload.append(0)
         payload.extend(raw)
@@ -470,26 +552,20 @@ def build_payload(palette, img, units, agg, ent):
         status_pal[i * 2] = v & 0xFF
         status_pal[i * 2 + 1] = (v >> 8) & 0xFF
     status_pal_addr = put(bytes(status_pal))
-    # Hover-подсказки + «Turn N» — НАТИВНЫЙ SMALFONT scale=1.0 (fonts-native-no-1p6-upscale:
-    # текст нативно; ×1.6 только при запасе RAM_G). ×1.6-версии (~+25КБ) толкали payload за
-    # курсор #0E8000 (затирали курсор) — недопустимо. Нативно = faithful нижняя строка статуса.
+    # Hover-подсказки — ЕДИНЫЙ шрифт статус-бара по оригиналу (battle_interface.cpp:1149/1158:
+    # ОБЕ строки normalWhite = FONT.ICN) → FONT ×1.6 гладко, как строка событий. RAM_G позволяет
+    # после тримленного атласа юнитов (−135КБ).
     status_msgs = []                              # 8 hover-подсказок (Move/Attack/Shoot/View X)
     for text in STATUS_MESSAGES:
-        m, w, h = render_text_mask(agg, ent, text, font="SMALFONT.ICN", scale=1.0)
+        m, w, h = render_text_mask(agg, ent, text)
         status_msgs.append((put(m), w, h))
-    turn_msgs = []                                # "Turn 1".."Turn N" (номер раунда, fheroes2 "Turn %{turn}")
-    for i in range(1, STATUS_TURN_MAX + 1):
-        m, w, h = render_text_mask(agg, ent, "Turn " + str(i), font="SMALFONT.ICN", scale=1.0)
-        turn_msgs.append((put(m), w, h))
+    turn_msgs = []                                # «Turn N» убран (battle-no-turn-n-label) — пусто
     # --- ФРАГМЕНТЫ СТРОКИ СОБЫТИЙ (fheroes2 RedrawActionAttackPart2, battle_interface.cpp:4157):
     #     «%{atk} do %{dmg} damage.» (+ при гибели « %{n} %{def} perish.»). idx = type×2 + (count==1). ---
     def bake(t):
         m, w, h = render_text_mask(agg, ent, t)
         return (put(m), w, h)
 
-    def bakeN(t):                                     # нативный шрифт SMALFONT scale=1.0 (экономия RAM_G)
-        m, w, h = render_text_mask(agg, ent, t, font="SMALFONT.ICN", scale=1.0)
-        return (put(m), w, h)
     evt = {
         "atk": [bake(t) for t in ("Peasants do ", "Peasant does ", "Archers do ", "Archer does ")],
         "dmg": bake(" damage."),
@@ -499,20 +575,33 @@ def build_payload(palette, img, units, agg, ent):
         "digit": [bake(str(d)) for d in range(10)],
         # --- СТРОКА ДВИЖЕНИЯ (fheroes2 RedrawActionMove, battle_interface.cpp:4448):
         #     «Moved %{monster}: from [%{src}] to [%{dst}].» где src/dst = «row+1, col+1».
-        #     АППАРАТНОЕ ОГРАНИЧЕНИЕ RAM_G: пред-масштаб ×1.6 этих фрагментов (~32КБ) толкал
-        #     battle-payload за курсор #0E8000 (затирал курсор). Рисуем НАТИВНЫМ шрифтом scale=1.0
-        #     (fonts-native-no-1p6-upscale: текст рисовать нативно; ×1.6 только если RAM_G позволяет).
-        #     Дробим на узкие фрагменты (<255px): «Moved »+per-type+«from [». ---
-        "mvhead": bakeN("Moved "),
-        "mvname": [bakeN(t) for t in ("Peasants: ", "Archers: ")],
-        "mvfrom": bakeN("from ["),
-        "mvmid": bakeN("] to ["),
-        "mvend": bakeN("]."),
-        "comma": bakeN(", "),
-        "ndigit": [bakeN(str(d)) for d in range(10)],   # нативные цифры для координат движения
+        #     ЕДИНЫЙ шрифт статус-бара (normalWhite=FONT ×1.6, как события) — RAM_G позволяет
+        #     после тримленного атласа юнитов. Дробим на узкие фрагменты (<255px). ---
+        "mvhead": bake("Moved "),
+        "mvname": [bake(t) for t in ("Peasants: ", "Archers: ")],
+        "mvfrom": bake("from ["),
+        "mvmid": bake("] to ["),
+        "mvend": bake("]."),
+        "comma": bake(", "),
+        "ndigit": [bake(str(d)) for d in range(10)],   # цифры координат движения (тот же шрифт)
+        # Shoot-hover: «Shoot X (» + N + « shot(s) left)» (живой _shotsLeft, ориг. GetBattleCursor)
+        "sh_head": [bake(t) for t in ("Shoot Peasants (", "Shoot Archers (")],
+        "sh_tail_pl": bake(" shots left)"),
+        "sh_tail_sg": bake(" shot left)"),
+        # Кнопка EXIT модального ArmyInfo (ЛКМ-вариант, Dialog::BUTTONS): VIEWARMY[3]=отжата,
+        # [4]=нажата; кроп (2,0,w−2,h−1) как agg_image.cpp:1198 (своя тень не нужна — окно с тенью)
+        "ai_exit": [_crop_icn_frame(agg, ent, "VIEWARMY.ICN", fr, put) for fr in (3, 4)],
     }
     wdlg, wdw, wdh, wtexts, cas_atk_ly, cas_def_ly = compose_win_dialog(agg, ent)  # окно итога БЕЗ текста
-    win_dlg = (put(wdlg), wdw, wdh)
+    win_dlg = (put_sector(wdlg), wdw, wdh)    # НА ГРАНИЦЕ СЕКТОРА: область делится с ПКМ-попапом
+                                              # ArmyInfo (попап стримится сюда, финал РЕстримится)
+    # Цифры для ДИНАМИКИ попапа ArmyInfo (Count/Hit Points Left/Shots Left): FONT.ICN ×1.6
+    # ГЛАДКО (антиалиас-маска, как статус-тексты) — рисуются со status_pal (белая с альфой),
+    # transform 256. Статика попапа запечена в композит (растёт с окном согласованно).
+    ai_digits = []
+    for dd in range(10):
+        m_, w_, h_ = render_text_mask(agg, ent, str(dd))     # дефолт: FONT.ICN, TEXT_SCALE=1.6
+        ai_digits.append((put(m_), w_, h_))
     # Потери (faithful battle_dialogs.cpp:587 GetKilledTroops → drawSingleDetailedMonsterLine): иконка
     # MONS32 типа + счёт убитых. MONS32-индекс = монстр.id-1 → наш type (0=Peasant=MONS32[0], 1=Archer[1]).
     # Иконы — нативно, палитра ЮНИТОВ (idx0 прозрачный, KB.PAL-цвета); счёт — нативные BattleCountDigitTab.
@@ -563,15 +652,23 @@ def build_payload(palette, img, units, agg, ent):
     bot = img[BATTLE_W * BATTLE_SPLIT:]          # 640×240
     top_addr = put(top)
     bot_addr = put(bot)
-    unit_addrs = [[put(blob) for blob in frames] for frames, _w, _h in units]  # [variant][frame]=addr
+    # Тримленные кадры юнитов: per тип, per кадр (по order) — normal + mirror подряд.
+    # unit_addrs[type][slot] = (addrN, addrR).
+    unit_addrs = []
+    for u in units:
+        rows = []
+        for fr in u["order"]:
+            blob, mblob, _w, _h, _ox, _oy = u["frames"][fr]
+            rows.append((put(blob), put(mblob)))
+        unit_addrs.append(rows)
     return (payload, pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_addr,
             status_pal_addr, status_msgs, turn_msgs, win_dlg, top_addr, bot_addr, unit_addrs, evt,
-            yellow_pal_addr, win_texts, count_digits, casualties)
+            yellow_pal_addr, win_texts, count_digits, casualties, ai_digits)
 
 
 def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_addr,
              status_pal_addr, status_msgs, turn_msgs, win_dlg, top_addr, bot_addr, unit_addrs, evt,
-             yellow_pal_addr, win_texts, count_digits, casualties, units, pak):
+             yellow_pal_addr, win_texts, count_digits, casualties, units, pak, ai):
     L = []
     L.append("; Сгенерировано Source/Tools/battle_pack.py — экран боя (Grass, потоковый HMM2BATL.PAK).")
     L.append("                ifndef _HMM2_GENERATED_BATTLE_")
@@ -685,8 +782,9 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     L.append("                DEFW Battle_Contour_Ofs0_DL, Battle_Contour_Ofs1_DL")
     L.append("                DEFW Battle_Contour_Ofs2_DL, Battle_Contour_Ofs3_DL")
     L.append("")
-    # --- СТАТУС-СООБЩЕНИЯ нижней панели (как fheroes2): белый текст SMALFONT, ×1.6, центрирован
-    #     в статус-баре. BattleStatusMsg (1-based) → Pre[idx] (SOURCE/LAYOUT/SIZE) + Vert[idx]. ---
+    # --- СТАТУС-СООБЩЕНИЯ панели (как fheroes2): ОБЕ строки normalWhite (FONT ×1.6 гладко,
+    #     нативный блит). Hover — НИЖНЯЯ строка бара (TEXTBAR9 @463); события — верхняя (448).
+    #     BattleStatusMsg (1-based) → Pre[idx] (SOURCE/LAYOUT/SIZE) + Vert[idx]. ---
     L.append(f"BATTLE_STATUS_PAL_RAMG EQU #{status_pal_addr:06X}")
     L.append("Battle_Status_Begin_DL:")
     L.append("                FT_BITMAP_TRANSFORM_A 256   ; НАТИВНО (×1): ×1.6 NEAREST рвёт глифы (см. fonts-native-no-1p6-upscale)")
@@ -705,28 +803,14 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
         L.append(f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {w}, {h}")
         L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {w}, {h}")  # НАТИВНО (×1)
     L.append("BATTLE_STATUS_PRE_SIZE EQU Battle_Status_Pre_1 - Battle_Status_Pre_0")
-    L.append("BattleStatusVertTab:                   ; центр физ. (512, y=717); текст НАТИВНЫЙ (без ×1.6)")
+    L.append("BattleStatusVertTab:                   ; hover = НИЖНЯЯ строка бара (лог.Y≈465), центр X=512")
     for (addr, w, h) in status_msgs:
-        lx = 512 - w // 2                            # физ-центр 320×1.6=512, минус нативная полуширина
-        L.append(f"                FT_VERTEX2F {lx * 16}, {448 * 256 // 10}")
+        lx = 512 - w // 2                            # физ-центр 320×1.6=512, минус полуширина маски
+        L.append(f"                FT_VERTEX2F {lx * 16}, {465 * 256 // 10}")
     L.append(f"BATTLE_STATUS_COUNT EQU {len(status_msgs)}")
     L.append("")
-    # --- "Turn N" (fheroes2 "Turn %{turn}"): предрендер Turn 1..MAX, выбор по номеру раунда.
-    #     Тот же статус-бар (Battle_Status_Begin_DL), центрировано как hover-подсказки. ---
-    L.append("BattleTurnPreTab:")
-    L.append("                DEFW " + ", ".join(f"Battle_Turn_Pre_{i}" for i in range(len(turn_msgs))))
-    for i, (addr, w, h) in enumerate(turn_msgs):
-        L.append(f"Battle_Turn_Pre_{i}:")
-        L.append(f"                FT_BITMAP_SOURCE #{addr:06X}")
-        L.append(f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {w}, {h}")
-        L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {w}, {h}")  # НАТИВНО (×1)
-    L.append("BATTLE_TURN_PRE_SIZE EQU Battle_Turn_Pre_1 - Battle_Turn_Pre_0")
-    L.append("BattleTurnVertTab:                     ; центр физ. (512, y=717); текст НАТИВНЫЙ (без ×1.6)")
-    for (addr, w, h) in turn_msgs:
-        lx = 512 - w // 2
-        L.append(f"                FT_VERTEX2F {lx * 16}, {448 * 256 // 10}")
-    L.append(f"BATTLE_TURN_MAX EQU {len(turn_msgs)}")
-    L.append("")
+    # («Turn N» УБРАН по правилу battle-no-turn-n-label: игрок в оригинале его в статус-баре
+    #  НЕ видит — только события боя и hover-подсказки; msg==0 → пустая строка.)
     # --- ФРАГМЕНТЫ СТРОКИ СОБЫТИЙ: записи [lo,mid,hi,w,h] для Render_DrawSpriteEntry (перо ResPenX,
     #     нативный блит ×1, антиалиас-палитра статуса). Сборка строки — Battle_RenderEventLine. ---
     def ee(e):
@@ -763,6 +847,14 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     L.append("BattleEvtMoveDigitTab:                 ; нативные цифры «0».. «9» для координат движения")
     for e in evt["ndigit"]:
         L.append(ee(e))
+    # --- Shoot-hover С ЖИВЫМ остатком (GetBattleCursor: «Shoot X (%{count} shots left)») ---
+    L.append("BattleShootHeadTab:                    ; «Shoot Peasants (»/«Shoot Archers (» idx=target.type")
+    for e in evt["sh_head"]:
+        L.append(ee(e))
+    L.append("BattleShootTailPl:                     ; « shots left)»")
+    L.append(ee(evt["sh_tail_pl"]))
+    L.append("BattleShootTailSg:                     ; « shot left)» (N==1)")
+    L.append(ee(evt["sh_tail_sg"]))
     L.append("")
     # --- НАДПИСИ ОКНА ИТОГА: нативные спрайты поверх ×1.6-диалога (не рвутся). Запись (10б):
     #     [lo,mid,hi,w,h] + палитра(0=белая/1=жёлтая) + vx(2) + vy(2). Рендер — Battle_RenderWinText. ---
@@ -813,47 +905,111 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     L.append("Battle_Units_End_DL:")
     L.append("                FT_END")
     L.append("Battle_Units_End_DL_SIZE EQU $ - Battle_Units_End_DL")
-    # idle-анимация: SOURCE свапается по кадру [вариант×N+кадр]; LAYOUT/SIZE общий по варианту.
-    L.append(f"BATTLE_UNIT_FRAME_COUNT EQU {UNIT_FRAME_COUNT}")
-    L.append("BattleUnitSrcTab:                       ; [вариант*N+кадр] → FT_BITMAP_SOURCE (4Б)")
-    for v in range(len(units)):
-        for f in range(UNIT_FRAME_COUNT):
-            L.append(f"                FT_BITMAP_SOURCE #{unit_addrs[v][f]:06X}")
-    L.append("BATTLE_UNIT_SRC_SIZE EQU 4")            # FT_BITMAP_SOURCE = 1 команда = 4Б
-    L.append("BattleUnitLayTab:                       ; [вариант] → LAYOUT+SIZE (общий канвас кадров, 8Б)")
-    for v, (_frames, w, h) in enumerate(units):
-        L.append(f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {w}, {h}")
-        L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {w * 16 // 10}, {h * 16 // 10}")
-    L.append("BATTLE_UNIT_LAY_SIZE EQU 8")            # LAYOUT+SIZE = 2 команды = 8Б
-    L.append("BattleUnitVertsTab:")
-    L.append("                DEFW BattleUnitVerts0, BattleUnitVerts1")
-    for t in range(len(UNIT_TYPES)):
-        _frames, w, h = units[t * 2]
-        L.append(f"BattleUnitVerts{t}:                    ; спрайт top-left @ каждой из 99 ячеек (тип {t})")
-        for idx in range(WIDTH_IN_CELLS * 9):
-            row, col = idx // WIDTH_IN_CELLS, idx % WIDTH_IN_CELLS
-            px = CELL_OX - (CELL_W // 2 if row % 2 else 0) + CELL_W * col + (CELL_W - w) // 2
-            py = CELL_OY + ROW_STEP * row + (CELL_H - h)
-            L.append(f"                FT_VERTEX2F {px * 256 // 10}, {py * 256 // 10}")
-    # Группы кадров анимации (раскладка 12 кадров/вариант: idle@0×4, walk@4×8)
-    L.append(f"BATTLE_UNIT_IDLE_BASE EQU {UNIT_IDLE_BASE}")
-    L.append(f"BATTLE_UNIT_WALK_BASE EQU {UNIT_WALK_BASE}")
-    L.append(f"BATTLE_UNIT_WALK_N EQU {UNIT_WALK_N}")
-    L.append(f"BATTLE_UNIT_ATK_BASE EQU {UNIT_ATK_BASE}")
-    L.append(f"BATTLE_UNIT_ATK_N EQU {UNIT_ATK_N}")
-    L.append(f"BATTLE_UNIT_DEATH_BASE EQU {UNIT_DEATH_BASE}")
-    L.append(f"BATTLE_UNIT_DEATH_N EQU {UNIT_DEATH_N}")
-    # Сырые пиксельные позиции спрайта в клетке (vertex 1/16px) для ИНТЕРПОЛЯЦИИ движущегося юнита.
-    L.append("BattleUnitPixTab:                       ; [тип] → 99×(x,y) DEFW (top-left спрайта в клетке)")
-    L.append("                DEFW BattleUnitPix0, BattleUnitPix1")
-    for t in range(len(UNIT_TYPES)):
-        _frames, w, h = units[t * 2]
-        L.append(f"BattleUnitPix{t}:")
-        for idx in range(WIDTH_IN_CELLS * 9):
-            row, col = idx // WIDTH_IN_CELLS, idx % WIDTH_IN_CELLS
-            px = CELL_OX - (CELL_W // 2 if row % 2 else 0) + CELL_W * col + (CELL_W - w) // 2
-            py = CELL_OY + ROW_STEP * row + (CELL_H - h)
-            L.append(f"                DEFW {px * 256 // 10}, {py * 256 // 10}")
+    # ★FAITHFUL-АНИМАЦИЯ (BIN): тримленные per-кадр DL-фрагменты + смещения от якоря клетки +
+    #   последовательности групп + тайминги оригинала (см. шапку файла).
+    NG = len(ANIM_GROUPS)
+    L.append(f"BATTLE_NGROUPS EQU {NG}")
+    for gi, g in enumerate(ANIM_GROUPS):
+        L.append(f"BATTLE_GRP_{g} EQU {gi}")
+    L.append("BattleFrameSrcTab:                      ; [вариант=type*2+side] → FT_BITMAP_SOURCE ×кадры (4Б)")
+    L.append("                DEFW " + ", ".join(
+        f"BattleFrameSrc{t}_{s}" for t in range(len(units)) for s in range(2)))
+    for t, u in enumerate(units):
+        for s in range(2):
+            L.append(f"BattleFrameSrc{t}_{s}:")
+            for fr in u["order"]:
+                addrN, addrR = unit_addrs[t][u["slot"][fr]]
+                L.append(f"                FT_BITMAP_SOURCE #{(addrR if s else addrN):06X}   ; ICN {fr}")
+    L.append("BattleFrameLayTab:                      ; [тип] → LAYOUT+SIZE ×кадры (8Б; общие для зеркала)")
+    L.append("                DEFW " + ", ".join(f"BattleFrameLay{t}" for t in range(len(units))))
+    for t, u in enumerate(units):
+        L.append(f"BattleFrameLay{t}:")
+        for fr in u["order"]:
+            _b, _m, w, h, _ox, _oy = u["frames"][fr]
+            L.append(f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {w}, {h}")
+            L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {w * 16 // 10}, {h * 16 // 10}")
+    # Смещение кадра от якоря (vertex 1/16 физ.px, знаковое): GetTroopPosition (battle_interface.cpp:502):
+    #   x = ox (side0) / 1−w−ox (side1, reflect); y = oy. Якорь = (центр клетки, низ клетки−9).
+    L.append("BattleFrameOfsTab:                      ; [вариант] → (ofsX,ofsY) DEFW ×кадры (4Б/кадр)")
+    L.append("                DEFW " + ", ".join(
+        f"BattleFrameOfs{t}_{s}" for t in range(len(units)) for s in range(2)))
+    for t, u in enumerate(units):
+        for s in range(2):
+            L.append(f"BattleFrameOfs{t}_{s}:")
+            for fr in u["order"]:
+                _b, _m, w, h, ox, oy = u["frames"][fr]
+                lx = (1 - w - ox) if s else ox
+                L.append(f"                DEFW {round(lx * 25.6)}, {round(oy * 25.6)}   ; ICN {fr}")
+    L.append("BattleCellAnchor:                       ; 99 × (ax,ay) DEFW — якорь спрайта клетки")
+    for idx in range(WIDTH_IN_CELLS * 9):
+        row, col = idx // WIDTH_IN_CELLS, idx % WIDTH_IN_CELLS
+        px = CELL_OX - (CELL_W // 2 if row % 2 else 0) + CELL_W * col
+        py = CELL_OY + ROW_STEP * row
+        L.append(f"                DEFW {round((px + CELL_W / 2) * 25.6)}, "
+                 f"{round((py + CELL_H + CELL_Y_OFFSET) * 25.6)}")
+    # Последовательности групп: [type*NGROUPS+грп] → DEFW seq {DEFB len, слоты...}; 0 = группы нет.
+    L.append("BattleSeqPtrTab:")
+    for t, u in enumerate(units):
+        L.append("                DEFW " + ", ".join(
+            (f"BattleSeq{t}_{g}" if g in u["seqs"] else "0") for g in ANIM_GROUPS))
+    for t, u in enumerate(units):
+        for g in ANIM_GROUPS:
+            if g in u["seqs"]:
+                slots = [u["slot"][f] for f in u["seqs"][g]]
+                L.append(f"BattleSeq{t}_{g}: DEFB {len(slots)}, " + ", ".join(map(str, slots)))
+    # --- Тайминги (в кадрах @48.83Гц; дефолт BattleSpeed=4 → значения BIN как есть) ---
+    def _ticks(ms):
+        return max(1, round(ms / FRAME_MS))
+    anim_t = _ticks(BATTLE_FRAME_DELAY_MS)
+    move_t, shoot_t, death_d, wince_tim, atk_tim = [], [], [], [], []
+    idle_min, idle_thr, static_slot, corpse_slot = [], [], [], []
+    for t, u in enumerate(units):
+        info, seqs = u["info"], u["seqs"]
+        move_t.append(_ticks(info["move_ms"] / max(1, len(seqs["MOVE_MAIN"]))))
+        st = _ticks(info["shoot_ms"] / len(seqs["SHOOT2"])) if "SHOOT2" in seqs else anim_t
+        shoot_t.append(st)
+        death_d.append(len(seqs["DEATH"]) * anim_t)
+        wu = len(seqs.get("WINCE_UP", [])) * anim_t
+        wince_tim.append((wu, wu + len(seqs.get("WINCE_END", [])) * anim_t))
+        mp = len(seqs["ATTACK2"]) * anim_t                    # пик мили = конец ATTACK2 (контакт)
+        mtot = mp + len(seqs.get("ATTACK2_END", [])) * anim_t
+        if "SHOOT2" in seqs:
+            sp = len(seqs["SHOOT2"]) * st
+            stot = sp + len(seqs.get("SHOOT2_END", [])) * st
+        else:
+            sp, stot = mp, mtot
+        atk_tim.append((mp, mtot, sp, stot))
+        idle_min.append(round(info["idle_delay_ms"] * 0.75 / FRAME_MS))   # мин.пауза = 75% delay
+        pr = info["idle_priorities"][:3]                      # пороги rand8 выбора idle-варианта
+        tot = sum(pr) or 1.0
+        acc, thr = 0.0, []
+        for p in pr[:-1]:
+            acc += p
+            thr.append(min(255, round(acc / tot * 256)))
+        while len(thr) < 2:
+            thr.append(255)
+        idle_thr.append((len(pr), thr[0], thr[1]))
+        static_slot.append(u["slot"][seqs["STATIC"][0]])
+        corpse_slot.append(u["slot"][seqs["DEATH"][-1]])       # труп = последний DEATH-кадр
+    L.append(f"BATTLE_ANIM_TICKS EQU {anim_t}          ; BATTLE_FRAME_DELAY 120мс")
+    L.append("BattleMoveTickTab:   DEFB " + ", ".join(map(str, move_t)) + "   ; тиков/кадр MOVE_MAIN (moveSpeed/8)")
+    L.append("BattleShootTickTab:  DEFB " + ", ".join(map(str, shoot_t)) + "   ; тиков/кадр SHOOT (shootSpeed/len)")
+    L.append("BattleDeathTicksTab: DEFB " + ", ".join(map(str, death_d)) + " ; длительность смерти (len(DEATH)×6)")
+    L.append("BattleWinceTimTab:                      ; [type] → DEFB up_тиков, всего_тиков")
+    for wu, wt in wince_tim:
+        L.append(f"                DEFB {wu}, {wt}")
+    L.append("BattleAtkTimTab:                        ; [type] → DEFB мили_пик, мили_всего, выстрел_пик, выстрел_всего")
+    for mp, mtot, sp, stot in atk_tim:
+        L.append(f"                DEFB {mp}, {mtot}, {sp}, {stot}")
+    L.append("BattleIdleWaitMinTab: DEFW " + ", ".join(map(str, idle_min)) + " ; мин. пауза STATIC (тиков)")
+    L.append("BATTLE_IDLE_RND_MASK EQU 127            ; пауза = min + (rand8 & mask) ≈ ×(75..125%)")
+    L.append("BattleIdleThreshTab:                    ; [type] → DEFB n_вариантов, порог1, порог2 (rand8)")
+    for n, t1, t2 in idle_thr:
+        L.append(f"                DEFB {n}, {t1}, {t2}")
+    L.append("BattleStaticSlotTab: DEFB " + ", ".join(map(str, static_slot)) + "     ; слот кадра стойки")
+    L.append("BattleCorpseSlotTab: DEFB " + ", ".join(map(str, corpse_slot)) + "   ; слот трупа (посл. DEATH)")
+    L.append("BATTLE_MOVE_VEL EQU 48                  ; vertex-единиц/тик ≈ клетка(44px)/23 тика (465мс)")
+    L.append("BATTLE_ARROW_YOFS EQU -768              ; стрела на высоте груди (−30 лог.px от якоря-ног)")
     # --- СЧЁТЧИКИ ОТРЯДОВ (fheroes2 RedrawTroopCount): тёмный бар + белое число над юнитом.
     #     Бар — полупрозрачный чёрный RECTS (контраст на траве); число — DigitTable
     #     (резидентный Render_Number16C, палитра OBJECT_OPAQUE_PALETTE, цифры native 1:1).
@@ -898,25 +1054,12 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     for (addr, w, h) in arrow_spr:
         L.append(f"                DEFB #{addr & 0xFF:02X}, #{(addr >> 8) & 0xFF:02X}, "
                  f"#{(addr >> 16) & 0xFF:02X}, {w}, {h}")
-    L.append("BattleCountBarVerts:                   ; 99 ячеек × 2 FT_VERTEX2F (тёмный бар под числом)")
-    for idx in range(WIDTH_IN_CELLS * 9):
-        row, col = idx // WIDTH_IN_CELLS, idx % WIDTH_IN_CELLS
-        px = CELL_OX - (CELL_W // 2 if row % 2 else 0) + CELL_W * col
-        py = CELL_OY + ROW_STEP * row
-        cx = px + CELL_W // 2
-        bx0, bx1 = cx - 13, cx + 13
-        by0, by1 = py + CELL_H - 16, py + CELL_H - 3
-        L.append(f"                FT_VERTEX2F {bx0 * 256 // 10}, {by0 * 256 // 10}")
-        L.append(f"                FT_VERTEX2F {bx1 * 256 // 10}, {by1 * 256 // 10}")
-    L.append("BattleCountPen:                        ; 99 ячеек × {DEFW penX, DEFW penY} центр-низ (vertex)")
-    for idx in range(WIDTH_IN_CELLS * 9):
-        row, col = idx // WIDTH_IN_CELLS, idx % WIDTH_IN_CELLS
-        px = CELL_OX - (CELL_W // 2 if row % 2 else 0) + CELL_W * col
-        py = CELL_OY + ROW_STEP * row
-        cx = px + CELL_W // 2
-        penx = cx * 256 // 10
-        peny = int(((py + CELL_H - 16) * 1.6 + 5.4) * 16)   # 10px native цифра по центру 13px бара
-        L.append(f"                DEFW {penx}, {peny}")
+    # Бар/перо счётчика отряда — СМЕЩЕНИЯ от якоря клетки (BattleCellAnchor), таблицы 99×
+    # не нужны (экономия оверлея ~1.2КБ): бар (cx−13, py+36)-(cx+13, py+49); перо = центр, y бара+5.4.
+    L.append("BATTLE_CNTBAR_DX  EQU 333               ; 13 лог.px ×25.6 (полуширина бара)")
+    L.append("BATTLE_CNTBAR_DY0 EQU -179              ; верх бара = якорьY − 7 лог.px")
+    L.append("BATTLE_CNTBAR_DY1 EQU 154               ; низ бара = якорьY + 6 лог.px")
+    L.append("BATTLE_CNTPEN_DY  EQU -93               ; перо числа = якорьY − 3.6 лог.px (центр бара)")
     # --- ГЕКС-СОСЕДСТВО (fheroes2 battle_board.cpp GetIndexDirection/isValidDirection, 11×9):
     #     6 соседей на клетку {TL,TR,L,R,BL,BR} или #FF. Для гейта ближнего боя (melee→только сосед). ---
     L.append("BattleAdjTab:                          ; 99 ячеек × 6 соседей (#FF=нет)")
@@ -946,6 +1089,93 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     L.append(f"BATTLE_BODY_SECTOR   EQU {pak['body_start_sector']}")
     L.append('BattlePakName:       DEFB "HMM2BATL.PAK", 0')
     L.append("")
+    # --- ПКМ-попап ArmyInfo (dialog_armyinfo.cpp): стримится в ОБЛАСТЬ ФИНАЛА, финал рестримится ---
+    L.append("; ПКМ-попап инфо отряда (Dialog::ArmyInfo): 2 композита по типу в PAK; RAM_G-адрес =")
+    L.append("; ОБЛАСТЬ ФИНАЛЬНОГО ОКНА (не живут одновременно; при конце боя финал РЕстримится).")
+    aiw, aih = ai["W"], ai["H"]
+    L.append(f"ARMYINFO_W           EQU {aiw}")
+    L.append(f"ARMYINFO_H           EQU {aih}")
+    L.append(f"ARMYINFO_BYTES       EQU {ai['bytes']}")
+    L.append(f"ARMYINFO_SECTORS     EQU {ai['sectors']}")
+    L.append(f"ArmyInfoSecTab:      DEFW {ai['sec'][0]}, {ai['sec'][1]}   ; сектор попапа по типу (в PAK)")
+    L.append(f"WINDLG_SEC           EQU {ai['win_sec']}      ; сектор финала внутри payload (рестрим)")
+    L.append(f"WINDLG_SECTORS       EQU {ai['win_sectors']}")
+    # позиции ДИНАМИКИ (лог. коорд. внутри окна; экранный X окна = (640−W)/2, Y = (480−H)/2):
+    aix, aiy = (640 - aiw) // 2, (480 - aih) // 2
+    L.append(f"ARMYINFO_X           EQU {aix}      ; экранное лево окна (лог.640×480)")
+    L.append(f"ARMYINFO_Y           EQU {aiy}")
+    L.append("; значения статов: value @ x+406; Hit Points Left/Shots Left по типу (#FF=нет строки):")
+    L.append(f"ArmyInfoHplYTab:     DEFB {ai['hpl_y'][0]}, {ai['hpl_y'][1]}   ; лок.Y строки Hit Points Left")
+    L.append(f"ArmyInfoShotYTab:    DEFB {ai['shots_y'][0] if ai['shots_y'][0] != 0xFF else 255}, "
+             f"{ai['shots_y'][1] if ai['shots_y'][1] != 0xFF else 255} ; лок.Y Shots Left (255=нет)")
+    L.append("ARMYINFO_VAL_X       EQU 406    ; лок.X значений статов")
+    L.append("; бокс счётчика (dialog_armyinfo.cpp:64): (80,223) 125×23, число по центру, normalWhite")
+    L.append("ARMYINFO_CNT_X       EQU 80")
+    L.append("ARMYINFO_CNT_Y       EQU 223")
+    L.append("ARMYINFO_CNT_W       EQU 125")
+    L.append("ARMYINFO_CNT_H       EQU 23")
+    L.append("; точка ног монстра (x+520/4+16, y+175); спрайт из атласа юнитов, reflect по стороне")
+    L.append("ARMYINFO_MON_X       EQU 146")
+    L.append("ARMYINFO_MON_Y       EQU 175")
+    L.append("; цифры '0'-'9' динамики: антиалиас-маски FONT ×1.6 (рисовать со status_pal, transform 256):")
+    L.append("ArmyInfoDigitTab:                     ; 5 байт: addr24, w, h")
+    for (a_, w_, h_) in ai["digits"]:
+        L.append(f"                DEFB #{a_ & 0xFF:02X}, #{(a_ >> 8) & 0xFF:02X}, #{(a_ >> 16) & 0xFF:02X}, {w_}, {h_}")
+    dig_h = ai["digits"][0][2]
+    # --- DL-фрагмент окна попапа (палитра юнитов idx0-прозр.; W×1.6=882>511 → SIZE_H;
+    #     сброс SIZE_H в конце — ловушка &511-маски для следующих битмапов) ---
+    sw16, sh16 = aiw * 16 // 10, aih * 16 // 10
+    L.append("Battle_ArmyInfo_DL:")
+    L.append("                FT_BITMAP_TRANSFORM_A 160")
+    L.append("                FT_BITMAP_TRANSFORM_E 160")
+    L.append("                FT_PALETTE_SOURCE BATTLE_UNIT_PAL_RAMG")
+    L.append("                FT_BEGIN FT_BITMAPS")
+    L.append("                FT_BITMAP_SOURCE BATTLE_WIN_DLG_RAMG")
+    L.append(f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {aiw}, {aih}")
+    L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {sw16}, {sh16}")
+    L.append(f"                FT_BITMAP_SIZE_H {sw16}, {sh16}")   # макрос САМ маскирует &511 / >>9!
+    L.append(f"                FT_VERTEX2F {aix * 256 // 10}, {aiy * 256 // 10}")
+    L.append("Battle_ArmyInfo_DL_SIZE EQU $ - Battle_ArmyInfo_DL")
+    L.append("Battle_ArmyInfo_Post_DL:              ; после окна: сброс SIZE_H (ловушка &511)")
+    L.append("                FT_BITMAP_SIZE_H 0, 0")
+    L.append("Battle_ArmyInfo_Post_DL_SIZE EQU $ - Battle_ArmyInfo_Post_DL")
+    # --- якорь монстра попапа (точка ног (146,175) в окне): вершина = якорь + смещение кадра
+    #     стойки (тот же Battle_EmitUnitVertex, что и поле) ---
+    L.append("ArmyInfoMonAnchor:                    ; [type] → (ax,ay) DEFW — якорь ног монстра")
+    for t in range(len(UNIT_TYPES)):
+        L.append(f"                DEFW {round((aix + 146) * 25.6)}, {round((aiy + 175) * 25.6)}")
+    # --- Кнопка EXIT МОДАЛЬНОГО ArmyInfo (ЛКМ по своему юниту, Dialog::BUTTONS):
+    #     позиция ориг. (dialog_armyinfo.cpp:599): x = W−58−94+18 = 417, y = 221 (лок. окна).
+    #     Готовые DL-фрагменты (×1.6 как окно, палитра юнитов уже в прологе окна). ---
+    bx, by = aix + 417, aiy + 221
+    for i, (ba, bw, bh) in enumerate(evt["ai_exit"]):
+        L.append(f"Battle_AIExitBtn{i}_DL:               ; {'нажата' if i else 'отжата'}")
+        L.append(f"                FT_BITMAP_SOURCE #{ba:06X}")
+        L.append(f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {bw}, {bh}")
+        L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {bw * 16 // 10}, {bh * 16 // 10}")
+        L.append(f"                FT_VERTEX2F {bx * 256 // 10}, {by * 256 // 10}")
+        L.append(f"Battle_AIExitBtn{i}_DL_SIZE EQU $ - Battle_AIExitBtn{i}_DL")
+    _bw = evt["ai_exit"][0][1]
+    _bh = evt["ai_exit"][0][2]
+    L.append(f"AIEXIT_X0            EQU {bx}     ; hit-зона кнопки EXIT (лог. 640×480)")
+    L.append(f"AIEXIT_X1            EQU {bx + _bw}")
+    L.append(f"AIEXIT_Y0            EQU {by}")
+    L.append(f"AIEXIT_Y1            EQU {by + _bh}")
+    # --- готовые экранные константы динамики (1/16px супер-экрана 1024): ---
+    #     count: центр бокса (aix+80+62, aiy+223+11), «+2» как text.draw в эталоне;
+    #     значения статов: лево (aix+406, aiy+hpl_y/shots_y).
+    cnt_cx16 = (aix + 80 + 62) * 256 // 10                      # центр по X (вычесть tw×8 в ASM)
+    cnt_cy16 = ((aiy + 223 + 11 + 2) * 256 // 10) - dig_h * 8   # верх маски: центрY − h/2 (маска уже ×1.6)
+    L.append(f"ARMYINFO_CNT_CX16    EQU {cnt_cx16}   ; центр бокса счётчика ×16 (минус tw×8)")
+    L.append(f"ARMYINFO_CNT_Y16     EQU {cnt_cy16}   ; верх цифр счётчика ×16")
+    L.append(f"ARMYINFO_VALX16      EQU {(aix + 406) * 256 // 10}  ; лево значений статов ×16")
+    hy0 = (aiy + ai['hpl_y'][0]) * 256 // 10
+    hy1 = (aiy + ai['hpl_y'][1]) * 256 // 10
+    L.append(f"ArmyInfoHplY16Tab:   DEFW {hy0}, {hy1}   ; Y строки Hit Points Left ×16 (по типу)")
+    sy0 = (aiy + ai['shots_y'][0]) * 256 // 10 if ai['shots_y'][0] != 0xFF else 0
+    sy1 = (aiy + ai['shots_y'][1]) * 256 // 10 if ai['shots_y'][1] != 0xFF else 0
+    L.append(f"ArmyInfoShotY16Tab:  DEFW {sy0}, {sy1}   ; Y строки Shots Left ×16 (0=нет строки)")
+    L.append("")
     L.append("                endif")
     BATTLE_INC.write_text("\n".join(L), encoding="utf-8")
 
@@ -973,21 +1203,47 @@ def main() -> int:
     units = load_units(agg, ent)
     (payload, pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_addr,
      status_pal_addr, status_msgs, turn_msgs, win_dlg, top_addr, bot_addr, unit_addrs, evt,
-     yellow_pal_addr, win_texts, count_digits, casualties) = build_payload(palette, img, units, agg, ent)
+     yellow_pal_addr, win_texts, count_digits, casualties, ai_digits) = build_payload(palette, img, units, agg, ent)
+    # --- ПКМ-попапы ArmyInfo (по типу) — отдельные entries PAK (в RAM_G НЕ живут постоянно:
+    #     стримятся в ОБЛАСТЬ ФИНАЛЬНОГО ОКНА по ПКМ; финал рестримится при конце боя) ---
+    ai0, aiW, aiH, hpl0, sh0 = compose_armyinfo(agg, ent, 0)
+    ai1, aiW1, aiH1, hpl1, sh1 = compose_armyinfo(agg, ent, 1)
+    assert (aiW, aiH) == (aiW1, aiH1)
+    assert aiW * aiH <= win_dlg[1] * win_dlg[2], \
+        f"попап {aiW}x{aiH} больше области финала {win_dlg[1]}x{win_dlg[2]}"
     summary = build_pak(
-        [{"type": TYPE_RAMG_BLOB, "target": BATTLE_RAMG_BASE, "data": bytes(payload)}],
+        [{"type": TYPE_RAMG_BLOB, "target": BATTLE_RAMG_BASE, "data": bytes(payload)},
+         {"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(ai0)},   # target 0: грузим вручную
+         {"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(ai1)}],
         BATTLE_PAK_PATH,
     )
+    body = summary["body_start_sector"]
+    pay_secs = (len(payload) + SECTOR - 1) // SECTOR
+    ai_secs = (len(ai0) + SECTOR - 1) // SECTOR
+    win_off = win_dlg[0] - BATTLE_RAMG_BASE
+    assert win_off % SECTOR == 0
     pak = {
         "payload_bytes": len(payload),
-        "payload_sectors": (len(payload) + SECTOR - 1) // SECTOR,
-        "body_start_sector": summary["body_start_sector"],
+        "payload_sectors": pay_secs,
+        "body_start_sector": body,
+    }
+    ai = {
+        "W": aiW, "H": aiH,
+        "hpl_y": (hpl0, hpl1), "shots_y": (sh0, sh1),
+        "sec": (body + pay_secs, body + pay_secs + ai_secs),   # entries подряд, каждая с сектора
+        "sectors": ai_secs,
+        "bytes": len(ai0),
+        "win_sec": body + win_off // SECTOR,                   # РЕстрим финала из payload-куска
+        "win_sectors": (win_dlg[1] * win_dlg[2] + SECTOR - 1) // SECTOR,
+        "digits": ai_digits,
     }
     emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_addr,
              status_pal_addr, status_msgs, turn_msgs, win_dlg, top_addr, bot_addr, unit_addrs, evt,
-             yellow_pal_addr, win_texts, count_digits, casualties, units, pak)
+             yellow_pal_addr, win_texts, count_digits, casualties, units, pak, ai)
     print(f"battle pack -> {BATTLE_PAK_PATH.name}: payload={len(payload)} байт "
-          f"({pak['payload_sectors']} сект), PAK={summary['total_bytes']} байт")
+          f"({pak['payload_sectors']} сект), попапы 2x{len(ai0)} ({ai_secs} сект), PAK={summary['total_bytes']} байт")
+    print(f"  armyinfo: {aiW}x{aiH} @ область финала #{win_dlg[0]:06X} (sec {ai['win_sec']}), "
+          f"popup sec {ai['sec'][0]}/{ai['sec'][1]}")
     print(f"  inc: {BATTLE_INC}")
     return 0
 

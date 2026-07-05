@@ -38,6 +38,8 @@ INP_SC_Q        EQU #15
 INP_SC_A        EQU #1C
 INP_SC_O        EQU #44          ; O = Влево (классическая ZX-раскладка)
 INP_SC_P        EQU #4D          ; P = Вправо
+INP_SC_ALT      EQU #11          ; #11 c E0-префиксом = AltGr (правый Alt) = ПКМ; без E0 = левый Alt (игнор)
+INP_SC_E        EQU #24          ; E = End Turn (хоткей оригинала HotKeyEvent::END_TURN)
 
 ; Флаги «клавиша нажата» (1 = нажата, 0 = отпущена), обновляются Input_Scan.
 Input_KEsc:     DEFB 0
@@ -51,7 +53,10 @@ Input_KQ:       DEFB 0
 Input_KA:       DEFB 0
 Input_KO:       DEFB 0
 Input_KP:       DEFB 0
+Input_KAlt:     DEFB 0          ; AltGr (E0 11) — виртуальная ПКМ (инфо-попапы)
+Input_KE:       DEFB 0          ; E — End Turn (новый день, adventure)
 Input_PS2Brk:   DEFB 0          ; ожидается префикс отпускания (#F0)
+Input_PS2Ext:   DEFB 0          ; видел префикс #E0 (extended) — различает AltGr от левого Alt
 Input_DrainCnt: DEFB 0          ; ограничитель дренажа FIFO (макс байт за скан)
 
 ; ----------------------------------------------------------------------------
@@ -82,7 +87,10 @@ Input_ClearState:
                 LD   (Input_KA), A
                 LD   (Input_KO), A
                 LD   (Input_KP), A
+                LD   (Input_KAlt), A
+                LD   (Input_KE), A
                 LD   (Input_PS2Brk), A
+                LD   (Input_PS2Ext), A
                 LD   (Input_DrainCnt), A
                 RET
 
@@ -114,14 +122,18 @@ Input_Scan:
                 LD   BC, #BFF7                             ; BC = порт данных (держим на весь цикл)
 .drain:         IN   A, (C)
                 OR   A : RET Z                             ; 0 = FIFO пуст -> готово
-                CP   #FF : JR Z, .next                     ; маркер переполнения -> пропустить
-                CP   #E0 : JR Z, .next                     ; префикс extended -> игнор (коды уникальны)
+                CP   #FF : JR Z, .overflow                 ; переполнение: break-коды ПОТЕРЯНЫ -> сброс латчей
+                CP   #E0 : JR Z, .set_ext                  ; префикс extended -> взвести флаг (AltGr vs Alt)
                 CP   #F0 : JR Z, .set_brk                  ; префикс break -> следующий код = отпускание
                 CALL Input_SetKey
 .next:          LD   A, (Input_DrainCnt) : DEC A : LD (Input_DrainCnt), A : RET Z
                 JR   .drain
 .set_brk:       LD   A, 1 : LD (Input_PS2Brk), A
                 JR   .next
+.set_ext:       LD   A, 1 : LD (Input_PS2Ext), A           ; E0 приходит ПЕРЕД F0 (отпускание: E0 F0 xx)
+                JR   .next
+.overflow:      CALL Input_ClearState                      ; потеряны отпускания -> иначе клавиши ЗАЛИПАЮТ
+                JR   .next                                 ; (ловилось: AltGr залип -> попап «по hover»)
 
 ; A = scancode -> выставить/сбросить его флаг (1 если make, 0 если break),
 ; затем съесть префикс break. Сохраняет BC (порт дренажа #BFF7). Портит AF, DE, HL.
@@ -132,6 +144,7 @@ Input_SetKey:
                 LD   D, A                                  ; D = значение для записи
                 XOR  A : LD (Input_PS2Brk), A              ; съесть префикс break
                 LD   A, E
+                CP   INP_SC_ALT       : JR Z, .alt         ; #11: AltGr (с E0) / левый Alt (без) — раздельно
                 LD   HL, Input_KEsc   : CP INP_SC_ESC   : JR Z, .sk
                 LD   HL, Input_KUp    : CP INP_SC_UP    : JR Z, .sk
                 LD   HL, Input_KDown  : CP INP_SC_DOWN  : JR Z, .sk
@@ -143,9 +156,16 @@ Input_SetKey:
                 LD   HL, Input_KA     : CP INP_SC_A     : JR Z, .sk
                 LD   HL, Input_KO     : CP INP_SC_O     : JR Z, .sk
                 LD   HL, Input_KP     : CP INP_SC_P     : JR Z, .sk
-                RET                                        ; неотслеживаемый код
+                LD   HL, Input_KE     : CP INP_SC_E     : JR Z, .sk
+                JR   .eat_ext                              ; неотслеживаемый код (съесть E0-флаг)
 .sk:            LD   (HL), D
+.eat_ext:       XOR  A : LD (Input_PS2Ext), A              ; реальный код съедает E0-префикс
                 RET
+.alt:           LD   A, (Input_PS2Ext)
+                OR   A
+                JR   Z, .eat_ext                           ; БЕЗ E0 = левый Alt → игнор
+                LD   HL, Input_KAlt                        ; С E0 = AltGr → виртуальная ПКМ
+                JR   .sk
 
 ; ----------------------------------------------------------------------------
 ; Опросы направлений/огня — возвращают NZ = активно (Z = нет). Объединяют все
@@ -216,14 +236,22 @@ Input_MouseY:   LD   HL, (Input.Mouse.PositionY) : RET
 ; при нажатии бит сбрасывается в 0. KeyState делает AND маски с портом; CP SVK_LBUTTON:
 ; Z=бит выставлен(отпущена), NZ=бит сброшен(нажата). Мой прежний JP-вариант (active-high)
 ; был НЕВЕРЕН — ломал клик. Подтверждено эмулятором bt8xxemu (idle 0xFF).
-Input_MouseLMB: LD   A, Input.Mouse.SVK_LBUTTON
+; Fire (Space|Enter|Kempston) ВЛИВАЕТСЯ в ЛКМ: клавиатура/джойстик = виртуальная мышь,
+; все сцены (меню/город/бой) видят «клик» без пер-сценных правок.
+Input_MouseLMB: CALL Input_FireKey
+                RET  NZ                                    ; Fire держится → «ЛКМ нажата»
+                LD   A, Input.Mouse.SVK_LBUTTON
                 CALL Input.Mouse.KeyState
                 CP   Input.Mouse.SVK_LBUTTON
                 RET
 
 ; Input_MouseRMB -> NZ = ПКМ нажата, Z = отпущена. Та же active-LOW семантика, что у LMB
 ; (порт #FADF, бит SVK_RBUTTON=%010). Для right-click инфо-попапов (castle_dialog.cpp).
-Input_MouseRMB: LD   A, Input.Mouse.SVK_RBUTTON
+; AltGr ВЛИВАЕТСЯ в ПКМ (инфо-попапы с клавиатуры — у Kempston/мыши-заменителя ПКМ нет).
+Input_MouseRMB: LD   A, (Input_KAlt)
+                OR   A
+                RET  NZ                                    ; AltGr держится → «ПКМ нажата»
+                LD   A, Input.Mouse.SVK_RBUTTON
                 CALL Input.Mouse.KeyState
                 CP   Input.Mouse.SVK_RBUTTON
                 RET
@@ -235,6 +263,9 @@ Input_MouseRMB: LD   A, Input.Mouse.SVK_RBUTTON
 ;   4 = огонь/подтверждение, 5 = отмена, 6 = ЛКМ.
 ; ----------------------------------------------------------------------------
 Input_Poll:
+                CALL Input_Poll_Build
+                JP   Input_VirtualCursor         ; стрелки/Kempston двигают ГЛОБАЛЬНУЮ мышь (все сцены)
+Input_Poll_Build:
                 CALL Input_Scan
                 XOR  A
                 LD   (InputState), A
@@ -282,4 +313,63 @@ Input_Poll:
                 LD   A, (InputState)
                 OR   %00100000
                 LD   (InputState), A
+                RET
+
+; ----------------------------------------------------------------------------
+; Input_VirtualCursor — ОДНА ГЛОБАЛЬНАЯ процедура (та же, что двигала курсор в
+; adventure): стрелки клавиатуры / Kempston двигают Input.Mouse.PositionX/Y.
+; Клава/джойстик неотличимы от мыши: Render_GlobalCursor, хит-тесты всех сцен
+; (меню/город/бой/adventure Cursor_UpdateFromMouse) видят обычную мышь.
+; Fire=ЛКМ (Input_MouseLMB), AltGr=ПКМ (Input_MouseRMB). Клампы 0..639/0..479.
+; ----------------------------------------------------------------------------
+INP_VCURSOR_STEP EQU 5           ; px/кадр — как CURSOR_STEP_PIXELS в adventure
+Input_VirtualCursor:
+                LD   A, (InputState)
+                AND  %00001111
+                RET  Z                           ; направлений нет
+                LD   B, A
+                ; --- X: влево (бит0) / вправо (бит1) ---
+                LD   HL, (Input.Mouse.PositionX)
+                BIT  0, B
+                JR   Z, .vright
+                LD   DE, INP_VCURSOR_STEP
+                OR   A
+                SBC  HL, DE
+                JR   NC, .vstorex
+                LD   HL, 0
+                JR   .vstorex
+.vright:        BIT  1, B
+                JR   Z, .vy
+                LD   DE, INP_VCURSOR_STEP
+                ADD  HL, DE
+                PUSH HL
+                LD   DE, 639
+                OR   A
+                SBC  HL, DE
+                POP  HL
+                JR   C, .vstorex                 ; < 639 → ок
+                LD   HL, 639
+.vstorex:       LD   (Input.Mouse.PositionX), HL
+.vy:            ; --- Y: вверх (бит2) / вниз (бит3) ---
+                LD   HL, (Input.Mouse.PositionY)
+                BIT  2, B
+                JR   Z, .vdown
+                LD   DE, INP_VCURSOR_STEP
+                OR   A
+                SBC  HL, DE
+                JR   NC, .vstorey
+                LD   HL, 0
+                JR   .vstorey
+.vdown:         BIT  3, B
+                RET  Z
+                LD   DE, INP_VCURSOR_STEP
+                ADD  HL, DE
+                PUSH HL
+                LD   DE, 479
+                OR   A
+                SBC  HL, DE
+                POP  HL
+                JR   C, .vstorey                 ; < 479 → ок
+                LD   HL, 479
+.vstorey:       LD   (Input.Mouse.PositionY), HL
                 RET

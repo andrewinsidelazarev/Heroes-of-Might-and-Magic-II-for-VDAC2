@@ -193,6 +193,14 @@ Loader_ReadSectors:                              ; C=dst page, HL=dst off, B=cou
                 CALL Loader_MapIn
                 CALL RawPak_ReadSectors
                 JR   Loader_Leave
+Loader_SeekSector:                               ; HL = логический сектор файла (RawPak_LogCur)
+                LD   (LdSavedSP), SP
+                LD   SP, LdStackTop
+                PUSH HL
+                CALL Loader_MapIn
+                POP  HL
+                LD   (RawPak_LogCur), HL
+                JR   Loader_Leave
 Loader_Leave:                                    ; CF результата raw_pak сохранён
                 PUSH AF
                 LD   A, CorePage + 1
@@ -212,6 +220,13 @@ Loader_MapIn:
                 SetPage3_A
                 RET
 
+; Loader_StreamToRamGAt — как StreamToRamG, но цель задана: A=RAM_G байт2, DE=байты0-1.
+; (ПКМ-попап ArmyInfo → область финального окна; рестрим финала из payload-куска.)
+Loader_StreamToRamGAt:
+                LD   (LdStreamRamgLo), DE
+                LD   (LdStreamRamgHi), A
+                LD   (LdStreamRemain), BC
+                JR   Loader_StreamCommon
 ; Loader_StreamToRamG — стрим открытого файла (с текущей позиции) в RAM_G[0] чанками
 ; по 32 сектора. Вход: BC = число секторов. ДОЛЖНА быть в slot1: цикл делает
 ; SetPage2_A(buffer) под FT.WriteMem, и код в slot2 исчез бы во время ремапа.
@@ -222,10 +237,17 @@ Loader_StreamToRamG:
                 LD   (LdStreamRamgLo), HL
                 XOR  A
                 LD   (LdStreamRamgHi), A
+Loader_StreamCommon:
 .loop:          LD   BC, (LdStreamRemain)
                 LD   A, B
                 OR   C
-                RET  Z                           ; всё перелито
+                JR   NZ, .chunk                  ; ещё есть данные
+                ; Стрим окончен: за секунды без Input_Scan PS/2 FIFO переполнился —
+                ; break-коды потеряны, латчи клавиш ЗАЛИПАЮТ (ловилось: AltGr=1 →
+                ; попап «по hover»). Дренаж мусора + сброс латчей.
+                CALL Input_DiscardPS2Fifo
+                JP   Input_ClearState
+.chunk:
                 LD   A, B                        ; chunk = min(32, remain) → B
                 OR   A
                 JR   NZ, .full
@@ -277,6 +299,81 @@ LdStreamRemain: DEFW 0
 LdStreamRamgLo: DEFW 0
 LdStreamRamgHi: DEFB 0
 
+; ----------------------------------------------------------------------------
+; Loader_ApplyPatch — применить ПАТЧ из HMM2TOWN.PAK в RAM_G (строительство по
+; оригиналу: спрайты зданий на панораму / полосы статусов в окно стройки).
+; IN: HL = абсолютный логический сектор патча в файле (PanoPatchSec/BandPatchSec/
+; CornerPatchSec). Формат потока (сектор-локальные записи, см. town_pack._pack_patch):
+;   [len u16][addr u24][len байт]; len=0 → следующий сектор; len=#FFFF → конец.
+; Каждый сектор: Loader_ReadSectors → буфер (slot2) → FT.WriteMem ранов.
+; Живёт в SLOT1 (raw_pak ремапит slot2). CF=1 = ok.
+; ----------------------------------------------------------------------------
+Loader_ApplyPatch:
+                LD   (LdPatchSec), HL
+                LD   HL, LdPatchName             ; имя в slot1 (оверлеи в slot2/3 недоступны при ремапе)
+                CALL Loader_OpenFile             ; CF=1 = ok (Seek0 + run-table)
+                RET  NC
+                LD   HL, (LdPatchSec)
+                CALL Loader_SeekSector           ; LogCur = сектор патча
+.sector:        LD   C, RAWPAK_BUF_PAGE          ; сектор потока → буфер-страница
+                LD   HL, 0
+                LD   B, 1
+                CALL Loader_ReadSectors          ; CF=1 = ОШИБКА (конвенция RawPak_ReadSectors)
+                JR   C, .fail
+                LD   A, RAWPAK_BUF_PAGE
+                SetPage2_A                       ; буфер в окно slot2 для FT.WriteMem
+                LD   IX, #8000                   ; курсор потока в секторе
+.rec:           LD   E, (IX+0)
+                LD   D, (IX+1)                   ; DE = len записи
+                LD   A, D
+                AND  E
+                INC  A
+                JR   Z, .done                    ; len = #FFFF → конец патча
+                LD   A, D
+                OR   E
+                JR   Z, .next_sector             ; len = 0 → следующий сектор
+                LD   (LdPatchLen), DE
+                LD   L, (IX+2)
+                LD   H, (IX+3)
+                LD   (LdPatchLo), HL             ; RAM_G адрес lo16
+                LD   A, (IX+4)
+                LD   (LdPatchHi), A              ; RAM_G адрес hi
+                PUSH IX
+                POP  HL
+                LD   DE, 5
+                ADD  HL, DE                      ; HL = данные рана (в буфере slot2)
+                LD   A, (LdPatchHi)
+                LD   DE, (LdPatchLo)
+                LD   BC, (LdPatchLen)
+                CALL FT.WriteMem                 ; ран → RAM_G
+                LD   A, RAWPAK_BUF_PAGE          ; WriteMem мог вернуть Core в slot2 — буфер обратно
+                SetPage2_A
+                PUSH IX
+                POP  HL
+                LD   DE, (LdPatchLen)
+                ADD  HL, DE
+                LD   DE, 5
+                ADD  HL, DE                      ; IX += 5 + len
+                PUSH HL
+                POP  IX
+                JR   .rec
+.next_sector:   LD   A, CorePage + 1
+                SetPage2_A                       ; вернуть Core перед raw_pak (он ремапит сам)
+                JR   .sector
+.done:          LD   A, CorePage + 1
+                SetPage2_A                       ; вернуть Core в slot2
+                SCF
+                RET
+.fail:          LD   A, CorePage + 1
+                SetPage2_A
+                OR   A
+                RET
+LdPatchSec:     DEFW 0
+LdPatchLen:     DEFW 0
+LdPatchLo:      DEFW 0
+LdPatchHi:      DEFB 0
+LdPatchName:    DEFB "HMM2TOWN.PAK", 0
+
                 include "platform_tsconf.asm"
                 include "Init_Video.asm"
                 include "input.asm"
@@ -301,8 +398,8 @@ LdStreamRamgHi: DEFB 0
                 ; ремапа и RET ушёл бы в мусор-страницу. EQU-константы — здесь:
 HMM2_LOADER_PAGE EQU #A0                          ; overlay-страница загрузчика (slot3)
 RAWPAK_BUF_PAGE  EQU #A1                          ; dir/sector buffer raw_pak (slot2)
-HMM2_MUSIC_PAGE  EQU #A4                          ; overlay-страница покадрового MIDI-потока (slot3); #A3 занят 2-й страницей курсора
-HMM2_HISCORES_PAGE EQU #A5                        ; metadata для high scores
+HMM2_MUSIC_PAGE  EQU #A9                          ; overlay-страница покадрового MIDI-потока (slot3); #A2..#A5 — курсоры, #A6/#A8 — сцены
+HMM2_HISCORES_PAGE EQU #AA                        ; оверлей high scores (#A5 занял курсор p03)
 HMM2_TOWN_PAGE   EQU #A6                          ; overlay-страница сцены города (town.asm, slot3)
 HMM2_MENU_PAGE   EQU #A7                          ; overlay-страница главного меню (menu.asm, slot3)
 HMM2_BATTLE_PAGE EQU #A8                          ; overlay-страница сцены боя (battle.asm, slot3)
@@ -404,6 +501,8 @@ Town_Update_Tramp:                                ; Town_Update вернёт A=1
                 CALL Scene_RunOvl
                 OR   A
                 RET  Z
+                LD   A, 1                         ; возврат из города: сохранить героя/день/ресурсы
+                LD   (AdvReenter), A
                 JP   Adventure_Enter              ; выход: назад на карту (резидент)
 ; --- Бой (battle.asm в HMM2_BATTLE_PAGE) ---
 Battle_Enter_Tramp:
@@ -497,8 +596,9 @@ Menu_Update_Tramp:                                ; Menu_Update вернёт A=0
 
 ; --- Чтение статов монстра из глоб-страницы #91 (GLOBAL_DATA_PAGE) ---
 ; B = индекс монстра (0=Unknown, 1=Peasant, 2=Archer, …). Мапит #91 в slot3, копирует
-; 8 байт (atk,def,dmin,dmax,hpLo,hpHi,spd,shots) из MonsterStats[B*8] в MonsterStatBuf
-; (резидент slot1), восстанавливает slot3. Резидент → мап slot3 безопасен (не выгружается).
+; 10 байт (atk,def,dmin,dmax,hpLo,hpHi,spd,shots,strLo,strHi) из MonsterStats[B*10] в
+; MonsterStatBuf (резидент slot1), восстанавливает slot3. str = GetMonsterStrength×16
+; (фикс-точка, для AI analyzeBattleState: Unit::GetStrength = str×count).
 MonsterStats_Read:
                 GetPage3
                 PUSH AF                           ; сохранить прежнюю slot3-страницу
@@ -506,18 +606,38 @@ MonsterStats_Read:
                 SetPage3_A                        ; #91 → slot3 (#C000)
                 LD   L, B
                 LD   H, 0
-                ADD  HL, HL
-                ADD  HL, HL
-                ADD  HL, HL                       ; HL = B*8
+                ADD  HL, HL                       ; B*2
+                LD   D, H
+                LD   E, L                         ; DE = B*2
+                ADD  HL, HL                       ; B*4
+                ADD  HL, HL                       ; B*8
+                ADD  HL, DE                       ; HL = B*10
                 LD   DE, MonsterStats             ; #C000 в странице #91
-                ADD  HL, DE                       ; HL = &MonsterStats[B*8]
+                ADD  HL, DE                       ; HL = &MonsterStats[B*10]
                 LD   DE, MonsterStatBuf
-                LD   BC, 8                         ; MONSTER_STAT_SIZE
-                LDIR                              ; копировать 8 байт статов
+                LD   BC, 10                        ; MONSTER_STAT_SIZE
+                LDIR                              ; копировать 10 байт статов
                 POP  AF
                 SetPage3_A                        ; вернуть прежний slot3
                 RET
-MonsterStatBuf: DEFS 8                            ; статы прочитанного монстра (резидент slot1 RAM)
+MonsterStatBuf: DEFS 10                           ; статы прочитанного монстра (резидент slot1 RAM)
+; A = байт GLOBAL_DATA-страницы (#91) по адресу HL (#C000-based). Для КОДА В SLOT3 (город!):
+; резидент свапает slot3 на #91, читает, восстанавливает. Портит B,F.
+GData_ReadByte:
+                GetPage3
+                LD   B, A                          ; прежняя страница slot3
+                PUSH HL                            ; ★SetPage3 <const> в MAPPING-режиме ПОРТИТ HL!
+                SetPage3 GLOBAL_DATA_PAGE
+                POP  HL
+                LD   A, (HL)
+                PUSH AF
+                LD   A, B
+                SetPage3_A
+                POP  AF
+                RET
+; Отладочное зеркало боя для statedump (эмулятор дампит страницы 5/6; оверлей боя в slot3 не виден).
+; Battle_Render копирует сюда состояние каждый кадр: units(20) + startCnt(8) + result(1).
+DbgBattleMirror: DEFS 41           ; +33..40: дебаг меч-курсора {dirW, dx16, dy16, dirC, hover, active}
 
 CoreEnd:
                 ASSERT CoreEnd <= CMD_ADDRESS_PTR
@@ -581,7 +701,9 @@ TownOvl_End:
                 PAGE GLOBAL_DATA_PAGE
                 ORG  #C000
 GlobalData_Start:
-                include "generated_monsters.inc"    ; MonsterStats @ #C000 (72×8=576Б)
+                include "generated_monsters.inc"    ; MonsterStats @ #C000 (72×10=720Б)
+                include "generated_minimap_tab.inc" ; цвета тайлов мини-карты (1296Б; вынос из резидента)
+                include "generated_town_hit.inc"    ; GDTownHitMap 2.5К (вынос: оверлей города упёрся в 16К)
 GLOBAL_STATE_BASE EQU $                             ; ← мутабельное глоб.состояние начинается здесь
 GlobalData_End:
                 ASSERT GlobalData_End <= #FFFF

@@ -27,7 +27,7 @@ PAGE_BYTES = 16384                                  # 1 TS-страница = 32
 OVERLAYS = [
     ("SCN_TOWN_SECTOR",  0xA6, "Build/town_ovl.bin"),
     ("SCN_BATTLE_SECTOR", 0xA8, "Build/battle_ovl.bin"),
-    ("SCN_HISC_SECTOR",  0xA5, "Build/hiscores_ovl.bin"),
+    ("SCN_HISC_SECTOR",  0xAA, "Build/hiscores_ovl.bin"),
 ]
 
 

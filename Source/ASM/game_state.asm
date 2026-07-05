@@ -19,10 +19,12 @@ CURSOR_MAX_Y        EQU 464
 ; (480..624) внутри → наведение на них (вкл. End Turn) НЕ скроллит карту.
 SCROLL_EDGE_BORDER  EQU 16
 ; Старт как в ОРИГИНАЛЕ: герой рекрутируется в ПЕРВОМ замке (startWithHeroInFirstCastle),
-; ставится на гейт замка (GetCenter). Первый замок игрока — OBJNTOWN-гейт (24,13).
-; Гейт сделан проходимым (CASTLE_ENTRANCE_OBJECTS) → герой выходит вниз.
+; ставится у гейта замка (GetCenter). Первый замок игрока — OBJNTOWN, гейт (24,13).
+; Герой стоит на тайле ПОД гейтом (24,14): вход в замок = клик по гейту → шаг вверх на (24,13)
+; → штатный вход по прибытии (Hero_SelectStepIfArrived). Спавн ПРЯМО на (24,13) не давал бы войти
+; (вход только «по прибытии шагом», а стоя на тайле прибытия нет). Гейт проходим.
 HERO_START_TILE_X   EQU 24
-HERO_START_TILE_Y   EQU 13
+HERO_START_TILE_Y   EQU 14
 HERO_STEP_PIXELS    EQU 2
 HERO_MOVE_FRAME_MASK EQU 0
 HERO_PATH_MAX       EQU 88            ; буфер пути (< 96: буферы #4300/#4360 врозь на 96); под бюджет рендера полного маршрута + полоски MP
@@ -118,6 +120,9 @@ Adventure_Enter:
                 CALL Objects_Upload              ;  частично загруженных adventure-битмапов)
                 LD   A, GAME_MODE_ADVENTURE
                 LD   (GameMode), A
+                LD   A, (AdvReenter)              ; ВОЗВРАТ из боя/города: НЕ сбрасывать героя/
+                OR   A                            ; день/ресурсы/вьюпорт (только перезалив RAM_G)
+                JR   NZ, .keepstate
                 ; стартовый вьюпорт на замок (origin 16,5 → видно замок 22-26,11-13
                 ; и героя у входа 24,14)
                 LD   A, 16
@@ -141,6 +146,8 @@ Adventure_Enter:
                 LD   A, STATUS_ARMY            ; дефолт статус-окна = армия героя (как оригинал)
                 LD   (StatusState), A
                 CALL Resources_InitStart
+.keepstate:     XOR  A
+                LD   (AdvReenter), A
                 CALL Resources_BuildPanelDL      ; собрать DL панели в RAM_G (по StatusState)
                 XOR  A
                 LD   (CursorMoveCooldown), A
@@ -178,7 +185,25 @@ Game_Update:
                 CALL UI_ButtonsStateUpdate
                 CALL UI_ButtonsPressedUpdate      ; pressed-кадр пока ЛКМ реально зажата
                 CALL Cursor_UpdateTheme
+                ; --- End Turn: хоткей E (HotKeyEvent::END_TURN) → новый день (edge-детект) ---
+                LD   A, (Input_KE)
+                LD   B, A
+                LD   A, (DayLastE)
+                CP   B
+                LD   A, B
+                LD   (DayLastE), A
+                RET  Z                            ; состояние не менялось
+                OR   A
+                RET  Z                            ; отпускание
+                LD   HL, (DayCounter)             ; нажатие → день++
+                INC  HL
+                LD   (DayCounter), HL
                 RET
+
+; Счётчик игровых дней (End Turn). Экономика замка догоняется при входе в город
+; (Town_Enter сверяет TownLastDay): доход золота, недельный рост, ALLOW_TO_BUILD_TODAY.
+DayCounter:     DEFW 0
+DayLastE:       DEFB 0
 
 ; Возвращает в A индекс кнопки под мышью (row*4+col) или #FF.
 UI_GetHoveredButton:
@@ -293,6 +318,26 @@ UI_ButtonsStateUpdate:
                 ; End Turn (индекс 4) - пока всегда 0
                 XOR  A
                 LD   (UI_EndTurnButtonState), A
+                RET
+
+; Поставить героя на тайл B=x, C=y (телепорт: откат при поражении в бою). Портит A,HL.
+Hero_SetTile:
+                LD   A, B
+                LD   (HeroTileX), A
+                LD   (HeroTargetX), A
+                LD   (HeroStepX), A
+                CALL Tile_MulA32ToHL
+                LD   (HeroPixelX), HL
+                LD   A, C
+                LD   (HeroTileY), A
+                LD   (HeroTargetY), A
+                LD   (HeroStepY), A
+                CALL Tile_MulA32ToHL
+                LD   (HeroPixelY), HL
+                XOR  A
+                LD   (HeroPathLen), A
+                LD   (HeroPathIndex), A
+                LD   (HeroWalkActive), A
                 RET
 
 Hero_InitPosition:
@@ -632,7 +677,7 @@ Hero_CommandTargetFromMouse:
                 LD   A, (HeroTargetY)
                 CP   C
                 JR   NZ, .new_target
-                
+
                 LD   A, (HeroPathLen)
                 OR   A
                 RET  Z                  ; маршрута нет (или 0), ничего не делаем
@@ -717,16 +762,20 @@ Hero_SelectStepIfArrived:
                 LD   (HeroPathLen), A
                 LD   (HeroPathIndex), A
                 LD   (HeroWalkActive), A
-                ; Прибыли на КЛИКНУТУЮ цель. Если это гейт замка/тест-тайл — войти ПО ПРИБЫТИИ
-                ; (по оригиналу вход = шаг героя на тайл, а не мгновенно по клику). B=TileX, C=TileY.
-                LD   A, B
+                ; Прибыли на КЛИКНУТУЮ цель (по оригиналу действие = шаг героя на тайл, не клик).
+                ; B=TileX, C=TileY. 1) БРОДЯЧИЙ МОНСТР (MapMonsterTab, random разрешён при
+                ; конвертации) → БОЙ с его армией; 2) гейт замка (24,13) → город.
+                CALL Hero_FindMonsterAt         ; A=индекс живого монстра на (B,C) или #FF
+                CP   #FF
+                JR   Z, .no_monster
+                LD   (EngagedMonIdx), A          ; бой с этим монстром (армия из таблицы)
+                JP   Battle_Enter_Tramp
+.no_monster:    LD   A, B
                 CP   24
                 RET  NZ                         ; не колонка 24 → ничего
                 LD   A, C
                 CP   13
                 JP   Z, Town_Enter_Tramp        ; гейт замка (24,13) → войти в замок
-                CP   16
-                JP   Z, Battle_Enter_Tramp      ; тест-тайл (24,16) → бой (достижимое открытое поле)
                 RET
 
 .need_step:     LD   A, (HeroMovePoints)
@@ -749,6 +798,43 @@ Hero_SelectStepIfArrived:
                 LD   (HeroPathIndex), A
                 LD   (HeroWalkActive), A
                 RET
+
+; B=TileX, C=TileY → A = индекс ЖИВОГО монстра MapMonsterTab на этом тайле, или #FF. Портит DE,HL.
+Hero_FindMonsterAt:
+                LD   HL, MapMonsterTab
+                LD   D, 0                        ; индекс
+.fmloop:        LD   A, (HL)                     ; x
+                CP   B
+                JR   NZ, .fmnext
+                INC  HL
+                LD   A, (HL)                     ; y
+                DEC  HL
+                CP   C
+                JR   NZ, .fmnext
+                PUSH HL
+                LD   E, 5
+                ADD  HL, DE                      ; +5 alive (E=5, D=0)
+                LD   A, (HL)
+                POP  HL
+                OR   A
+                JR   Z, .fmnext                  ; убит
+                LD   A, D
+                RET
+.fmnext:        LD   A, 6
+                ADD  A, L
+                LD   L, A
+                JR   NC, .fmnc
+                INC  H
+.fmnc:          INC  D
+                LD   A, D
+                CP   MAP_MONSTER_COUNT
+                JR   C, .fmloop
+                LD   A, #FF
+                RET
+EngagedMonIdx:  DEFB #FF                        ; монстр текущего боя (#FF = бой не с монстром карты)
+AdvReenter:     DEFB 0                          ; 1 = возврат в adventure из сцены (сохранить состояние)
+HeroPrevTileX:  DEFB 0                          ; тайл ДО последнего шага (откат при поражении)
+HeroPrevTileY:  DEFB 0
 
 ; Подбор ресурсов: линейный поиск тайла героя в PickupList (из generated_runtime_map).
 ; При первом наступании — начислить ресурс по resource_idx, пометить taken, перестроить
@@ -996,6 +1082,10 @@ Hero_AdvancePath:
                 LD   A, (HeroPathLen)
                 OR   A
                 RET  Z
+                LD   A, (HeroTileX)             ; тайл ДО шага (откат героя при поражении в бою)
+                LD   (HeroPrevTileX), A
+                LD   A, (HeroTileY)
+                LD   (HeroPrevTileY), A
                 LD   A, (HeroPathIndex)
                 LD   E, A
                 LD   D, 0
@@ -1231,69 +1321,10 @@ Hero_UpdateTileFromPixel:
                 RET
 
 Cursor_Update:
-                LD   A, (InputState)
-                AND  %00001111
-                JR   NZ, .has_input
+                ; Клава/Kempston двигают ГЛОБАЛЬНУЮ мышь (Input_VirtualCursor, input.asm) —
+                ; курсор карты синкается с неё ЕДИНЫМ путём: мышь и клавиатура неотличимы.
+                ; (Прежняя локальная key-ветка удалена — она дублировала бы шаг.)
                 CALL Cursor_UpdateFromMouse
-                RET  C
-                XOR  A
-                LD   (CursorMoveCooldown), A
-                RET
-
-.has_input:     LD   A, (CursorMoveCooldown)
-                OR   A
-                JR   Z, .move
-                DEC  A
-                LD   (CursorMoveCooldown), A
-                RET
-
-.move:          LD   A, (InputState)
-                BIT  0, A
-                JR   Z, .check_right
-                LD   HL, (CursorPixelX)
-                LD   DE, CURSOR_STEP_PIXELS
-                OR   A
-                SBC  HL, DE
-                JR   NC, .store_x_left
-                LD   HL, 0
-.store_x_left:  LD   (CursorPixelX), HL
-                JR   .check_up
-
-.check_right:   LD   A, (InputState)
-                BIT  1, A
-                JR   Z, .check_up
-                LD   HL, (CursorPixelX)
-                LD   DE, CURSOR_STEP_PIXELS
-                ADD  HL, DE
-                LD   DE, CURSOR_MAX_X
-                CALL Cursor_ClampHLToDE
-                LD   (CursorPixelX), HL
-
-.check_up:      LD   A, (InputState)
-                BIT  2, A
-                JR   Z, .check_down
-                LD   HL, (CursorPixelY)
-                LD   DE, CURSOR_STEP_PIXELS
-                OR   A
-                SBC  HL, DE
-                JR   NC, .store_y_up
-                LD   HL, 0
-.store_y_up:    LD   (CursorPixelY), HL
-                JR   .moved
-
-.check_down:    LD   A, (InputState)
-                BIT  3, A
-                JR   Z, .moved
-                LD   HL, (CursorPixelY)
-                LD   DE, CURSOR_STEP_PIXELS
-                ADD  HL, DE
-                LD   DE, CURSOR_MAX_Y
-                CALL Cursor_ClampHLToDE
-                LD   (CursorPixelY), HL
-
-.moved:         CALL Cursor_UpdateTileFromPixel
-.arm_delay:     XOR  A
-                LD   (CursorMoveCooldown), A
                 RET
 
 Viewport_UpdateScroll:
@@ -1530,12 +1561,58 @@ Cursor_UpdateTheme:
                 RET  C                            ; выставлена — приоритет над pointer/move
                 LD   A, (CursorInGameArea)
                 OR   A
-                JR   Z, .pointer
-                ; КАК ТОЛЬКО начался расчёт маршрута (PATH_STATE_SEARCH) — СРАЗУ
-                ; показываем курсор-лошадку (фидбэк: Z80 считает путь). Раньше тут
-                ; был указатель → казалось, что во время расчёта ничего не происходит.
-                ; (В оригинале путь предпросчитан на ховере; у нас Z80 медленный,
-                ; поэтому даём визуальный отклик на момент клика/начала поиска.)
+                JP   Z, .pointer
+                ; ★ПО ОРИГИНАЛУ (GetCursorFocusHeroes, game_startgame.cpp:603): тип курсора по
+                ; тайлу под мышью: монстр/защищённый тайл → FIGHT (меч); сам герой → HEROES;
+                ; гейт замка → ACTION; корпус замка → CASTLE; иначе MOVE/POINTER (path-логика).
+                ; Дни пути (1..8) на курсоре — только при ПРЕДРАССЧИТАННОМ пути (Z80 не может
+                ; считать путь на каждый hover — аппаратное ограничение, база = без цифры).
+                LD   A, (CursorTileX)
+                LD   B, A
+                LD   A, (CursorTileY)
+                LD   C, A
+                CALL Hero_FindMonsterAt          ; сам монстр на тайле → меч безусловно
+                CP   #FF
+                JR   NZ, .fight
+                CALL Cursor_TileProtected        ; зона охраны монстра (радиус 1)?
+                JR   Z, .noprot
+                PUSH BC                          ; охраняемый, но НЕПРОХОДИМЫЙ тайл → POINTER
+                CALL Map_IsTilePassable          ;   (ориг.: FIGHT только на passable, :688)
+                POP  BC
+                JR   NZ, .fight
+                JR   .pointer
+.noprot:
+                LD   A, (HeroTileX)              ; на самом герое → HEROES
+                CP   B
+                JR   NZ, .nothero
+                LD   A, (HeroTileY)
+                CP   C
+                JR   NZ, .nothero
+                LD   A, CURSOR_HEROES_INDEX
+                JR   .set
+.nothero:       LD   A, B                        ; гейт замка (24,13) → ACTION (вход, свой замок)
+                CP   24
+                JR   NZ, .ncgate
+                LD   A, C
+                CP   13
+                JR   NZ, .ncgate
+                LD   A, CURSOR_ACTION_BASE_INDEX
+                JR   .set
+.ncgate:        LD   A, B                        ; корпус замка (22..26, 10..12) → CASTLE
+                CP   22
+                JR   C, .nocastle
+                CP   27
+                JR   NC, .nocastle
+                LD   A, C
+                CP   10
+                JR   C, .nocastle
+                CP   13
+                JR   NC, .nocastle
+                LD   A, CURSOR_CASTLE_INDEX
+                JR   .set
+.nocastle:      ; КАК ТОЛЬКО начался расчёт маршрута (PATH_STATE_SEARCH) — СРАЗУ
+                ; показываем курсор-лошадку (фидбэк: Z80 считает путь). В оригинале путь
+                ; предпросчитан на ховере; у нас Z80 медленный — отклик на момент клика.
                 LD   A, (PathState)
                 CP   PATH_STATE_SEARCH
                 JR   Z, .move
@@ -1558,8 +1635,50 @@ Cursor_UpdateTheme:
 .move:          LD   A, CURSOR_MOVE_BASE_INDEX
                 LD   (CursorSpriteIndex), A
                 RET
+.fight:         LD   A, CURSOR_FIGHT_BASE_INDEX
+.set:           LD   (CursorSpriteIndex), A
+                RET
 .pointer:       XOR  A
                 LD   (CursorSpriteIndex), A
+                RET
+
+; B=TileX, C=TileY → NZ если тайл занят ЖИВЫМ монстром или под его защитой (радиус 1,
+; fheroes2 Maps::isTileUnderProtection — 8-окрестность монстра). Портит A,DE,HL (B,C целы).
+Cursor_TileProtected:
+                LD   HL, MapMonsterTab
+                LD   D, MAP_MONSTER_COUNT
+.tploop:        PUSH DE
+                PUSH HL
+                LD   DE, 5
+                ADD  HL, DE
+                LD   A, (HL)                     ; alive
+                POP  HL
+                OR   A
+                JR   Z, .tpnext
+                LD   A, (HL)                     ; монстр.x
+                SUB  B
+                JR   NC, .tpdx
+                NEG
+.tpdx:          CP   2
+                JR   NC, .tpnext                 ; |dx| > 1
+                INC  HL
+                LD   A, (HL)                     ; монстр.y
+                DEC  HL
+                SUB  C
+                JR   NC, .tpdy
+                NEG
+.tpdy:          CP   2
+                JR   NC, .tpnext                 ; |dy| > 1
+                POP  DE                          ; защищён/занят
+                LD   A, 1
+                OR   A
+                RET
+.tpnext:        LD   DE, 6
+                ADD  HL, DE
+                POP  DE
+                DEC  D
+                JR   NZ, .tploop
+                XOR  A
                 RET
 
 ; Курсор-стрелка скролла на кромке экрана (по оригиналу Interface::GameArea::

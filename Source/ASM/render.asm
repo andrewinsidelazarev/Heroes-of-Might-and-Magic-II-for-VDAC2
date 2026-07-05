@@ -1812,6 +1812,47 @@ UI_BtnStateInit_DL:
                 FT_BEGIN FT_BITMAPS
 UI_BtnStateInit_DL_SIZE EQU $ - UI_BtnStateInit_DL
 
+; ----------------------------------------------------------------------------
+; Render_WindowShadowDL — ★ГЛОБАЛЬНАЯ тень окна (ОДНА формула на ВСЕ окна, как
+; addGradientShadow в fheroes2): рисует DL окна ЧЁРНЫМ (COLOR_RGB 0 × текстура,
+; A=80) со сдвигом −8,+8 px через VERTEX_TRANSLATE. Силуэт тени берётся из ALPHA
+; самих кусков окна (COLOR_A × bitmap-alpha): прозрачные части (резной гребень,
+; углы) НЕ затеняются, сплошное тело — да. Работает и для opaque-окна (найм →
+; сплошной прямоугольник), и для фигурного (попап → форма рамки). Вызвать ПЕРЕД
+; настоящей отрисовкой окна ТЕМ ЖЕ DL. IN: HL=addr DL окна, BC=size.
+; ----------------------------------------------------------------------------
+Render_WindowShadowDL:
+                PUSH HL
+                PUSH BC
+                LD   HL, #0400
+                LD   DE, #0000                ; COLOR_RGB 0,0,0 (модуляция битмапов в чёрный)
+                CALL Render_CmdBufWrite32
+                LD   HL, #1000
+                LD   DE, #0050                ; COLOR_A 80
+                CALL Render_CmdBufWrite32
+                LD   HL, #2B01
+                LD   DE, #FF80                ; VERTEX_TRANSLATE_X −128 (−8px)
+                CALL Render_CmdBufWrite32
+                LD   HL, #2C00
+                LD   DE, #0080                ; VERTEX_TRANSLATE_Y +128 (+8px)
+                CALL Render_CmdBufWrite32
+                POP  BC
+                POP  HL
+                CALL Render_CmdBufCopy         ; DL окна → чёрный силуэт со сдвигом
+                LD   HL, #2B00
+                LD   DE, #0000                ; VERTEX_TRANSLATE_X 0 (сброс)
+                CALL Render_CmdBufWrite32
+                LD   HL, #2C00
+                LD   DE, #0000                ; VERTEX_TRANSLATE_Y 0
+                CALL Render_CmdBufWrite32
+                LD   HL, #04FF
+                LD   DE, #FFFF                ; COLOR_RGB 255,255,255 (восстановить модуляцию)
+                CALL Render_CmdBufWrite32
+                LD   HL, #1000
+                LD   DE, #00FF                ; COLOR_A 255
+                CALL Render_CmdBufWrite32
+                RET
+
 ; Глобальный курсор мыши (резидент, для ЛЮБОЙ сцены) — настоящий POINTER-спрайт
 ; (ADVMCO[0], ARGB4444) из ПОСТОЯННОЙ зоны RAM_G (#0E0000), резидентно загруженной
 ; Cursor_GlobalUpload. Позиция из мыши; спрайт 0 = pointer. Переиспользует тот же
@@ -2584,7 +2625,17 @@ Minimap_RevealTile:
                 ADD  HL, BC              ; + worldX → индекс тайла
                 LD   BC, MinimapTileColorTable
                 ADD  HL, BC
-                LD   A, (HL)             ; A = индекс цвета палитры
+                ; таблица ВЫНЕСЕНА в data-страницу #91 (упор резидента) → мап slot3 туда-обратно
+                PUSH DE
+                GetPage3
+                LD   D, A                ; прежняя slot3-страница
+                LD   A, GLOBAL_DATA_PAGE
+                SetPage3_A
+                LD   E, (HL)             ; индекс цвета палитры (из #91)
+                LD   A, D
+                SetPage3_A               ; вернуть slot3
+                LD   A, E
+                POP  DE
                 LD   (MinimapPixBuf + 0), A
                 LD   (MinimapPixBuf + 1), A
                 LD   (MinimapPixBuf + 2), A

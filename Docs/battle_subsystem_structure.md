@@ -227,8 +227,10 @@ TargetsForSpell, ChainLightning, Earthquake, MirrorImage, SummonElemental), `bat
   Достижимые клетки — pathfinder BFS (`getAllAvailableMoves`).
 - **ФИНАЛ** = ОТДЕЛЬНЫЙ экран/сцена (GameMode), управляемый `Result`+потерями, БЛОКИРУЮЩИЙ; показать =
   войти в сцену с готовым Result (бой не требуется). НЕ покадровый оверлей.
-- Аппаратные уступки FT812: looped-анимация → статичный кадр; процедурный StandardWindow → пред-композ.
-  спрайт. Текст/раскладка/строки/потери/числа — без отступлений.
+- **AI** = `AI::BattlePlanner` ПОЛНОСТЬЮ по оригиналу (§8), точными формулами — НЕ упрощённо.
+- Аппаратные уступки FT812 — ТОЛЬКО в визуале: looped-анимация → статичный кадр; процедурный
+  StandardWindow → пред-композ. спрайт. Текст/раскладка/строки/потери/числа/ЛОГИКА(включая AND решения
+  AI) — без отступлений.
 
 ### ⚠ ГОЧИ Z80-кода (клоббер регистров — проверено на железе, ловится только эмулятором):
 - **`MonsterStats_Read` клоббит BC** (внутри `LD BC,8; LDIR`). В циклах со счётчиком в C — `PUSH BC`/`POP BC`
@@ -333,7 +335,97 @@ layout P40=22/A4=33/P20=32/A2=43.
   `_myRangedUnitsOnly/15` за тайл; широкие кроют с боку). `berserkTurn`: бить БЛИЖАЙШЕГО любой стороны.
 - `selectBestSpell` (ai_battle_spell.cpp): порог = `моя_сила²/вражеская·0.04` (беречь очки при перевесе),
   ценность спелла по типу (damage/dispel/summon/resurrect/effect) ÷ `sqrt(стоимость/3)`; лучший выше порога.
-Для player-vs-player skirmish AI не нужен; для vs-computer — переносить упрощённо (порог-эвристики).
+**★AI ПЕРЕНОСИТЬ ПОЛНОСТЬЮ ПО ОРИГИНАЛУ (директива пользователя 2026-07-04), НЕ упрощённо/эвристиками.**
+Всё дерево `AI::BattlePlanner` (`planUnitTurn` → berserk / `analyzeBattleState` (полные суммы
+`GetStrength()`, все флаги `_avoidStackingUnits/_considerRetreat/_defensiveTactics/_cautiousOffensive`) /
+ретрит-сдача / `selectBestSpell` / `archerDecision` кайтинг / `meleeUnitOffense`+`meleeUnitDefense`
+со скорингом `MeleeAttackOutcome`/`evaluatePotentialAttackPositions`/`optimalAttackVector`) —
+портировать целиком, точными формулами. AI = ЛОГИКА (исполнима на Z80, медленнее — не аппаратное
+ограничение). Уступки FT812 допустимы ТОЛЬКО в анимации/рендере, НЕ в решениях AI. Читать
+ai/ai_battle.cpp + ai_battle_*.cpp построчно перед реализацией. (Прежняя пометка «упрощённо» —
+ОШИБКА, снята.)
+
+### ★STAGED-ПЛАН ПОРТА AI (1.1.17, изучено построчно planUnitTurn+фундамент) — реализовать по шагам:
+`planUnitTurn` (ai_battle.cpp:689): berserk(SP_BERSERKER→berserkTurn) → `analyzeBattleState` →
+retreat/surrender(ТОЛЬКО actualHero, для skirmish пропуск) → спелл(ТОЛЬКО commander, пропуск) →
+дерево отряда: **archers→`archerDecision`**; **melee→ `_defensiveTactics`? `meleeUnitDefense` :
+`meleeUnitOffense`** → target{cell,unit}: unit → `optimalAttackVector`→ATTACK(UID,tgtUID,moveIdx или
+−1 если рядом,attackTargetIdx,dir); только cell→MOVE; иначе SKIP.
+Шаги реализации (каждый — самодостаточная функция, юнит-тестируемая математикой):
+**╔═ СТАТУС РЕАЛИЗАЦИИ (2026-07-04, battle.asm) ═╗**
+- ✅ **Шаг 1 ФУНДАМЕНТ — ГОТОВО+VERIFIED.** `Battle_GetDistance` (гекс-6, D=cellA E=cellB→A=dist).
+  `Battle_EvalThreat(C=enemyIdx)→HL=threat` = `evaluateThreatForUnit` ТОЧНО: potDmg=(mod(count·dmgMin)+
+  mod(count·dmgMax))/2 [модификатор к min/max ОТДЕЛЬНО — как (CalcMin+CalcMax)/2, сохраняет ½], distMod
+  (shots>0→1.0; иначе dist≤speed+1→1.0 иначе threat·2·speed/(3·dist)). Хелперы `Battle_Div16by8`,
+  `Battle_Mul16x8`. Побочно пишет `BattleThrECell/EShots/ESpd`. Сверено с float-эталоном: выбор цели
+  0.19% расхождений (только ничьи). `Battle_AIFindTarget` теперь ранжирует по EvalThreat (не count×avg).
+- ✅ **Шаг 3 §2 (дальняя цель) — ГОТОВО+VERIFIED.** `Battle_AIPickApproach` = meleeUnitOffense шаг 2:
+  цель подхода = max(evaluateThreatForUnit / dist), dist=**hexD−1** (findNearestCellNextToUnit, клемп≥1);
+  два прохода: (1) non-evader (shots>0/speed0/speed<active), (2) все. Cross-mult (Mul16x8) — точный
+  порядок threat/dist без float. Сверено: 0.16% (ничьи). Влит в `Battle_AITurn.approach`.
+- ✅ **Шаг 3 §1 (getMeleeBestOutcome) — ГОТОВО (собрано, залито; HW-проверка вечером).**
+  `Battle_AIMeleeBestOutcome`: атаковать лучшую ДОСТИЖИМУЮ-в-ход цель. Критерий `IsOutcomeImproved`:
+  canAttackImmediately > **positionValue** > threat. `Battle_AIPosValue`[cell] = max(угрозы соседних
+  МИЛИ) + Σ(угрозы соседних СТРЕЛКОВ). `Battle_AIBuildThreatCache` (кэш threat/archer/cell, все EvalThreat
+  тут — далее без пейджинга) на BattleReach+BattleAdjTab. `Battle_AITurn.melee`: ComputeReachable→
+  BuildThreatCache→MeleeBestOutcome (нашли→move+PendAttack/StartAttack) иначе→PickApproach. NB: при
+  2 врагах/сторону positionValue редко меняет цель vs max-threat. Риск = Z80-корректность (не математика).
+- ✅ **Шаг 2 `analyzeBattleState` — ГОТОВО+VERIFIED (0.012%/0.033%, только границы фикс-точки).**
+  Данные: `GetMonsterStrength=(1+atk·0.1+def·0.05)·monsterBaseStrength` (sqrt(dmgPot·effHP)·special c
+  abilities) ПРЕДвычислен в monster_stats.py ТОЧНО по monster_info.cpp:45-132 → запись #91 расширена
+  до 10 байт (стр.+8/9 = strength ×16 фикс; MonsterStats_Read B*10/LDIR 10). `Battle_AIAnalyze`: суммы
+  GetStrength=str_fp×count (24-бит, `Battle_Mul16x16_24`/`Battle_Acc24AddMul`) моих/врагов + стрелков;
+  флаги `BattleDefTactics` (зона x≤4/x≥6 → overPower×10 → myShoot<enShoot → ratio<0.15 → enRatio>0.66,
+  все СТРОГИЕ через нормализацию пары `Battle_AnlNormPair`+кросс-множители 3/20, 50/33, 1/10) и
+  `BattleCautious` (enRatio<0.15). Влито в Battle_AITurn.melee: Def? Defense : Offense.
+- ✅ **Шаг 5 `meleeUnitDefense` — ГОТОВО+VERIFIED (0.000% на 16038 сценариях 2v2).**
+  `Battle_AIMeleeDefense` (OUT: 0=SKIP/1=MOVE/2=ATTACK): §1 по каждому СВОЕМУ стрелку: cover-клетка=
+  ПЕРВАЯ приоритетная достижимая рядом (порядок направлений: side0 R,TR,BR,TL,BL,L / side1 зеркально;
+  BattleDefPrioS0/S1 на adj-layout {TL,TR,L,R,BL,BR}); маска блокирующих (dist=1); dist=min(до cover,
+  min reach-соседей блокирующих `Battle_MinReachAdj`); гейт AnyImm&&dist>speed×2;
+  archerValue=strength16−dist×(myShoot16/15) → max; блокирован→MBO(EnMask=маска)→атака, иначе идти
+  cover (стоим на ней→SKIP=держим строй). §2 нет стрелков → MBO(ZoneOnly: клетка в СВОЕЙ половине).
+  MBO расширен одноразовыми фильтрами BattleMBOEnMask/ZoneOnly (сброс в эпилоге). Кэш: свои живые
+  получают archer-флаг и ThreatCache=ИХ strength16. ДОПУЩЕНИЯ (1-клеточные юниты, зафикс.):
+  «позиция-для-будущей-атаки» из BestAttackOutcome не моделируется (кандидаты MBO = немедленно
+  атакуемые); avoidStacking=false (нет AREA_SHOT у Knight); wide-прикрытие — с расами wide; value≥0.
+- ✅ **Шаг 4 `archerDecision` — ГОТОВО+VERIFIED (0.000% на 2966 сценариях).** `Battle_AIArcherTurn`:
+  A) угрозы ТЕКУЩЕЙ позиции (`Battle_AIArcThreatMaskAt`: сосед=угроза; «слабый» враг [стрелок-не-в-
+  упоре `Battle_UnitHandFighting` / speed==0] издали НЕ угрожает; иначе флуд ЗА ВРАГА
+  `Battle_ComputeReachEx` (параметризованный; `BattleFindIgnore`=UnitRemover — активный «снят») →
+  сосед позиции достижим → угроза); все угрожающие (spd==0 || spd+2<мой) → ретрит: `Battle_AIArcMarkDanger`
+  метит опасные клетки бит7 BattleReach → лучшая безопасная (dist до ближ.врага MAX; tie: ближе к
+  центру-49) → MOVE. B) блокирован → мили по max(potDmg(я→E, штраф ÷2) − `EstimateRetaliatoryDamage`:
+  hp-пул≤pot→0; TR_RETALIATED→0; unitsLeft=ceil((hp−pot)/maxHP) повторным вычитанием; ret=left×avgE;
+  biased #8000+diff) — `Battle_AIArcMeleePick`. C) стрелять max-threat. Влито в AITurn (стрелковая
+  ветка = JP Battle_AIArcherTurn).
+- ★ФИКС ФЛУДА: `Battle_ComputeReachable/Ex` теперь НЕ проходит сквозь живые юниты (препятствия, как
+  BattlePathfinder) — раньше «дыра» (Reach≠0 в занятых); эта же правка чинит ход игрока. Reach≠0 ⇒
+  «можно встать» (MBO/Defense-cover/кандидаты ретрита полагаются).
+**ДЕРЕВО planUnitTurn ДЛЯ SKIRMISH ПОЛНОЕ** (без спелл/ретрит-сдача/осада — героев и замков в бою
+нет). HW-verify всего дерева на эмуляторе — вечером.
+**╚═══════════════════════════════════════════════╝**
+1. **ФУНДАМЕНТ (сначала):** `Battle_PotentialDamage(atk,def)` = getPotentialDamage = avg(CalcMin,CalcMax)
+   урона atk→def (уже есть формула урона Battle_ApplyDmgMod). `Battle_GetDistance` = гекс-6 (battle_board.cpp
+   GetDistance: x=i%11,y=i/11; du=y2−y1, dv=(x2+y2/2)−(x1+y1/2); одного знака→max(|du|,|dv|), разного→
+   |du|+|dv|). `Battle_EvalThreat(atk,def)` (battle_troop.cpp evaluateThreatForUnit) = potDmg/distMod:
+   distMod = (def CAP_TOWER || atk flying||archer)?1.0 : (dist≤speed+1?1.0 : 1.5·dist/speed); +поправка
+   double-attack (вычесть ожидаемую ответку). `Battle_UnitStrength` (Unit::GetStrength) — для сумм.
+2. `analyzeBattleState` (:949): суммы `_myArmyStrength/_enemyArmyStrength/_myShootersStrength/…` через
+   GetStrength; флаги `_avoidStackingUnits`(area-атака врага >10% силы), `_defensiveTactics`(оборона:
+   есть свои стрелки И (позиц.преимущество ИЛИ замок-башни) И не сильно слабее), `_cautiousOffensive`,
+   `_considerRetreat`. Точные пороги — читать :949-1170.
+3. `meleeUnitOffense` (:1568): getMeleeBestOutcome по всем врагам (BestAttackOutcome: перебор клеток
+   атаки `evaluatePotentialAttackPositions`, скоринг MeleeAttackOutcome{attackValue,positionValue,
+   damage}, IsOutcomeImproved) → цель в досягаемости; иначе дальняя по `threat/dist` (сначала
+   не-убегающие: стрелки/медленные/обездвиж.), путь к ней (getUnitMovementTarget/optimalAttackVector).
+4. `archerDecision` (:1172): блокирован мили-врагом → кайтинг (уйти на клетку без соседства с врагом,
+   от летающих не убежать); иначе стрелять лучшую цель по evaluateThreatForUnit.
+5. `meleeUnitDefense` (:1708) + `berserkTurn` (:508) + (позже, с героем) selectBestSpell.
+Модель уже даёт: скорость/атака/защита/урон/HP-пул (стр.#91 + BattleUnitState), доска 99, гекс-6.
+battle.asm: ФУНДАМЕНТ (шаг 1) + дальняя цель (шаг 3§2) уже ТОЧНЫЕ по оригиналу и сверены математикой;
+остальное дерево заменять пошагово. ГОЧА: MonsterStats_Read клоббит BC; Battle_UnitAddr клоббит DE;
+чтение slot3 СРАЗУ после MonsterStats_Read ненадёжно → в EvalThreat все slot3-чтения СНАЧАЛА (Phase A).
 
 ═══════════════════════════════════════════════════════════════════════════════
 ## 9. ТОНКИЕ ДЕТАЛИ (геометрия, рендер поля, препятствия, тени)

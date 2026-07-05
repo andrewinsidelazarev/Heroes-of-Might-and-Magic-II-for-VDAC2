@@ -1537,11 +1537,34 @@ def append_cursor_sprites(agg_data: bytes, entries, palette):
             )
         )
 
-    # Боевые курсоры (CMSECO.ICN = ICN::CURSOR в fheroes2): тема = младший байт enum Cursor (cursor.h):
-    # WAR_NONE=0, WAR_MOVE=1, WAR_ARROW=3, WAR_INFO=5, SWORD_RIGHT=8. Для смены ФОРМЫ курсора по hover
-    # в бою (GetBattleCursor). Базовый индекс = len здесь (до scroll → их индекс цел).
+    # ★FIGHT (ADVMCO[5], цифро-офсет (1,1)) и ACTION (ADVMCO[9], (−6,1)) серии с днями пути 1..8
+    # (agg_image.cpp:3726/3735 populateCursorIcons) + статические HEROES=ADVMCO[2], CASTLE=ADVMCO[3]
+    # (cursor.h: HEROES=0x1002, CASTLE=0x1003 → кадр ICN). Faithful GetCursorFocusHeroes.
+    for base_frame, digit_ofs, tag in ((5, (1, 1), "FIGHT"), (9, (-6, 1), "ACTION")):
+        base = original_sprite(base_frame)
+        box, boy = cursor_default_draw_offset(base)
+        cursor_sprites.append(append_argb4_sprite(payload, base["raw"], base["w"], base["h"],
+                                                  box, boy, "ADVMCO.ICN", base_frame, base=CURSOR_RAMG_BASE))
+        for digit in digits:
+            composed = add_digit_words(base, digit, digit_ofs)
+            raw = argb4_words_to_bytes(composed["words"])
+            dox, doy = cursor_default_draw_offset(composed)
+            cursor_sprites.append(append_argb4_sprite(payload, raw, composed["w"], composed["h"],
+                                                      dox, doy, "COLOR_CURSOR_ADVENTURE_MAP",
+                                                      base_frame * 100, base=CURSOR_RAMG_BASE))
+    for st_frame in (2, 3):                              # HEROES, CASTLE
+        s = original_sprite(st_frame)
+        sox, soy = cursor_default_draw_offset(s)
+        cursor_sprites.append(append_argb4_sprite(payload, s["raw"], s["w"], s["h"],
+                                                  sox, soy, "ADVMCO.ICN", st_frame, base=CURSOR_RAMG_BASE))
+
+    # Боевые курсоры (CMSECO.ICN = ICN::CURSOR в fheroes2): тема = младший байт enum Cursor (cursor.h).
+    # ПОЛНЫЙ faithful-набор GetBattleCursor: NONE=0, MOVE=1, ARROW=3, INFO=5, POINTER=6 (вне поля/панель)
+    # + 6 направленных МЕЧЕЙ (SWORD_TOPRIGHT=7, RIGHT=8, BOTTOMRIGHT=9, BOTTOMLEFT=0xA, LEFT=0xB,
+    # TOPLEFT=0xC; TOP/BOTTOM только для wide-юнитов — не грузим). Порядок фиксирован для ASM
+    # (CURSOR_BATTLE_BASE_INDEX + 0..10). Базовый индекс = len здесь (до scroll → их индекс цел).
     bcur = read_icn(agg_entry(agg_data, entries, "CMSECO.ICN"))
-    for cf in (0, 1, 3, 5, 8):                          # WAR_NONE, WAR_MOVE, WAR_ARROW, WAR_INFO, SWORD_RIGHT
+    for cf in (0, 1, 3, 5, 6, 7, 8, 9, 0xA, 0xB, 0xC):
         bh, be = bcur[cf]
         braw = decode_icn_sprite(bh, be, palette)
         bsp = {"w": bh["w"], "h": bh["h"], "x": bh.get("ox", 0), "y": bh.get("oy", 0)}
@@ -2390,8 +2413,12 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
         f"CURSOR_SPRITE_COUNT     EQU {len(cursor_sprites)}",
         f"CURSOR_POINTER_INDEX    EQU {CURSOR_POINTER_INDEX}",
         f"CURSOR_MOVE_BASE_INDEX  EQU {CURSOR_MOVE_BASE_INDEX}",
+        f"CURSOR_FIGHT_BASE_INDEX EQU {CURSOR_MOVE_BASE_INDEX + 8}",   # FIGHT 1..8 (меч + дни)
+        f"CURSOR_ACTION_BASE_INDEX EQU {CURSOR_MOVE_BASE_INDEX + 16}", # ACTION 1..8 (конь + дни)
+        f"CURSOR_HEROES_INDEX    EQU {CURSOR_MOVE_BASE_INDEX + 24}",   # на своём герое
+        f"CURSOR_CASTLE_INDEX    EQU {CURSOR_MOVE_BASE_INDEX + 25}",   # на своём замке
         f"CURSOR_SCROLL_BASE_INDEX EQU {len(cursor_sprites) - 8}",
-        f"CURSOR_BATTLE_BASE_INDEX EQU {len(cursor_sprites) - 13}",  # боевые курсоры: NONE/MOVE/ARROW/INFO/SWORD",
+        f"CURSOR_BATTLE_BASE_INDEX EQU {len(cursor_sprites) - 19}",  # боевые: NONE/MOVE/ARROW/INFO/POINTER/6×SWORD (11) до 8 скроллов",
         "CURSOR_TABLE_ENTRY_SIZE EQU 12",
         f"UI_BORDER_W             EQU {ui_sprites['border_w']}",
         f"UI_BORDER_H             EQU {ui_sprites['border_h']}",
@@ -2439,13 +2466,17 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
 
     # Таблица цвета-палитры мини-карты на каждый тайл (1 байт/тайл, stride = map_w).
     # Источник для рантайм-раскрытия тумана на радаре (Minimap_RevealTile).
+    # ★ВЫНЕСЕНА из резидента (1296Б, упор ядра в CMD_ADDRESS_PTR) в data-страницу #91
+    # (GLOBAL_DATA_PAGE): читатель ОДИН байт за вызов и мапит slot3 (как MonsterStats_Read).
     radar_tile_colors = ui_radar["tile_colors"]
     lines.append(f"MINIMAP_MAP_W           EQU {ui_radar['map_w']}")
     lines.append(f"MINIMAP_MAP_H           EQU {ui_radar['map_h']}")
-    lines.append("MinimapTileColorTable:")
+    mlines = ["; Сгенерировано viewport_pack.py — цвета тайлов мини-карты (включать в GLOBAL_DATA_PAGE #91).",
+              "MinimapTileColorTable:"]
     for i in range(0, len(radar_tile_colors), 32):
         chunk = radar_tile_colors[i:i + 32]
-        lines.append("                DEFB " + ", ".join(str(b) for b in chunk))
+        mlines.append("                DEFB " + ", ".join(str(b) for b in chunk))
+    (Path("Source/ASM/generated_minimap_tab.inc")).write_text("\n".join(mlines) + "\n", encoding="utf-8")
     lines.append("")
 
     # Статус-окно: STONBACK (каменный фон) + RESSMALL (иконки kingdom-вида).

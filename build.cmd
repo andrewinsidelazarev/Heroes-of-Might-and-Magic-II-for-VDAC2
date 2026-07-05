@@ -26,6 +26,10 @@ rem ??????? ????-???????? ???????????? ??????????, ????? ?????????.
 python Source\Tools\menu_pack.py
 if errorlevel 1 goto :err
 
+echo === extract real castle data from MX2 (name/buildings/race) ===
+python Source\Tools\dump_mp2_castles.py --inc Source\ASM\generated_castle.inc
+if errorlevel 1 goto :err
+
 echo === generate town pack ===
 python Source\Tools\town_pack.py
 if errorlevel 1 goto :err
@@ -40,6 +44,12 @@ if errorlevel 1 goto :err
 
 echo === generate high scores pack ===
 python Source\Tools\hiscores_pack.py
+if errorlevel 1 goto :err
+
+echo === pack adventure map stream (HMM2MAP.PAK) ===
+rem ЛОВУШКА (как была с HMM2SCN.PAK): без этого шага пере-конвертация карты/атласов
+rem рассинхронизирует стрим-страницы со свежими константами -> мусор UI/объектов.
+python Source\Tools\map_pack.py
 if errorlevel 1 goto :err
 
 echo === music: XMI -^> MID -^> ?????????? ????? (???? MIDI0042) ===
@@ -75,6 +85,10 @@ if not exist "%SPGBLD%" (
 
 echo === sjasmplus ===
 "%SJASMPLUS%" Source\ASM\main.asm --syntax=ab --lst=Build\hmm2.lst --sym=Build\hmm2.sym
+if errorlevel 1 goto :err
+
+echo === pack scene overlays (HMM2SCN.PAK: town/battle/hiscores code) ===
+python Source\Tools\scn_pack.py
 if errorlevel 1 goto :err
 
 echo === check RAM_G/RAM_DL usage ===

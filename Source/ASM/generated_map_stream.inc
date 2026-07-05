@@ -3,8 +3,10 @@
                 define _HMM2_GENERATED_MAP_STREAM_
 MapPakName:          DEFB "HMM2MAP.PAK", 0
 MAP_BODY_SECTOR      EQU 4   ; первый сектор тела (пропустить header+каталог)
-MAP_STREAM_COUNT     EQU 141
+MAP_STREAM_COUNT     EQU 143
 MapStreamTable:      ; на запись: DEFB страница, число_секторов
+                DEFB #A9, 10
+                DEFB #AA, 21
                 DEFB #20, 32
                 DEFB #21, 32
                 DEFB #22, 32
