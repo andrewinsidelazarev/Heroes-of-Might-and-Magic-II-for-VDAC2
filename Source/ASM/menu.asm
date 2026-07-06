@@ -26,7 +26,7 @@
 
                 include "generated_menu.inc"
 
-MenuScreen:     DEFB 0            ; 0 = главное меню, 1 = подменю NEW GAME (ориг. HoMM2)
+MenuScreen:     DEFB 0            ; 0 = главное меню, 1 = подменю NEW GAME, 2 = экран сценария
 
 Menu_Enter:
                 LD   A, GAME_MODE_MENU
@@ -37,6 +37,7 @@ Menu_Enter:
                 LD   (MenuLanternIdx), A
                 LD   (MenuDoorHover), A
                 LD   (MenuScreen), A
+                ; [ИЗОЛЯЦИЯ: init убран]
                 LD   A, #FF
                 LD   (MenuHoverIndex), A
                 CALL Menu_LoadFromPak            ; стрим HMM2MENU.PAK с SD → RAM_G
@@ -89,7 +90,9 @@ Menu_Update:
                 XOR  A
 .storeIdx:      LD   (MenuLanternIdx), A
 .noAnim:
-                LD   A, (MenuScreen)             ; подменю NEW GAME → своя ветка
+                LD   A, (MenuScreen)             ; 1=подменю NEW GAME, 2=экран сценария
+                CP   2
+                JP   Z, MenuScen_Update
                 OR   A
                 JP   NZ, MenuNg_Update
                 ; --- какая кнопка под мышью → MenuHoverIndex (#FF если ни одной) ---
@@ -174,10 +177,16 @@ MenuNg_Update:
                 JR   Z, .ngcancel
 .ngnone:        XOR  A                           ; Campaign/Multi: контента нет → пусто
                 RET
-.ngstandard:    LD   A, 1                        ; → резидент зовёт Adventure_Enter
-                RET
-.ngcancel:      XOR  A
+.ngstandard:    CALL Menu_LoadScenario           ; Standard → экран выбора сценария (стрим в base 0)
+                LD   A, 2
                 LD   (MenuScreen), A
+                LD   A, #FF
+                LD   (MenuHoverIndex), A
+                XOR  A                           ; остаёмся в меню
+                RET
+.ngcancel:      CALL Menu_LoadFromPak            ; восстановить кадры фонаря (панель scenario их заняла);
+                XOR  A                           ; рестрим ТОГО ЖЕ меню → HEROES идентичен, кадры #064840 не
+                LD   (MenuScreen), A             ; читаются подменю-DL (фонарь статичен) → без мусора
                 LD   A, #FF
                 LD   (MenuHoverIndex), A
                 XOR  A
@@ -187,6 +196,106 @@ MenuNg_Update:
                 LD   (MenuClickLatch), A
                 XOR  A
                 RET
+
+; --- Экран выбора сценария (ChooseNewMap): клик по иконке сложности → GameDifficulty;
+; OKAY → старт игры (действие 1); Cancel → назад в подменю NEW GAME (пере-стрим меню).
+; OUT: A = действие (0=нет, 1=старт).
+MenuScen_Update:
+                CALL Input_MouseX
+                LD   (UIClickX), HL
+                CALL Input_MouseY
+                LD   (UIClickY), HL
+                CALL Input_MouseLMB
+                JR   Z, .screleased
+                LD   A, 1
+                LD   (MenuLmbDown), A
+                LD   A, (MenuClickLatch)
+                OR   A
+                JR   NZ, .scnone
+                LD   A, 1
+                LD   (MenuClickLatch), A
+                LD   IX, ScenOkZone              ; OKAY?
+                CALL Menu_HitTestZone
+                OR   A
+                JR   NZ, .scok
+                LD   IX, ScenCancelZone          ; Cancel?
+                CALL Menu_HitTestZone
+                OR   A
+                JR   NZ, .sccancel
+                LD   IX, ScenDiffZones           ; клик по иконке сложности → сменить
+                LD   B, MENU_SCEN_DIFF_COUNT
+                LD   C, 0
+.sdloop:        PUSH BC
+                CALL Menu_HitTestZone
+                POP  BC
+                OR   A
+                JR   NZ, .sdhit
+                LD   DE, 8
+                ADD  IX, DE
+                INC  C
+                DJNZ .sdloop
+.scnone:        XOR  A
+                RET
+.sdhit:         LD   A, C
+                LD   (GameDifficulty), A
+                XOR  A
+                RET
+.scok:          LD   A, 1                         ; OKAY → резидент зовёт Adventure_Enter (сложность выбрана)
+                RET
+.sccancel:      LD   A, 1                         ; назад в подменю NEW GAME — БЕЗ рестрима:
+                LD   (MenuScreen), A             ; подменю фонарь СТАТИЧЕН (не читает кадры #064840),
+                LD   A, #FF                      ; панель-окно остаётся в RAM_G невидимой → мгновенно, без мусора.
+                LD   (MenuHoverIndex), A         ; кадры фонаря восстановит подменю→главное (MenuNg Cancel).
+                XOR  A
+                RET
+.screleased:    XOR  A
+                LD   (MenuLmbDown), A
+                LD   (MenuClickLatch), A
+                XOR  A
+                RET
+
+; Стрим composite экрана сценария (2-я PAK-entry HMM2MENU) в RAM_G base 0 — эксклюзивно с
+; меню-payload (переход = пере-стрим, как город). Подготовка в slot1, один вызов стримера.
+Menu_LoadScenario:
+                CALL Menu_RenderBgBase           ; показать фон+базу фонаря (кадры #064840 НЕ читаются)
+                LD   HL, MenuPakName             ; → стрим панели @ #064840 «за кадром», без мусора/чёрного
+                LD   DE, MenuNameBuf
+                LD   BC, 13
+                LDIR
+                CALL Loader_Init
+                CALL Loader_Mount
+                RET  NC
+                LD   HL, MenuNameBuf
+                CALL Loader_OpenFile
+                RET  NC
+                LD   HL, SCEN_BODY_SECTOR        ; seek на сектор сценария (>255 → не ReadSectors)
+                CALL Loader_SeekSector
+                LD   BC, SCEN_PAYLOAD_SECTORS    ; панель-окно → в область кадров фонаря #064840
+                LD   DE, #4840
+                LD   A, #06
+                JP   Loader_StreamToRamGAt
+
+; Показать фон меню + статичную базу фонаря (БЕЗ кадров #064840) — фиксированный кадр, чтобы
+; последующий стрим панели/кадров @ #064840 шёл «за кадром» (DL не читает эту область) → без мусора.
+Menu_RenderBgBase:
+                FT_CMD_Start
+                LD   HL, #FFFF
+                LD   DE, #FF00
+                CALL Render_CmdBufWrite32
+                LD   HL, MenuBg_DL
+                LD   BC, MenuBg_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   HL, MenuSpritesProlog_DL
+                LD   BC, MenuSpritesProlog_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   HL, MenuLanternBase_DL
+                LD   BC, MENU_SPRITE_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   HL, MenuSpritesEnd_DL
+                LD   BC, MenuSpritesEnd_DL_SIZE
+                CALL Render_CmdBufCopy
+                CALL Render_GlobalCursor
+                JP   Render_SwapFrameDMA
 
 ; Menu_ComputeHover: найти кнопку под мышью. Out: A=индекс (0..N-1) или #FF; пишет
 ; MenuHoverIndex. Мышь читается раз (UIClickX/Y), затем перебор зон.
@@ -254,6 +363,9 @@ Menu_HitTestZone:
 ; Render_SwapFrameDMA ждёт FT_INT_SWAP ПЕРЕД DMA+DLSWAP → фаза свапа фиксирована.
 ; В RAM_G меню не пишет (статично с Menu_Enter), поэтому ранний sync не нужен.
 Render_Menu:
+                LD   A, (MenuScreen)             ; экран сценария — свой полный кадр
+                CP   2
+                JP   Z, MenuScen_Render
                 FT_CMD_Start
                 LD   HL, #FFFF                   ; CMD_DLSTART (0xFFFFFF00): новый DL с offset 0
                 LD   DE, #FF00
@@ -364,6 +476,86 @@ MenuNg_Render:
                 DJNZ .nbl
                 LD   HL, MenuSpritesEnd_DL       ; конец спрайтов + курсор + swap (общий хвост)
                 LD   BC, MenuSpritesEnd_DL_SIZE
+                CALL Render_CmdBufCopy
+                CALL Render_GlobalCursor
+                CALL Render_SwapFrameDMA
+                RET
+
+; Кадр экрана сценария: composite (фон+панель+тексты) + рамка-курсор на выбранной сложности
+; + OKAY/CANCEL pressed при удержании в зоне + рейтинг по сложности + курсор мыши.
+MenuScen_Render:
+                FT_CMD_Start
+                LD   HL, #FFFF
+                LD   DE, #FF00
+                CALL Render_CmdBufWrite32
+                LD   HL, MenuBg_DL               ; СЛОЙ 1: фон HEROES из МЕНЮ (base 0, не рестримится)
+                LD   BC, MenuBg_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   HL, MenuSpritesProlog_DL    ; transp-палитра + BEGIN (для базы фонаря)
+                LD   BC, MenuSpritesProlog_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   HL, MenuLanternBase_DL      ; база фонаря СТАТИЧНА (кадры заняты панелью-окном)
+                LD   BC, MENU_SPRITE_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   HL, ScenPanel_DL            ; СЛОЙ 2: панель-окно @ #064840 (transp)
+                LD   BC, ScenPanel_DL_SIZE
+                PUSH HL                          ; ★тень окна = ГЛОБАЛЬНАЯ Render_WindowShadowDL (как в бою)
+                PUSH BC
+                CALL Render_WindowShadowDL       ; DL панели чёрным (COLOR_A 80) со сдвигом −8,+8
+                POP  BC
+                POP  HL
+                CALL Render_CmdBufCopy           ; сама панель поверх тени
+                LD   HL, ScenSpritesProlog_DL    ; transparent-палитра + BEGIN
+                LD   BC, ScenSpritesProlog_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   A, (GameDifficulty)         ; рамка-курсор на выбранной сложности
+                ADD  A, A
+                LD   L, A
+                LD   H, 0
+                LD   DE, ScenCursorTab
+                ADD  HL, DE
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)
+                EX   DE, HL
+                LD   BC, MENU_SPRITE_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   A, (GameDifficulty)         ; рейтинг по сложности
+                ADD  A, A
+                LD   L, A
+                LD   H, 0
+                LD   DE, ScenRatingTab
+                ADD  HL, DE
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)
+                EX   DE, HL
+                LD   BC, MENU_SPRITE_DL_SIZE
+                CALL Render_CmdBufCopy
+                CALL Input_MouseX               ; OKAY pressed при ЛКМ в зоне
+                LD   (UIClickX), HL
+                CALL Input_MouseY
+                LD   (UIClickY), HL
+                LD   A, (MenuLmbDown)
+                OR   A
+                JR   Z, .scnobtn
+                LD   IX, ScenOkZone
+                CALL Menu_HitTestZone
+                OR   A
+                JR   Z, .scnotok
+                LD   HL, ScenOkPressed_DL
+                LD   BC, MENU_SPRITE_DL_SIZE
+                CALL Render_CmdBufCopy
+                JR   .scnobtn
+.scnotok:       LD   IX, ScenCancelZone
+                CALL Menu_HitTestZone
+                OR   A
+                JR   Z, .scnobtn
+                LD   HL, ScenCancelPressed_DL
+                LD   BC, MENU_SPRITE_DL_SIZE
+                CALL Render_CmdBufCopy
+.scnobtn:       LD   HL, ScenSpritesEnd_DL
+                LD   BC, ScenSpritesEnd_DL_SIZE
                 CALL Render_CmdBufCopy
                 CALL Render_GlobalCursor
                 CALL Render_SwapFrameDMA

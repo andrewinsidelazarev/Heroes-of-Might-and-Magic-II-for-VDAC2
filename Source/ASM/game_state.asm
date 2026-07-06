@@ -61,6 +61,9 @@ Game_Init:
                 LD   (MenuLanternIdx), A          ; кадр анимации фонаря
                 LD   A, #FF
                 LD   (MenuHoverIndex), A          ; нет наведённой кнопки
+                LD   A, 1                         ; сложность по умолчанию = Normal (экран сценария);
+                LD   (GameDifficulty), A          ; init ЗДЕСЬ (резидент, boot), НЕ в Menu_Enter —
+                                                  ; там чтение/запись ломало загрузку меню в чёрный
                 CALL Cursor_GlobalUpload          ; глобальный курсор в постоянную RAM_G (раз)
                 CALL Music_InitPort               ; AY port A → выход (иначе MIDI не идёт на пин)
                 CALL Music_GMReset                ; SAM2695 → General MIDI (раз при старте)
@@ -625,20 +628,37 @@ Game_EndTurn:
 .nostatue:      CALL Resources_BuildPanelDL      ; пересобрать DL панели (золото изменилось)
                 RET
 
-; Стартовые ресурсы королевства (fheroes2 _getKingdomStartingResources, человек/NORMAL):
-; gold 7500, wood/ore по 20, mercury/sulfur/crystal/gems по 5. Вектор KingdomFunds (7×DW).
+; Стартовые ресурсы королевства (fheroes2 _getKingdomStartingResources, человек) ПО СЛОЖНОСТИ
+; GameDifficulty: копируем запись ResStartTab[diff] (7×DW gold,wood,merc,ore,sulf,cryst,gems) →
+; вектор KingdomFunds. Вне диапазона → Normal (1). Порядок вектора совпадает с fheroes2 Cost.
 Resources_InitStart:
-                LD   HL, 7500
-                LD   (ResGold), HL
-                LD   HL, 20
-                LD   (ResWood), HL
-                LD   (ResOre), HL
-                LD   HL, 5
-                LD   (ResMercury), HL
-                LD   (ResSulfur), HL
-                LD   (ResCrystal), HL
-                LD   (ResGems), HL
+                LD   A, (GameDifficulty)
+                CP   5
+                JR   C, .ok
+                LD   A, 1                          ; мусор → Normal
+.ok:            LD   L, A                          ; HL = diff×14 (×2+×4+×8)
+                LD   H, 0
+                ADD  HL, HL                        ; ×2
+                LD   D, H
+                LD   E, L                          ; DE = ×2
+                ADD  HL, HL                        ; ×4
+                ADD  HL, HL                        ; ×8
+                ADD  HL, DE                        ; ×10
+                ADD  HL, DE                        ; ×12
+                ADD  HL, DE                        ; ×14
+                LD   DE, ResStartTab
+                ADD  HL, DE
+                LD   DE, KingdomFunds
+                LD   BC, 14
+                LDIR
                 RET
+; [difficulty] → 7×DW (gold,wood,mercury,ore,sulfur,crystal,gems). fheroes2 kingdom.cpp:881.
+ResStartTab:
+                DEFW 10000, 30, 10, 30, 10, 10, 10   ; Easy
+                DEFW 7500, 20, 5, 20, 5, 5, 5        ; Normal
+                DEFW 5000, 10, 2, 10, 2, 2, 2        ; Hard
+                DEFW 2500, 5, 0, 5, 0, 0, 0          ; Expert
+                DEFW 0, 0, 0, 0, 0, 0, 0             ; Impossible
 
 Hero_CommandTargetFromMouse:
                 CALL Input_MouseX

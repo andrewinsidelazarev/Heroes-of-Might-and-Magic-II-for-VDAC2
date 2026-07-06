@@ -292,6 +292,120 @@ MenuButtonZones:
                 DEFW 303, 137, 379, 180   ; [13] CREDITS
                 DEFW 0, 425, 86, 469   ; [17] QUIT
 
+; Экран сценария (ChooseNewMap) = ОКНО-ПОВЕРХ меню: фон = MenuBg_DL, база фонаря =
+; MenuLanternBase_DL; панель @ #064840 (область кадров фонаря). Тень = глоб. Render_WindowShadowDL.
+ScenPanel_DL:
+                FT_PALETTE_SOURCE #000000
+                FT_BEGIN FT_BITMAPS
+                FT_BITMAP_SOURCE #064840
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 319, 319
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 511, 511
+                FT_VERTEX2F 2816, 666
+                FT_BITMAP_SOURCE #07D5C4
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 101, 319
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 162, 511
+                FT_VERTEX2F 10982, 666
+                FT_BITMAP_SOURCE #0853A0
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 319, 108
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 511, 173
+                FT_VERTEX2F 2816, 8832
+                FT_BITMAP_SOURCE #08DA34
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 101, 108
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 162, 173
+                FT_VERTEX2F 10982, 8832
+                FT_END
+ScenPanel_DL_SIZE EQU $ - ScenPanel_DL
+ScenSpritesProlog_DL:
+                FT_PALETTE_SOURCE #000000
+                FT_BEGIN FT_BITMAPS
+ScenSpritesProlog_DL_SIZE EQU $ - ScenSpritesProlog_DL
+ScenSpritesEnd_DL:
+                FT_END
+ScenSpritesEnd_DL_SIZE EQU $ - ScenSpritesEnd_DL
+ScenCursor0_DL:
+                FT_BITMAP_SOURCE #0904D0
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 71, 71
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 114, 114
+                FT_VERTEX2F 3277, 2918
+ScenCursor1_DL:
+                FT_BITMAP_SOURCE #0904D0
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 71, 71
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 114, 114
+                FT_VERTEX2F 5248, 2918
+ScenCursor2_DL:
+                FT_BITMAP_SOURCE #0904D0
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 71, 71
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 114, 114
+                FT_VERTEX2F 7194, 2918
+ScenCursor3_DL:
+                FT_BITMAP_SOURCE #0904D0
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 71, 71
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 114, 114
+                FT_VERTEX2F 9165, 2918
+ScenCursor4_DL:
+                FT_BITMAP_SOURCE #0904D0
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 71, 71
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 114, 114
+                FT_VERTEX2F 11136, 2918
+ScenCursorTab:                       ; [difficulty] → DL-блок рамки
+                DEFW ScenCursor0_DL
+                DEFW ScenCursor1_DL
+                DEFW ScenCursor2_DL
+                DEFW ScenCursor3_DL
+                DEFW ScenCursor4_DL
+ScenOkPressed_DL:
+                FT_BITMAP_SOURCE #091884
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 95, 25
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 152, 40
+                FT_VERTEX2F 3610, 10394
+ScenCancelPressed_DL:
+                FT_BITMAP_SOURCE #0921CC
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 95, 25
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 152, 40
+                FT_VERTEX2F 10163, 10394
+ScenRating0_DL:
+                FT_BITMAP_SOURCE #092B14
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 89, 16
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 143, 26
+                FT_VERTEX2F 7040, 10522
+ScenRating1_DL:
+                FT_BITMAP_SOURCE #0930A4
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 95, 16
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 152, 26
+                FT_VERTEX2F 6963, 10522
+ScenRating2_DL:
+                FT_BITMAP_SOURCE #093694
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 94, 16
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 151, 26
+                FT_VERTEX2F 6989, 10522
+ScenRating3_DL:
+                FT_BITMAP_SOURCE #093C74
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 95, 16
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 152, 26
+                FT_VERTEX2F 6963, 10522
+ScenRating4_DL:
+                FT_BITMAP_SOURCE #094264
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 94, 16
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 151, 26
+                FT_VERTEX2F 6989, 10522
+ScenRatingTab:                       ; [difficulty] → DL-блок «Rating N%»
+                DEFW ScenRating0_DL
+                DEFW ScenRating1_DL
+                DEFW ScenRating2_DL
+                DEFW ScenRating3_DL
+                DEFW ScenRating4_DL
+MENU_SCEN_DIFF_COUNT EQU 5
+ScenDiffZones:                       ; зоны иконок сложности (x0,y0,x1,y1 логич.)
+                DEFW 131, 117, 202, 188
+                DEFW 208, 117, 279, 188
+                DEFW 284, 117, 355, 188
+                DEFW 361, 117, 432, 188
+                DEFW 438, 117, 509, 188
+ScenOkZone:     DEFW 141, 406, 236, 431
+ScenCancelZone: DEFW 397, 406, 492, 431
+SCEN_PAYLOAD_SECTORS EQU 385
+SCEN_BODY_SECTOR     EQU 1654
+
 MENU_RAMG_BASE       EQU #000000
 MENU_PAYLOAD_BYTES   EQU 846128
 MENU_PAYLOAD_SECTORS EQU 1653

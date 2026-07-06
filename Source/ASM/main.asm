@@ -76,6 +76,7 @@ ResOre         EQU #424E        ; 2б
 ResSulfur      EQU #4250        ; 2б
 ResCrystal     EQU #4252        ; 2б
 ResGems        EQU #4254        ; 2б  (до #4255)
+GameDifficulty EQU #4256        ; сложность 0..4 (безопасная зона, не под стеком загрузчика)
 ; Снимок состояния города в GlobalData #91 (город — оверлей, рестримится каждый вход):
 ; #91:GLOBAL_STATE_BASE = магия GSTATE_MAGIC, +1.. = перс-блок города (TownPersist, town.asm).
 GSTATE_MAGIC   EQU #A5
@@ -100,6 +101,7 @@ HeroWalkActive   EQU #427C       ; 1 = герой шагает по маршру
 StatusState      EQU #427D        ; вид статус-окна (клик переключает, как в оригинале)
 BattleSpeedSetting EQU #427E      ; скорость боя 1..10 (Settings; вне диапазона → дефолт 4);
                                   ; живёт в резиденте — battle-оверлей рестримится каждый бой
+                                  ; (#427F свободен)
 ; Порядок = клик-цикл оригинала NextStatus при фокус-герое (interface_status.cpp:188-204):
 ; ARMY → DATE(DAY) → FUNDS → ARMY. INC-wrap StatusState 0→1→2→0 даёт ровно этот порядок.
 STATUS_ARMY      EQU 0            ; армия фокус-героя (MONS32 + счётчики) — ДЕФОЛТ
