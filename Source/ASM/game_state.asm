@@ -146,6 +146,7 @@ Adventure_Enter:
                 LD   A, STATUS_ARMY            ; дефолт статус-окна = армия героя (как оригинал)
                 LD   (StatusState), A
                 CALL Resources_InitStart
+                CALL GState_Reset                ; новая игра → сброс снимка города в #91
 .keepstate:     XOR  A
                 LD   (AdvReenter), A
                 CALL Resources_BuildPanelDL      ; собрать DL панели в RAM_G (по StatusState)
@@ -185,7 +186,7 @@ Game_Update:
                 CALL UI_ButtonsStateUpdate
                 CALL UI_ButtonsPressedUpdate      ; pressed-кадр пока ЛКМ реально зажата
                 CALL Cursor_UpdateTheme
-                ; --- End Turn: хоткей E (HotKeyEvent::END_TURN) → новый день (edge-детект) ---
+                ; --- End Turn: хоткей E (HotKeyEvent::END_TURN) → ПОЛНЫЙ новый день (edge-детект) ---
                 LD   A, (Input_KE)
                 LD   B, A
                 LD   A, (DayLastE)
@@ -195,14 +196,12 @@ Game_Update:
                 RET  Z                            ; состояние не менялось
                 OR   A
                 RET  Z                            ; отпускание
-                LD   HL, (DayCounter)             ; нажатие → день++
-                INC  HL
-                LD   (DayCounter), HL
-                RET
+                JP   Game_EndTurn                 ; тот же новый день, что кнопка End Turn
 
-; Счётчик игровых дней (End Turn). Экономика замка догоняется при входе в город
-; (Town_Enter сверяет TownLastDay): доход золота, недельный рост, ALLOW_TO_BUILD_TODAY.
-DayCounter:     DEFW 0
+; ЕДИНЫЙ счётчик игровых дней: DayCounter (экономика города) = GameDay (End Turn/E).
+; Город догоняет при входе (Town_Enter сверяет TownLastDay): недельный рост жилищ,
+; ALLOW_TO_BUILD_TODAY; доход золота — в Game_EndTurn (резидент, единая казна).
+DayCounter:     EQU GameDay
 DayLastE:       DEFB 0
 
 ; Возвращает в A индекс кнопки под мышью (row*4+col) или #FF.
@@ -596,31 +595,41 @@ UI_DivAB:       LD   C, 0
 .done:          LD   A, C
                 RET
 
-; End Turn: новый день + пополнить дневной запас хода героя + дневной доход.
+; End Turn (кнопка панели И хоткей E): новый день + дневной запас хода героя + доход
+; королевства (ProfitConditions: BUILD_CASTLE 1000 + BUILD_STATUE 250 — статуя из снимка
+; города в #91: город догоняет недели/BuildToday сам при входе, Town_EconomyCatchUp).
 Game_EndTurn:
                 LD   HL, (GameDay)
                 INC  HL
                 LD   (GameDay), HL
                 LD   A, HERO_MOVE_TILES_MAX
                 LD   (HeroMovePoints), A
-                ; дневной доход (упрощённо: базовый доход одного замка ~1000 золота/день)
-                LD   HL, (ResGold)
+                LD   HL, (ResGold)               ; +1000 (замок), кламп 65535
                 LD   DE, 1000
                 ADD  HL, DE
-                LD   (ResGold), HL
-                LD   A, (ResGold + 2)
-                ADC  A, 0
-                LD   (ResGold + 2), A
-                CALL Resources_BuildPanelDL      ; пересобрать DL панели (золото изменилось)
+                JR   NC, .nc1
+                LD   HL, #FFFF
+.nc1:           LD   (ResGold), HL
+                CALL GState_Fetch                ; снимок города есть и Statue построена → +250
+                OR   A
+                JR   Z, .nostatue
+                LD   A, (TownStateBuf + GSTATE_OFS_STATUE)
+                OR   A
+                JR   Z, .nostatue
+                LD   HL, (ResGold)
+                LD   DE, 250
+                ADD  HL, DE
+                JR   NC, .nc2
+                LD   HL, #FFFF
+.nc2:           LD   (ResGold), HL
+.nostatue:      CALL Resources_BuildPanelDL      ; пересобрать DL панели (золото изменилось)
                 RET
 
 ; Стартовые ресурсы королевства (fheroes2 _getKingdomStartingResources, человек/NORMAL):
-; gold 7500, wood/ore по 20, mercury/sulfur/crystal/gems по 5.
+; gold 7500, wood/ore по 20, mercury/sulfur/crystal/gems по 5. Вектор KingdomFunds (7×DW).
 Resources_InitStart:
                 LD   HL, 7500
                 LD   (ResGold), HL
-                XOR  A
-                LD   (ResGold + 2), A
                 LD   HL, 20
                 LD   (ResWood), HL
                 LD   (ResOre), HL
@@ -671,6 +680,22 @@ Hero_CommandTargetFromMouse:
                 endif
                 LD   C, A
 
+                ; Клик по тайлу, на котором герой УЖЕ СТОИТ → действие объекта сразу (ориг.:
+                ; повторный клик по замку под ногами открывает город; после выхода герой
+                ; остаётся на гейте (24,13) и «вход по прибытии» не сработал бы).
+                LD   A, (HeroTileX)
+                CP   B
+                JR   NZ, .not_self
+                LD   A, (HeroTileY)
+                CP   C
+                JR   NZ, .not_self
+                LD   A, B
+                CP   24
+                JR   NZ, .not_self
+                LD   A, C
+                CP   13
+                JP   Z, Town_Enter_Tramp          ; стоим на гейте → войти в замок
+.not_self:
                 LD   A, (HeroTargetX)
                 CP   B
                 JR   NZ, .new_target

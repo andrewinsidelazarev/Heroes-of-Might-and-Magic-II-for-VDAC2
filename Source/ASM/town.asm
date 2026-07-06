@@ -24,7 +24,6 @@ MarketTo:        DEFB #FF         ; выбранный ресурс-цель
 MarketQty:       DEFW 0           ; количество к обмену (buy; для to=gold — sell)
 MarketMax:       DEFW 0           ; максимум для текущей пары
 TownRecrLoaded:  DEFB 0           ; что в области найма: 0=RECRBKG, 1=ассеты рынка
-BuiltRuntime:   DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  ; [18] построен ли слот окна строительства (0/1)
 ConstructBuiltSlot: DEFB 0        ; рабочий индекс слота при отрисовке галочек
 TownRecruitCount: DEFW 0          ; текущий счётчик найма (1..available); = available при открытии
 RecMX:          DEFW 0            ; кэш мыши X для хит-теста кнопок найма
@@ -35,28 +34,38 @@ RecNumW:        DEFW 0            ; аккумулятор ширины числ
 RecTmpW:        DEFW 0            ; временная ширина (центрирование "Available: N")
 RecTmpN:        DEFW 0            ; временное число
 CurFontTab:     DEFW FontGlyphTab  ; текущий атлас глифов (Render_DrawString/Town_StrPixW); переключается на BigFontGlyphTab для заголовка
-; --- Состояние королевства (3c, персистентное между визитами; init один раз) ---
-TownStateInit:  DEFB 0            ; 0 = ещё не инициализировано
 ; ★ЕДИНЫЙ ВЕКТОР ФОНДОВ (Kingdom::AllowPayment/OddFundsResource): 7×DW ПОДРЯД в порядке
 ; gold,wood,mercury,ore,sulfur,crystal,gems — как ConstructCostFull (сравнение/списание циклом).
-KingdomGold:    DEFW 0            ; казна (золото)
-KingdomRes6:    DEFW 0,0,0,0,0,0  ; wood,mercury,ore,sulfur,crystal,gems (StartRes6)
+; КАЗНА ТЕПЕРЬ В РЕЗИДЕНТЕ (KingdomFunds, main.asm) — общая с панелью карты и доходом
+; End Turn, переживает рестрим оверлея.
+KingdomGold     EQU KingdomFunds        ; казна (золото)
+KingdomRes6     EQU KingdomFunds + 2    ; wood,mercury,ore,sulfur,crystal,gems
+; --- ПЕРС-БЛОК ГОРОДА (68Б ПОДРЯД = GSTATE_LEN): сохраняется в #91 через TownStateBuf при
+; выходе (Town_SaveState), восстанавливается при входе (GState_Fetch) — оверлей города
+; рестримится каждый вход, иначе постройки/жилища/гарнизон терялись бы. ---
+TownPersist:
+TownStateInit:  DEFB 0            ; 0 = ещё не инициализировано
 DwellAvail:     DEFW 0,0,0,0,0,0  ; доступно в жилищах [recruit idx] (декремент при найме)
-; --- Строительство по оригиналу (Castle::BuyBuilding/CheckBuyBuilding) ---
-CurStatus:      DEFB 255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255
-                                  ; [18] кэш статуса слота: 0=ALLOW 1=BUILT 2=REQUIRES 3=LACK
-                                  ;      4=NOT_TODAY 5=DISABLE; 255 = не отрисован (патчить)
 BuildToday:     DEFB 1            ; ALLOW_TO_BUILD_TODAY (сброс при постройке, взвод новым днём)
 TownLastDay:    DEFW 0            ; последний обработанный DayCounter (догон экономики)
 WeekPos:        DEFB 0            ; день недели 0..6 (7-й — рост жилищ, ActionNewWeek)
 BuiltMask:      DEFB 0,0,0        ; рабочая 18-бит маска построенных (бит i = слот i)
+BuiltRuntime:   DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  ; [18] построен ли слот (0/1)
+ArmyType:       DEFB 0,0,0,0,0, 0,0,0,0,0   ; слот-модель армии: 0=пусто, 1-6=recruit idx+1
+ArmyCnt:        DEFW 0,0,0,0,0, 0,0,0,0,0
+TOWN_PERSIST_LEN EQU $ - TownPersist
+                ASSERT TOWN_PERSIST_LEN == GSTATE_LEN
+                ASSERT BuiltRuntime + CONSTRUCT_STATUE_SLOT - TownPersist == GSTATE_OFS_STATUE
+; --- Строительство по оригиналу (Castle::BuyBuilding/CheckBuyBuilding) ---
+CurStatus:      DEFB 255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255
+                                  ; [18] кэш статуса слота: 0=ALLOW 1=BUILT 2=REQUIRES 3=LACK
+                                  ;      4=NOT_TODAY 5=DISABLE; 255 = не отрисован (патчить)
 CalcSlot:       DEFB 0            ; рабочий индекс пересчёта статусов
 CalcStat:       DEFB 0            ; рабочий статус слота
 ; Единая слот-модель армии (ArmyBar castle_dialog.cpp): 10 слотов, 0-4=гарнизон(top), 5-9=герой(bottom).
 ; Слот: тип (0=пусто, 1-6=recruit idx+1) + счётчик. Гарнизон стартует ПУСТ (customDefenders=0),
 ; стартовая армия у героя (Army::Reset defaultArmy: Peasant 30-50 + Archer 3-5).
-ArmyType:       DEFB 0,0,0,0,0, 0,0,0,0,0
-ArmyCnt:        DEFW 0,0,0,0,0, 0,0,0,0,0
+; ArmyType/ArmyCnt — в ПЕРС-БЛОКЕ TownPersist (выше).
 ArmyDrawSlot:   DEFB 0            ; рабочий индекс слота при отрисовке армбаров
 GarAnchorX:     DEFW 0            ; рабочий X-центр ячейки для Garrison_DrawMonh
 GarAnchorY:     DEFW 0            ; рабочий Y-низ ячейки для Garrison_DrawMonh
@@ -1311,10 +1320,10 @@ Town_PanoRuntime:
                 LD   (ConstructBuiltSlot), A
                 JR   .pr
 
-; Town_EconomyCatchUp — догнать экономику по дням (DayCounter резидента vs TownLastDay):
-; за каждый день: доход золота (ProfitConditions: CASTLE 1000 + STATUE 250), WeekPos++,
-; 7-й день → рост построенных жилищ (ActionNewWeek: base + Well(+2) + Wel2(+8 к DW1));
-; день сменился → ALLOW_TO_BUILD_TODAY.
+; Town_EconomyCatchUp — догнать экономику по дням (DayCounter=GameDay vs TownLastDay):
+; за каждый день: WeekPos++, 7-й день → рост построенных жилищ (ActionNewWeek: base +
+; Well(+2) + Wel2(+8 к DW1)); день сменился → ALLOW_TO_BUILD_TODAY. ДОХОД ЗОЛОТА — НЕ
+; здесь: единая казна в резиденте, доход начисляет Game_EndTurn (1000 + 250×Statue из #91).
 Town_EconomyCatchUp:
                 LD   HL, (DayCounter)
                 LD   DE, (TownLastDay)
@@ -1328,15 +1337,6 @@ Town_EconomyCatchUp:
                 LD   A, 1
                 LD   (BuildToday), A               ; новый день → строить можно
 .day:           PUSH BC
-                LD   HL, (KingdomGold)             ; +1000 (замок)
-                LD   DE, 1000
-                ADD  HL, DE
-                LD   A, (BuiltRuntime + CONSTRUCT_STATUE_SLOT)
-                OR   A
-                JR   Z, .noStatue
-                LD   DE, 250                       ; +250 (Statue)
-                ADD  HL, DE
-.noStatue:      LD   (KingdomGold), HL
                 LD   A, (WeekPos)                  ; день недели
                 INC  A
                 CP   7
@@ -1474,12 +1474,20 @@ Town_Enter:
                 LD   (TownWellOpen), A
                 LD   A, 255
                 LD   (ArmySel), A                 ; выбор армбара сброшен
-                ; --- состояние королевства: init один раз (персистентно между визитами) ---
-                LD   A, (TownStateInit)
+                ; --- состояние города: восстановить снимок из #91 (оверлей рестримится каждый
+                ;     вход!) либо init один раз. Казна — резидентная (KingdomFunds), init её
+                ;     делает Resources_InitStart при новой игре. ---
+                CALL GState_Fetch                 ; A=1 → снимок в TownStateBuf
+                OR   A
+                JR   Z, .nosnap
+                LD   HL, TownStateBuf             ; восстановить перс-блок города
+                LD   DE, TownPersist
+                LD   BC, TOWN_PERSIST_LEN
+                LDIR
+                JR   .stateok                     ; (TownStateInit=1 пришёл со снимком)
+.nosnap:        LD   A, (TownStateInit)
                 OR   A
                 JR   NZ, .stateok
-                LD   HL, START_GOLD
-                LD   (KingdomGold), HL
                 LD   HL, RecruitAvailNum          ; копировать базовое доступное → DwellAvail (6×DW)
                 LD   DE, DwellAvail
                 LD   BC, 12
@@ -1496,10 +1504,6 @@ Town_Enter:
                 LD   HL, ConstructInitBuilt       ; рантайм-постройки = начально построенные (18 байт)
                 LD   DE, BuiltRuntime
                 LD   BC, 18
-                LDIR
-                LD   HL, StartRes6                ; 6 ресурсов казны (wood..gems) — стартовые
-                LD   DE, KingdomRes6
-                LD   BC, 12
                 LDIR
                 LD   HL, (DayCounter)             ; день входа в игру (экономика с этого дня)
                 LD   (TownLastDay), HL
@@ -1904,7 +1908,8 @@ Town_Update:
                 JR   .exit                        ; в кнопке EXIT → выход
 .stay:          XOR  A                            ; клик НЕ по Exit (здание/панель) → остаёмся; A=0
                 RET
-.exit:          ; Город затёр RAM_G-кэш террейн-композита. Перед возвратом на карту форсируем
+.exit:          CALL Town_SaveState                ; снимок города → #91 (постройки/жилища/армия)
+                ; Город затёр RAM_G-кэш террейн-композита. Перед возвратом на карту форсируем
                 ; полный перезалив: сбросить RuntimeLastOrigin (резидентная RAM, пишем из оверлея)
                 ; в #FF → Runtime_UploadStaticIfDirty увидит origin!=last → зальёт грунт заново.
                 LD   HL, #FFFF
@@ -1912,6 +1917,17 @@ Town_Update:
                 LD   A, 1
                 LD   (TownExitLatch), A            ; зафиксировать; A=1 (выход)
                 RET
+
+; Снимок перс-блока города → #91 (через TownStateBuf: при мапе #91 оверлей невидим).
+; TownStateInit=1 попадает в снимок → вход по снимку минует init. Портит A,BC,DE,HL.
+Town_SaveState:
+                LD   A, 1
+                LD   (TownStateInit), A
+                LD   HL, TownPersist
+                LD   DE, TownStateBuf
+                LD   BC, TOWN_PERSIST_LEN
+                LDIR
+                JP   GState_Commit
 
 ; Рендер города: новый DL = Town_DL (CLEAR + композит ×1.6) + курсор + swap.
 ; Зовётся через Render_Town_Tramp. Хелперы (CmdBufCopy/GlobalCursor/SwapFrameDMA) slot3-safe.

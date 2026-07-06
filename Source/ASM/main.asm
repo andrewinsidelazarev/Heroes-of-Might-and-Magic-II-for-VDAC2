@@ -64,14 +64,23 @@ UIClickX       EQU #4241        ; временные координаты кли
 UIClickY       EQU #4243        ; (2б)
 HeroMovePoints EQU #4245        ; очки передвижения героя (в тайлах, 0..MAX); End Turn пополняет
 GameDay        EQU #4246        ; счётчик дня (1-based, 2б)
-; Ресурсы королевства (fheroes2 Funds). Золото 3б (растёт >65535), прочее 2б.
-ResGold        EQU #4248        ; 3б
-ResWood        EQU #424B        ; 2б
-ResOre         EQU #424D        ; 2б
-ResMercury     EQU #424F        ; 2б
-ResSulfur      EQU #4251        ; 2б
-ResCrystal     EQU #4253        ; 2б
-ResGems        EQU #4255        ; 2б  (до #4257)
+; Ресурсы королевства — ЕДИНАЯ КАЗНА (Kingdom::Funds): 7×DW ПОДРЯД в порядке cost-вектора
+; fheroes2 (gold,wood,mercury,ore,sulfur,crystal,gems) — город адресует вектором
+; (KingdomGold/KingdomRes6 EQU сюда), карта — по именам. Gold 2б (кламп 65535 — в
+; скирмише недостижимо; было 3б).
+KingdomFunds   EQU #4248
+ResGold        EQU #4248        ; 2б
+ResWood        EQU #424A        ; 2б
+ResMercury     EQU #424C        ; 2б
+ResOre         EQU #424E        ; 2б
+ResSulfur      EQU #4250        ; 2б
+ResCrystal     EQU #4252        ; 2б
+ResGems        EQU #4254        ; 2б  (до #4255)
+; Снимок состояния города в GlobalData #91 (город — оверлей, рестримится каждый вход):
+; #91:GLOBAL_STATE_BASE = магия GSTATE_MAGIC, +1.. = перс-блок города (TownPersist, town.asm).
+GSTATE_MAGIC   EQU #A5
+GSTATE_LEN     EQU 68           ; ASSERT в town.asm сверяет с фактической длиной блока
+GSTATE_OFS_STATUE EQU 30        ; смещение BuiltRuntime[CONSTRUCT_STATUE_SLOT] в блоке (доход +250)
 MenuClickLatch EQU #4258        ; latch LMB в меню (1 клик = 1 действие)
 MenuNameBuf    EQU #4259        ; slot1-буфер имени PAK (14б, #4259..#4266) для loader
 MenuHoverIndex EQU #4267        ; индекс кнопки под мышью (#FF=нет) — hover-подсветка по оригиналу
@@ -637,6 +646,56 @@ GData_ReadByte:
                 SetPage3_A
                 POP  AF
                 RET
+; --- Снимок состояния города (персистентность: оверлей города рестримится каждый вход) ---
+; Протокол: town-код (slot3) копирует перс-блок ↔ TownStateBuf (нижняя RAM видна всегда),
+; резидентные хелперы переносят буфер ↔ #91:GLOBAL_STATE_BASE (город при мапе #91 невидим!).
+TownStateBuf:   DEFS GSTATE_LEN
+; Записать буфер в #91 + магия. Портит A,BC,DE,HL.
+GState_Commit:
+                GetPage3
+                PUSH AF
+                SetPage3 GLOBAL_DATA_PAGE
+                LD   HL, TownStateBuf
+                LD   DE, GLOBAL_STATE_BASE + 1
+                LD   BC, GSTATE_LEN
+                LDIR
+                LD   A, GSTATE_MAGIC
+                LD   (GLOBAL_STATE_BASE), A
+                POP  AF
+                SetPage3_A
+                RET
+; Прочитать снимок в буфер. OUT: A=1 снимок есть / A=0 нет. Портит A,BC,DE,HL.
+GState_Fetch:
+                GetPage3
+                PUSH AF
+                SetPage3 GLOBAL_DATA_PAGE
+                LD   A, (GLOBAL_STATE_BASE)
+                CP   GSTATE_MAGIC
+                JR   NZ, .none
+                LD   HL, GLOBAL_STATE_BASE + 1
+                LD   DE, TownStateBuf
+                LD   BC, GSTATE_LEN
+                LDIR
+                LD   C, 1
+                JR   .done
+.none:          LD   C, 0
+.done:          POP  AF
+                SetPage3_A
+                LD   A, C
+                RET
+; Сбросить снимок (новая игра). Портит A,B.
+GState_Reset:
+                GetPage3
+                LD   B, A
+                XOR  A
+                PUSH HL                            ; ★SetPage3 <const> ПОРТИТ HL
+                SetPage3 GLOBAL_DATA_PAGE
+                POP  HL
+                LD   (GLOBAL_STATE_BASE), A
+                LD   A, B
+                SetPage3_A
+                RET
+
 ; Отладочное зеркало боя для statedump (эмулятор дампит страницы 5/6; оверлей боя в slot3 не виден).
 ; Battle_Render копирует сюда состояние каждый кадр: units(20) + startCnt(8) + result(1).
 DbgBattleMirror: DEFS 41           ; +33..40: дебаг меч-курсора {dirW, dx16, dy16, dirC, hover, active}
