@@ -116,23 +116,8 @@ MenuLantern_9_DL:
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 136, 180
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 218, 288
                 FT_VERTEX2F 1229, 4685
-MenuLantern_10_DL:
-                FT_BITMAP_SOURCE #0A0480
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 136, 180
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 218, 288
-                FT_VERTEX2F 1229, 4685
-MenuLantern_11_DL:
-                FT_BITMAP_SOURCE #0A6420
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 136, 180
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 218, 288
-                FT_VERTEX2F 1229, 4685
-MenuLantern_12_DL:
-                FT_BITMAP_SOURCE #0AC3C0
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 136, 180
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 218, 288
-                FT_VERTEX2F 1229, 4685
 
-MENU_LANTERN_FRAMES EQU 13
+MENU_LANTERN_FRAMES EQU 10
 MENU_LANTERN_SHIFT  EQU 2
 MenuLanternFrameTab:
                 DEFW MenuLantern_0_DL
@@ -145,9 +130,6 @@ MenuLanternFrameTab:
                 DEFW MenuLantern_7_DL
                 DEFW MenuLantern_8_DL
                 DEFW MenuLantern_9_DL
-                DEFW MenuLantern_10_DL
-                DEFW MenuLantern_11_DL
-                DEFW MenuLantern_12_DL
 
 MenuBtn_NEW_GAME_REL_DL:
                 FT_BITMAP_SOURCE #04B40C
@@ -235,11 +217,72 @@ MenuBtnFrameTab:
                 DEFW MenuBtn_QUIT_REL_DL, MenuBtn_QUIT_HOVER_DL, MenuBtn_QUIT_PRESSED_DL
 
 MenuDoor_DL:
-                FT_BITMAP_SOURCE #0B2360
+                FT_BITMAP_SOURCE #0A0480
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 136, 125
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 218, 200
                 FT_VERTEX2F 1229, 6093
 MenuSettingsZone:    DEFW 63, 202, 171, 362   ; зона настроек (door highlight)
+
+; Подменю NEW GAME (ориг. HoMM2, геометрия fheroes2 1.0.0 drawButtonPanel)
+MenuNgPanel_DL:
+                FT_BITMAP_SOURCE #0A46E8
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 227, 472
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 364, 756
+                FT_BITMAP_SIZE_H 364, 756
+                FT_VERTEX2F 10368, 205
+                FT_BITMAP_SIZE_H 0, 0             ; сброс (ловушка &511)
+MenuNgPanel_DL_SIZE EQU $ - MenuNgPanel_DL
+MenuNgBtn_STANDARD_REL_DL:
+                FT_BITMAP_SOURCE #0BE970
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 132, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 212, 100
+                FT_VERTEX2F 11699, 1178
+MenuNgBtn_STANDARD_PRS_DL:
+                FT_BITMAP_SOURCE #0C0968
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 132, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 212, 100
+                FT_VERTEX2F 11699, 1178
+MenuNgBtn_CAMPAIGN_REL_DL:
+                FT_BITMAP_SOURCE #0C2960
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 132, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 212, 100
+                FT_VERTEX2F 11699, 2867
+MenuNgBtn_CAMPAIGN_PRS_DL:
+                FT_BITMAP_SOURCE #0C4958
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 132, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 212, 100
+                FT_VERTEX2F 11699, 2867
+MenuNgBtn_MULTI_REL_DL:
+                FT_BITMAP_SOURCE #0C6950
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 132, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 212, 100
+                FT_VERTEX2F 11699, 4557
+MenuNgBtn_MULTI_PRS_DL:
+                FT_BITMAP_SOURCE #0C8948
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 132, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 212, 100
+                FT_VERTEX2F 11699, 4557
+MenuNgBtn_CANCEL_REL_DL:
+                FT_BITMAP_SOURCE #0CA940
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 132, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 212, 100
+                FT_VERTEX2F 11699, 9626
+MenuNgBtn_CANCEL_PRS_DL:
+                FT_BITMAP_SOURCE #0CC938
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 132, 62
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 212, 100
+                FT_VERTEX2F 11699, 9626
+MENU_NG_BUTTON_COUNT EQU 4
+MenuNgBtnTab:                        ; на кнопку 2 указателя: released, pressed
+                DEFW MenuNgBtn_STANDARD_REL_DL, MenuNgBtn_STANDARD_PRS_DL
+                DEFW MenuNgBtn_CAMPAIGN_REL_DL, MenuNgBtn_CAMPAIGN_PRS_DL
+                DEFW MenuNgBtn_MULTI_REL_DL, MenuNgBtn_MULTI_PRS_DL
+                DEFW MenuNgBtn_CANCEL_REL_DL, MenuNgBtn_CANCEL_PRS_DL
+MenuNgZones:                         ; зоны hit-test (x0,y0,x1,y1 логич.)
+                DEFW 457, 46, 589, 108   ; STANDARD
+                DEFW 457, 112, 589, 174   ; CAMPAIGN
+                DEFW 457, 178, 589, 240   ; MULTI
+                DEFW 457, 376, 589, 438   ; CANCEL
 
 ; запись: x0,y0,x1,y1 (4×2б). Индекс зоны = индекс кнопки (0=New Game).
 MenuButtonZones:
@@ -250,8 +293,8 @@ MenuButtonZones:
                 DEFW 0, 425, 86, 469   ; [17] QUIT
 
 MENU_RAMG_BASE       EQU #000000
-MENU_PAYLOAD_BYTES   EQU 746952
-MENU_PAYLOAD_SECTORS EQU 1459
+MENU_PAYLOAD_BYTES   EQU 846128
+MENU_PAYLOAD_SECTORS EQU 1653
 MENU_BODY_SECTOR     EQU 1   ; payload начинается с этого сектора файла
 MenuPakName:         DEFB "HMM2MENU.PAK", 0
 

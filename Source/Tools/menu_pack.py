@@ -58,11 +58,24 @@ MENU_BTN_ICN = "BTNSHNGL.ICN"
 MENU_BTN_RELEASED = [1, 5, 9, 13, 17]            # released; hover = +1, pressed = +2
 MENU_BTN_NAME = ["NEW_GAME", "LOAD_GAME", "HIGH_SCORES", "CREDITS", "QUIT"]
 
+# --- Подменю NEW GAME (оригинальный вид HoMM2; геометрия = fheroes2 1.0.0 drawButtonPanel,
+#     game_newgame.cpp: панель REDBACK @ (640−227−8, 480−472)=(405,8); кнопки BTNNEWGM 132×62:
+#     x = 405+16+(227−16)/2 − 132/2 − 3 = 457 (SHADOWWIDTH=16, 3=тень кнопки), y = 46 + 66·i;
+#     Cancel в 6-м слоте (y = 46+330 = 376). Кадры: Standard 0/1, Campaign 2/3, Multi 4/5,
+#     Cancel 6/7 (released/pressed; hover-кадров у BTNNEWGM нет — по оригиналу). ---
+NG_PANEL_ICN = "REDBACK.ICN"
+NG_BTN_ICN = "BTNNEWGM.ICN"
+NG_PANEL_POS = (405, 8)
+NG_BTN_X = 457
+NG_BTN_Y = [46, 112, 178, 376]                   # Standard, Campaign, Multi-Player, Cancel
+NG_BTN_NAME = ["STANDARD", "CAMPAIGN", "MULTI", "CANCEL"]
+
 MENU_LANTERN_ICN = "SHNGANIM.ICN"
 MENU_LANTERN_BASE_FRAME = 0                       # SHNGANIM[0] — статичная база фонаря
 MENU_LANTERN_ANIM_FIRST = 1                       # анимация: кадры 1..39 (getAnimatedIcnIndex)
 MENU_LANTERN_ANIM_LAST = 39
-MENU_LANTERN_STRIDE = 3                           # прореживание под RAM_G (39 → 13 кадров)
+MENU_LANTERN_STRIDE = 4                           # прореживание под RAM_G (39 → 10 кадров;
+                                                  # шаг 3 не влезает с ассетами подменю NEW GAME)
 MENU_LANTERN_SHIFT = 2                            # смена кадра каждые 1<<SHIFT гейм-кадров
 
 # Подсветка двери (settingsArea hover): highlightDoor = SHNGANIM[18] + ApplyPalette(.,8),
@@ -135,7 +148,18 @@ def load_menu_sources():
         "w": dw, "h": dh - MENU_DOOR_OFFSET_Y,
         "indices": bytes(PAL8[i] for i in cropped),
     }
-    return palette, bg, buttons, lantern, door
+    # Подменю NEW GAME: панель REDBACK + 4 кнопки BTNNEWGM (released/pressed)
+    rb = read_icn(agg_entry(agg, entries, NG_PANEL_ICN))
+    ng_panel = _frame(rb, 0)
+    ngb = read_icn(agg_entry(agg, entries, NG_BTN_ICN))
+    ng_buttons = []
+    for i, name in enumerate(NG_BTN_NAME):
+        r = _frame(ngb, i * 2)
+        p = _frame(ngb, i * 2 + 1)
+        ng_buttons.append({"name": name, "released": r, "pressed": p,
+                           "x": NG_BTN_X, "y": NG_BTN_Y[i]})
+    newgame = {"panel": ng_panel, "buttons": ng_buttons}
+    return palette, bg, buttons, lantern, door, newgame
 
 
 def background_tiles(bg):
@@ -146,7 +170,7 @@ def background_tiles(bg):
     ]
 
 
-def build_payload(palette, tiles, buttons, lantern, door):
+def build_payload(palette, tiles, buttons, lantern, door, newgame):
     """RAM_G-payload меню (base 0). Проставляет addr на каждый блок. Возвращает (payload, addrs)."""
     payload = bytearray()
 
@@ -169,6 +193,10 @@ def build_payload(palette, tiles, buttons, lantern, door):
     for f in lantern["frames"]:
         f["addr"] = put(f["indices"])
     door["addr"] = put(door["indices"])
+    newgame["panel"]["addr"] = put(newgame["panel"]["indices"])
+    for b in newgame["buttons"]:
+        b["released"]["addr"] = put(b["released"]["indices"])
+        b["pressed"]["addr"] = put(b["pressed"]["indices"])
     return payload, {"transparent": transparent_addr, "opaque": opaque_addr}
 
 
@@ -180,7 +208,7 @@ def _sprite_dl(L, addr, w, h, dx, dy):
     L.append(f"                FT_VERTEX2F {scaled_vertex2f_units(dx)}, {scaled_vertex2f_units(dy)}")
 
 
-def emit_inc(addrs, tiles, buttons, lantern, door, pak):
+def emit_inc(addrs, tiles, buttons, lantern, door, newgame, pak):
     L = []
     L.append("; Сгенерировано Source/Tools/menu_pack.py — ассеты главного меню (hover/pressed + фонарь).")
     L.append("                ifndef _HMM2_GENERATED_MENU_")
@@ -268,6 +296,34 @@ def emit_inc(addrs, tiles, buttons, lantern, door, pak):
     L.append(f"MenuSettingsZone:    DEFW {sx}, {sy}, {sx + sw}, {sy + sh}   ; зона настроек (door highlight)")
     L.append("")
 
+    # --- Подменю NEW GAME: панель REDBACK (472 лог → физ >511: SIZE_H + сброс) + 4 кнопки ---
+    pn = newgame["panel"]
+    px, py = NG_PANEL_POS
+    pw16, ph16 = scaled_screen_pixels(pn["w"]), scaled_screen_pixels(pn["h"])
+    L.append("; Подменю NEW GAME (ориг. HoMM2, геометрия fheroes2 1.0.0 drawButtonPanel)")
+    L.append("MenuNgPanel_DL:")
+    L.append(f"                FT_BITMAP_SOURCE #{pn['addr']:06X}")
+    L.append(f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {pn['w']}, {pn['h']}")
+    L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {pw16}, {ph16}")
+    L.append(f"                FT_BITMAP_SIZE_H {pw16}, {ph16}")
+    L.append(f"                FT_VERTEX2F {scaled_vertex2f_units(px)}, {scaled_vertex2f_units(py)}")
+    L.append("                FT_BITMAP_SIZE_H 0, 0             ; сброс (ловушка &511)")
+    L.append("MenuNgPanel_DL_SIZE EQU $ - MenuNgPanel_DL")
+    for b in newgame["buttons"]:
+        L.append(f"MenuNgBtn_{b['name']}_REL_DL:")
+        _sprite_dl(L, b["released"]["addr"], b["released"]["w"], b["released"]["h"], b["x"], b["y"])
+        L.append(f"MenuNgBtn_{b['name']}_PRS_DL:")
+        _sprite_dl(L, b["pressed"]["addr"], b["pressed"]["w"], b["pressed"]["h"], b["x"], b["y"])
+    L.append(f"MENU_NG_BUTTON_COUNT EQU {len(newgame['buttons'])}")
+    L.append("MenuNgBtnTab:                        ; на кнопку 2 указателя: released, pressed")
+    for b in newgame["buttons"]:
+        L.append(f"                DEFW MenuNgBtn_{b['name']}_REL_DL, MenuNgBtn_{b['name']}_PRS_DL")
+    L.append("MenuNgZones:                         ; зоны hit-test (x0,y0,x1,y1 логич.)")
+    for b in newgame["buttons"]:
+        bw, bh = b["released"]["w"], b["released"]["h"]
+        L.append(f"                DEFW {b['x']}, {b['y']}, {b['x'] + bw}, {b['y'] + bh}   ; {b['name']}")
+    L.append("")
+
     # --- зоны кнопок для hit-test (ЛОГИЧЕСКИЕ координаты 640×480) ---
     L.append("; запись: x0,y0,x1,y1 (4×2б). Индекс зоны = индекс кнопки (0=New Game).")
     L.append("MenuButtonZones:")
@@ -320,7 +376,7 @@ def main() -> int:
     ap.add_argument("--preview", type=Path, default=None, help="PNG-реконструкция меню для сверки")
     args = ap.parse_args()
 
-    palette, bg, buttons, lantern, door = load_menu_sources()
+    palette, bg, buttons, lantern, door, newgame = load_menu_sources()
     tiles = background_tiles(bg)
 
     if args.preview:
@@ -328,7 +384,8 @@ def main() -> int:
         print(f"preview: {args.preview}")
         return 0
 
-    payload, addrs = build_payload(palette, tiles, buttons, lantern, door)
+    payload, addrs = build_payload(palette, tiles, buttons, lantern, door, newgame)
+    assert len(payload) <= 0x0E0000, f"menu payload {len(payload)} превышает зону курсора #0E0000"
     summary = build_pak(
         [{"type": TYPE_RAMG_BLOB, "target": MENU_RAMG_BASE, "data": bytes(payload)}],
         MENU_PAK_PATH,
@@ -338,7 +395,7 @@ def main() -> int:
         "payload_sectors": (len(payload) + SECTOR - 1) // SECTOR,
         "body_start_sector": summary["body_start_sector"],
     }
-    emit_inc(addrs, tiles, buttons, lantern, door, pak)
+    emit_inc(addrs, tiles, buttons, lantern, door, newgame, pak)
     print(f"menu pack -> {MENU_PAK_PATH.name}: фон {len(tiles)} кусков + {len(buttons)} кнопок x3 кадра "
           f"+ фонарь(база+{len(lantern['frames'])} кадров), payload={len(payload)} байт "
           f"({pak['payload_sectors']} сект), PAK={summary['total_bytes']} байт, blob с сектора {pak['body_start_sector']}")

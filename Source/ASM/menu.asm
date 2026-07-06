@@ -26,6 +26,8 @@
 
                 include "generated_menu.inc"
 
+MenuScreen:     DEFB 0            ; 0 = главное меню, 1 = подменю NEW GAME (ориг. HoMM2)
+
 Menu_Enter:
                 LD   A, GAME_MODE_MENU
                 LD   (GameMode), A
@@ -34,6 +36,7 @@ Menu_Enter:
                 LD   (MenuLmbDown), A
                 LD   (MenuLanternIdx), A
                 LD   (MenuDoorHover), A
+                LD   (MenuScreen), A
                 LD   A, #FF
                 LD   (MenuHoverIndex), A
                 CALL Menu_LoadFromPak            ; стрим HMM2MENU.PAK с SD → RAM_G
@@ -86,6 +89,9 @@ Menu_Update:
                 XOR  A
 .storeIdx:      LD   (MenuLanternIdx), A
 .noAnim:
+                LD   A, (MenuScreen)             ; подменю NEW GAME → своя ветка
+                OR   A
+                JP   NZ, MenuNg_Update
                 ; --- какая кнопка под мышью → MenuHoverIndex (#FF если ни одной) ---
                 CALL Menu_ComputeHover
                 ; --- наведение на зону настроек → подсветка двери (UIClickX/Y уже прочитаны) ---
@@ -111,7 +117,11 @@ Menu_Update:
                 JR   Z, .act_hiscores
 .none:          XOR  A                           ; Load/Credits/Quit заглушка → действие 0
                 RET
-.act_newgame:   LD   A, 1                        ; → резидент зовёт Adventure_Enter
+.act_newgame:   LD   A, 1                        ; New Game → ПОДМЕНЮ (ориг.: Standard/Campaign/…)
+                LD   (MenuScreen), A
+                LD   A, #FF
+                LD   (MenuHoverIndex), A
+                XOR  A                           ; остаёмся в меню (действие 0)
                 RET
 .act_hiscores:  LD   A, 2                        ; → резидент зовёт HiScores
                 RET
@@ -119,6 +129,63 @@ Menu_Update:
                 LD   (MenuLmbDown), A
                 LD   (MenuClickLatch), A
                 XOR  A                           ; действие 0
+                RET
+
+; --- Подменю NEW GAME (game_newgame.cpp 1.0.0): Standard → старт игры; Campaign/Multi —
+; контента нет (кампании/мультиплеера в порте нет — клик пуст); Cancel → главное меню.
+; Кнопки BTNNEWGM: released/pressed (hover-кадров у ассета нет — по оригиналу).
+; OUT: A = действие (0=нет, 1=New Game старт).
+MenuNg_Update:
+                CALL Input_MouseX                ; hover NG-кнопки → MenuHoverIndex
+                LD   (UIClickX), HL
+                CALL Input_MouseY
+                LD   (UIClickY), HL
+                LD   IX, MenuNgZones
+                LD   B, MENU_NG_BUTTON_COUNT
+                LD   C, 0
+.zloop:         PUSH BC
+                CALL Menu_HitTestZone
+                POP  BC
+                OR   A
+                JR   NZ, .zhit
+                LD   DE, 8
+                ADD  IX, DE
+                INC  C
+                DJNZ .zloop
+                LD   A, #FF                      ; ни одной
+                JR   .zstore
+.zhit:          LD   A, C
+.zstore:        LD   (MenuHoverIndex), A
+                CALL Input_MouseLMB
+                JR   Z, .ngreleased
+                LD   A, 1
+                LD   (MenuLmbDown), A
+                LD   A, (MenuClickLatch)
+                OR   A
+                JR   NZ, .ngnone
+                LD   A, 1
+                LD   (MenuClickLatch), A
+                LD   A, (MenuHoverIndex)
+                CP   #FF
+                JR   Z, .ngnone
+                OR   A                           ; 0 = Standard Game → старт
+                JR   Z, .ngstandard
+                CP   3                           ; 3 = Cancel → главное меню
+                JR   Z, .ngcancel
+.ngnone:        XOR  A                           ; Campaign/Multi: контента нет → пусто
+                RET
+.ngstandard:    LD   A, 1                        ; → резидент зовёт Adventure_Enter
+                RET
+.ngcancel:      XOR  A
+                LD   (MenuScreen), A
+                LD   A, #FF
+                LD   (MenuHoverIndex), A
+                XOR  A
+                RET
+.ngreleased:    XOR  A
+                LD   (MenuLmbDown), A
+                LD   (MenuClickLatch), A
+                XOR  A
                 RET
 
 ; Menu_ComputeHover: найти кнопку под мышью. Out: A=индекс (0..N-1) или #FF; пишет
@@ -199,6 +266,9 @@ Render_Menu:
                 LD   HL, MenuSpritesProlog_DL
                 LD   BC, MenuSpritesProlog_DL_SIZE
                 CALL Render_CmdBufCopy
+                LD   A, (MenuScreen)             ; подменю NEW GAME → свой хвост кадра
+                OR   A
+                JP   NZ, MenuNg_Render
                 ; фонарь: статичная база
                 LD   HL, MenuLanternBase_DL
                 LD   BC, MENU_SPRITE_DL_SIZE
@@ -232,6 +302,71 @@ Render_Menu:
                 CALL Render_CmdBufCopy
                 CALL Render_GlobalCursor         ; курсор по raw-мыши (CURSOR_DL содержит DISPLAY)
                 CALL Render_SwapFrameDMA         ; vsync ПЕРЕД DMA+DLSWAP — фаза свапа = refresh, не build
+                RET
+
+; Хвост кадра подменю NEW GAME (drawMainMenuScreen + drawButtonPanel, 1.0.0): фонарь-база
+; СТАТИЧНА (в подменю не анимируется), шингл-кнопки released (панель закрывает правые),
+; панель REDBACK, 4 кнопки BTNNEWGM (pressed при удержании в зоне).
+MenuNg_Render:
+                LD   HL, MenuLanternBase_DL      ; фонарь: только статичная база
+                LD   BC, MENU_SPRITE_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   B, MENU_BUTTON_COUNT        ; шингл-кнопки все released
+                LD   C, 0
+.sbl:           PUSH BC
+                LD   A, C
+                ADD  A, A
+                ADD  A, C                        ; i*3 (state 0)
+                ADD  A, A                        ; *2
+                LD   L, A
+                LD   H, 0
+                LD   DE, MenuBtnFrameTab
+                ADD  HL, DE
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)
+                EX   DE, HL
+                LD   BC, MENU_SPRITE_DL_SIZE
+                CALL Render_CmdBufCopy
+                POP  BC
+                INC  C
+                DJNZ .sbl
+                LD   HL, MenuNgPanel_DL          ; панель REDBACK (SIZE_H внутри + сброс)
+                LD   BC, MenuNgPanel_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   B, MENU_NG_BUTTON_COUNT     ; кнопки: released / pressed (hover нет — ориг.)
+                LD   C, 0
+.nbl:           PUSH BC
+                LD   E, 0                        ; state: pressed если hover==i и ЛКМ зажата
+                LD   A, (MenuHoverIndex)
+                CP   C
+                JR   NZ, .nst
+                LD   A, (MenuLmbDown)
+                OR   A
+                JR   Z, .nst
+                LD   E, 1
+.nst:           LD   A, C
+                ADD  A, A                        ; i*2
+                ADD  A, E                        ; + state
+                ADD  A, A                        ; *2 (слово)
+                LD   L, A
+                LD   H, 0
+                LD   DE, MenuNgBtnTab
+                ADD  HL, DE
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)
+                EX   DE, HL
+                LD   BC, MENU_SPRITE_DL_SIZE
+                CALL Render_CmdBufCopy
+                POP  BC
+                INC  C
+                DJNZ .nbl
+                LD   HL, MenuSpritesEnd_DL       ; конец спрайтов + курсор + swap (общий хвост)
+                LD   BC, MenuSpritesEnd_DL_SIZE
+                CALL Render_CmdBufCopy
+                CALL Render_GlobalCursor
+                CALL Render_SwapFrameDMA
                 RET
 
 ; Дорисовка кнопок: для каждой кнопки i выбрать кадр по состоянию и скопировать его
