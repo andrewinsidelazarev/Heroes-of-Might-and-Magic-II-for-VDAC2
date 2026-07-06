@@ -628,6 +628,124 @@ def compose_battle_settings(agg, ent):
     return bytes(cv), CW, CH, meta
 
 
+# --- ПКМ-справки боя (showStandardTextMessage, Dialog::ZERO — показ пока ПКМ зажат):
+#     заголовок normalYellow + тело normalWhite в рамке BUYBUILD (dialog_box.cpp).
+#     Тексты — ТОЧНО из battle_interface.cpp:3283/3298/3314 и battle_dialogs.cpp:336-356.
+HELP_WINDOWS = [
+    ("Automatic Combat Modes",
+     "Choose between proceeding the combat in auto combat mode or in quick combat mode."),
+    ("System Options", "Allows you to customize the combat screen."),
+    ("Skip",
+     "Skips the current creature. The current creature ends its turn and does not get to go again until the next round."),
+    ("Speed", "Set the speed of combat actions and animations."),
+    ("Interface Settings", "Change the interface settings of the game."),
+    ("Auto Spell Casting",
+     "Toggle whether or not the computer will cast spells for you when auto combat is on. (Note: This does not affect spell casting for computer players in any way, nor does it affect quick combat.)"),
+    ("Audio", "Change the audio settings of the game."),
+    ("Hot Keys", "Check and configure all the hot keys present in the game."),
+    ("Okay", "Exit this menu."),
+]
+HELP_TEXT_W = 244                   # fheroes2::boxAreaWidthPx
+HELP_TEXT_OFS_Y = 10                # textOffsetY (ui_dialog.cpp)
+HELP_LINE_H = 16                    # высота строки FONT.ICN (как шаг статов ArmyInfo)
+
+
+def compose_help_window(agg, ent, title, body):
+    """Окно ПКМ-справки: рамка BUYBUILD по Dialog::NonFixedFrameBox (dialog_box.cpp:127:
+    верх [4]+[0] h=99, середина [5]+[1] чанками ≤35 с crop y=10, низ [6]+[2] h=81;
+    leftW=161, окно 306 шир.) + заголовок normalYellow (ремап YELLOW_TEXT_TABLE) + тело
+    normalWhite, перенос по словам в 244px, построчный центр (Text::draw). Текстовая зона
+    @ (39,64) от верха окна. Возврат (buf, W, H)."""
+    fr = read_icn(agg_entry(agg, ent, "BUYBUILD.ICN"))
+    parts = {}
+    for i in (0, 1, 2, 4, 5, 6):
+        h, e = fr[i]
+        parts[i] = (decode_icn_indices(h, e), h["w"], h["h"])
+    fnt = read_icn(agg_entry(agg, ent, "FONT.ICN"))
+    SPACE = 6
+
+    def tw(t):
+        return sum(SPACE if c == " " else fnt[ord(c) - 32][0]["w"] for c in t)
+
+    def wrap(t):
+        words, lines, cur = t.split(" "), [], ""
+        for wd in words:
+            cand = wd if not cur else cur + " " + wd
+            if not cur or tw(cand) <= HELP_TEXT_W:
+                cur = cand
+            else:
+                lines.append(cur)
+                cur = wd
+        lines.append(cur)
+        return lines
+
+    tl = wrap(title)
+    bl = wrap(body)
+    head_h = len(tl) * HELP_LINE_H + HELP_TEXT_OFS_Y
+    text_h = head_h + len(bl) * HELP_LINE_H + HELP_TEXT_OFS_Y
+    middle = 0 if text_h <= 70 else text_h - 70
+    left_w, W = 161, 306
+    H = 99 + middle + 81
+    cv = bytearray([TRANSPARENT]) * (W * H)
+
+    def blit(part, dx, dy, crop_y=0, hh=None):
+        src, sw, sh = part
+        hh = sh - crop_y if hh is None else hh
+        for yy in range(hh):
+            for xx in range(sw):
+                v = src[(crop_y + yy) * sw + xx]
+                if v != TRANSPARENT and 0 <= dx + xx < W and 0 <= dy + yy < H:
+                    cv[(dy + yy) * W + dx + xx] = v
+
+    blit(parts[4], left_w - parts[4][1], 0)                 # верх-лево
+    blit(parts[0], left_w, 0)                               # верх-право
+    y = 99
+    left = middle
+    while left > 0:                                         # середины чанками ≤35 (crop y=10)
+        chunk = min(35, left)
+        blit(parts[5], left_w - parts[5][1], y, crop_y=10, hh=chunk)
+        blit(parts[1], left_w, y, crop_y=10, hh=chunk)
+        left -= chunk
+        y += chunk
+    blit(parts[6], left_w - parts[6][1], 99 + middle)       # низ-лево
+    blit(parts[2], left_w, 99 + middle)                     # низ-право
+
+    def draw_line(t, cx_center, ty, remap=None):
+        cx = cx_center - tw(t) // 2
+        for c in t:
+            if c == " ":
+                cx += SPACE
+                continue
+            gh, ge = fnt[ord(c) - 32]
+            gi = decode_icn_indices(gh, ge)
+            gw, gg, goy = gh["w"], gh["h"], gh.get("oy", 0)
+            for yy in range(gg):
+                py = ty + goy + yy
+                if not (0 <= py < H):
+                    continue
+                for xx in range(gw):
+                    v = gi[yy * gw + xx]
+                    if v == TRANSPARENT:
+                        continue
+                    if remap is not None:
+                        v = remap.get(v, v)
+                    if 0 <= cx + xx < W:
+                        cv[py * W + cx + xx] = v
+            cx += gw
+
+    ax, ay = 39, 64                                         # текстовая зона окна
+    cxc = ax + HELP_TEXT_W // 2
+    ty = ay + HELP_TEXT_OFS_Y
+    for ln in tl:
+        draw_line(ln, cxc, ty, remap=YELLOW_TEXT_TABLE)
+        ty += HELP_LINE_H
+    ty = ay + HELP_TEXT_OFS_Y + head_h
+    for ln in bl:
+        draw_line(ln, cxc, ty)
+        ty += HELP_LINE_H
+    return bytes(cv), W, H
+
+
 def build_payload(palette, img, units, agg, ent):
     payload = bytearray()
 
@@ -1028,14 +1146,16 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     L.append("                FT_PALETTE_SOURCE BATTLE_YELLOW_PAL_RAMG")
     L.append("                FT_BEGIN FT_BITMAPS")
     L.append("Battle_WinTitle_Begin_DL_SIZE EQU $ - Battle_WinTitle_Begin_DL")
+    # записи надписей — в GlobalData #91 (вынос: оверлей у потолка); чтение GData_ReadByte
+    # в буфер BattleWinTextBuf (RenderWinText).
     L.append("WIN_TEXT_REC EQU 11")                  # +0..2 addr, +3 w, +4 h, +5 палитра, +6 vx, +8 vy, +10 результат
     L.append(f"BATTLE_WIN_TEXT_COUNT EQU {len(win_texts)}")
-    L.append("BattleWinTextTab:")
+    seq_lines_wt = ["GDBattleWinTextTab:                     ; записи надписей окна итога (11Б)"]
     for (addr, w, h, ye, vx, vy, result) in win_texts:
-        L.append(f"                DEFB #{addr & 0xFF:02X}, #{(addr >> 8) & 0xFF:02X}, "
-                 f"#{(addr >> 16) & 0xFF:02X}, {w}, {h}, {ye}")
-        L.append(f"                DEFW {vx}, {vy}")
-        L.append(f"                DEFB {result}      ; видимость: 0=всегда, 1=победа, 2=поражение")
+        seq_lines_wt.append(f"                DEFB #{addr & 0xFF:02X}, #{(addr >> 8) & 0xFF:02X}, "
+                            f"#{(addr >> 16) & 0xFF:02X}, {w}, {h}, {ye}")
+        seq_lines_wt.append(f"                DEFW {vx}, {vy}")
+        seq_lines_wt.append(f"                DEFB {result}      ; видимость: 0=всегда, 1=победа, 2=поражение")
     L.append("")
     # --- ОКНО ИТОГА (faithful, как fheroes2 DialogBattleSummary): WINLOSE рамка + баннер,
     #     центрировано ×1.6, палитра юнитов (idx0 прозрачный → поле видно вокруг окна). ---
@@ -1115,15 +1235,18 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
         anchor_lines.append(f"                DEFW {round((px + CELL_W / 2) * 25.6)}, "
                             f"{round((py + CELL_H + CELL_Y_OFFSET) * 25.6)}")
     # Последовательности групп: [type*NGROUPS+грп] → DEFW seq {DEFB len, слоты...}; 0 = группы нет.
+    # ДАННЫЕ — в GlobalData #91 (вынос: оверлей у потолка); указатели (#91-адреса) в оверлее,
+    # чтение Battle_SeqLen/SeqSlot через GData_ReadByte.
     L.append("BattleSeqPtrTab:")
     for t, u in enumerate(units):
         L.append("                DEFW " + ", ".join(
-            (f"BattleSeq{t}_{g}" if g in u["seqs"] else "0") for g in ANIM_GROUPS))
+            (f"GDBattleSeq{t}_{g}" if g in u["seqs"] else "0") for g in ANIM_GROUPS))
+    seq_lines = []
     for t, u in enumerate(units):
         for g in ANIM_GROUPS:
             if g in u["seqs"]:
                 slots = [u["slot"][f] for f in u["seqs"][g]]
-                L.append(f"BattleSeq{t}_{g}: DEFB {len(slots)}, " + ", ".join(map(str, slots)))
+                seq_lines.append(f"GDBattleSeq{t}_{g}: DEFB {len(slots)}, " + ", ".join(map(str, slots)))
     # --- Тайминги (в кадрах @48.83Гц): БАЗА BIN = BattleSpeed 4 (дефолт fheroes2). Per-speed
     #     наборы по Game::ApplyBattleSpeed (game_delays.cpp:224): k(s)=(10−s)/6, s=10 → 1/18;
     #     мс-величина ×k ДО деления на кадры (как ApplyBattleSpeed(...)/animationLength). ---
@@ -1196,6 +1319,8 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
         assert len(row) == 21
         LS.append("                DEFB " + ", ".join(map(str, row)) + f"   ; speed {s}")
     LS.extend(anchor_lines)
+    LS.extend(seq_lines)                                    # seq-последовательности групп (тоже #91)
+    LS.extend(seq_lines_wt)                                 # записи надписей окна итога (тоже #91)
     (BATTLE_INC.parent / "generated_battle_speed.inc").write_text("\n".join(LS) + "\n", encoding="utf-8")
     L.append("BattleIdleWaitMinTab: DEFW " + ", ".join(map(str, idle_min)) + " ; мин. пауза STATIC (тиков; от speed НЕ зависит — BIN idleDelay)")
     L.append("BATTLE_IDLE_RND_MASK EQU 127            ; пауза = min + (rand8 & mask) ≈ ×(75..125%)")
@@ -1436,6 +1561,37 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     L.append(f"BTLSET_OK_X1         EQU {stx + okx + okw_}")
     L.append(f"BTLSET_OK_Y0         EQU {sty + oky}")
     L.append(f"BTLSET_OK_Y1         EQU {sty + oky + okh_}")
+    # --- ПКМ-справки (showStandardTextMessage, Dialog::ZERO): 9 окон в PAK, стрим в область
+    #     финала по ПКМ-hold (0..2 = кнопки Auto/Settings/Skip; 3..8 = опции окна настроек).
+    L.append("")
+    L.append("; ПКМ-справки: [idx] → сектор/размер в PAK; DL-фрагмент на окно (центр экрана)")
+    L.append("BattleHelpSecTab:    DEFW " + ", ".join(str(hm["sec"]) for hm in set_dyn["helps"]))
+    L.append("BattleHelpSecN:      DEFB " + ", ".join(str(hm["sectors"]) for hm in set_dyn["helps"]))
+    L.append("Battle_HelpPre_DL:                    ; общий пролог всех окон справок")
+    L.append("                FT_BITMAP_TRANSFORM_A 160")
+    L.append("                FT_BITMAP_TRANSFORM_E 160")
+    L.append("                FT_PALETTE_SOURCE BATTLE_UNIT_PAL_RAMG")
+    L.append("                FT_BEGIN FT_BITMAPS")
+    L.append("                FT_BITMAP_SOURCE BATTLE_WIN_DLG_RAMG")
+    L.append("Battle_HelpPre_DL_SIZE EQU $ - Battle_HelpPre_DL")
+    for i, hm in enumerate(set_dyn["helps"]):
+        hw, hh = hm["W"], hm["H"]
+        hx, hy = (BATTLE_W - hw) // 2, (BATTLE_H - hh) // 2
+        L.append(f"Battle_Help{i}_DL:                     ; LAYOUT/SIZE/VERTEX окна {i} (пролог общий)")
+        L.append(f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {hw}, {hh}")
+        L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {hw * 16 // 10}, {hh * 16 // 10}")
+        L.append(f"                FT_BITMAP_SIZE_H {hw * 16 // 10}, {hh * 16 // 10}")
+        L.append(f"                FT_VERTEX2F {hx * 256 // 10}, {hy * 256 // 10}")
+    L.append("BATTLE_HELP_DL_SIZE EQU $ - Battle_Help8_DL   ; per-окно размер одинаков (4 команды)")
+    L.append("BattleHelpDLTab:                      ; [idx] → DEFW ptr (размер общий)")
+    for i in range(len(set_dyn["helps"])):
+        L.append(f"                DEFW Battle_Help{i}_DL")
+    # зоны ПКМ окна настроек: 6 прямоугольников (5 опций 65×65 + OKAY) → окна справок 3..8
+    L.append("BattleSetHelpRects:                   ; 6 × DEFW X0,X1,Y0,Y1 (окна справок 3..8)")
+    for ox, oy in ((20, 31), (112, 31), (204, 31), (53, 141), (171, 141)):
+        zx, zy = stx + 16 + ox, sty + 16 + oy
+        L.append(f"                DEFW {zx}, {zx + 65}, {zy}, {zy + 65}")
+    L.append(f"                DEFW {stx + okx}, {stx + okx + okw_}, {sty + oky}, {sty + oky + okh_}")
     L.append("")
     L.append("                endif")
     BATTLE_INC.write_text("\n".join(L), encoding="utf-8")
@@ -1475,11 +1631,15 @@ def main() -> int:
     set_buf = set_dyn["buf"]
     assert set_dyn["W"] * set_dyn["H"] <= win_dlg[1] * win_dlg[2], \
         f"окно настроек {set_dyn['W']}x{set_dyn['H']} больше области финала"
+    helps = [compose_help_window(agg, ent, t, b) for t, b in HELP_WINDOWS]
+    for hb, hw, hh in helps:
+        assert hw * hh <= win_dlg[1] * win_dlg[2], f"справка {hw}x{hh} больше области финала"
     summary = build_pak(
         [{"type": TYPE_RAMG_BLOB, "target": BATTLE_RAMG_BASE, "data": bytes(payload)},
          {"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(ai0)},   # target 0: грузим вручную
          {"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(ai1)},
-         {"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(set_buf)}],  # окно настроек (в обл. финала)
+         {"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(set_buf)}]  # окно настроек (в обл. финала)
+        + [{"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(hb)} for hb, _, _ in helps],
         BATTLE_PAK_PATH,
     )
     body = summary["body_start_sector"]
@@ -1487,6 +1647,13 @@ def main() -> int:
     ai_secs = (len(ai0) + SECTOR - 1) // SECTOR
     set_dyn["sec"] = body + pay_secs + 2 * ai_secs           # entries подряд, каждая с сектора
     set_dyn["sectors"] = (len(set_buf) + SECTOR - 1) // SECTOR
+    hsec = set_dyn["sec"] + set_dyn["sectors"]
+    help_meta = []
+    for hb, hw, hh in helps:
+        hs = (len(hb) + SECTOR - 1) // SECTOR
+        help_meta.append({"sec": hsec, "sectors": hs, "W": hw, "H": hh})
+        hsec += hs
+    set_dyn["helps"] = help_meta
     win_off = win_dlg[0] - BATTLE_RAMG_BASE
     assert win_off % SECTOR == 0
     pak = {

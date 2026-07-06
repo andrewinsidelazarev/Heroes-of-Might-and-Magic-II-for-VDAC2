@@ -438,46 +438,6 @@ Battle_WinTitle_Begin_DL:              ; пролог заголовка поб�
 Battle_WinTitle_Begin_DL_SIZE EQU $ - Battle_WinTitle_Begin_DL
 WIN_TEXT_REC EQU 11
 BATTLE_WIN_TEXT_COUNT EQU 13
-BattleWinTextTab:
-                DEFB #CC, #2E, #05, 34, 22, 1
-                DEFW 6224, 4812
-                DEFB 1      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #B8, #31, #05, 114, 27, 1
-                DEFW 6768, 4812
-                DEFB 1      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #C0, #3D, #05, 99, 27, 1
-                DEFW 8592, 4812
-                DEFB 1      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #34, #48, #05, 54, 14, 0
-                DEFW 5600, 4812
-                DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #28, #4B, #05, 64, 14, 0
-                DEFW 6464, 4812
-                DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #A8, #4E, #05, 66, 14, 0
-                DEFW 7488, 4812
-                DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #44, #52, #05, 18, 14, 0
-                DEFW 8544, 4812
-                DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #40, #53, #05, 61, 14, 0
-                DEFW 8832, 4812
-                DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #98, #56, #05, 61, 14, 0
-                DEFW 9808, 4812
-                DEFB 2      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #F0, #59, #05, 102, 14, 0
-                DEFW 6608, 7270
-                DEFB 0      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #84, #5F, #05, 96, 14, 0
-                DEFW 8240, 7270
-                DEFB 0      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #C4, #64, #05, 85, 14, 0
-                DEFW 7520, 7654
-                DEFB 0      ; видимость: 0=всегда, 1=победа, 2=поражение
-                DEFB #6C, #69, #05, 85, 14, 0
-                DEFW 7520, 9190
-                DEFB 0      ; видимость: 0=всегда, 1=победа, 2=поражение
 
 BATTLE_WIN_DLG_RAMG EQU #022E00
 Battle_WinDlg_DL:
@@ -781,30 +741,8 @@ BattleFrameLay1:
 BattleFrameOfsTab:                      ; [вариант] → &GD-таблицы (ofsX,ofsY)×кадры в #91
                 DEFW GDBattleFrameOfs0_0, GDBattleFrameOfs0_1, GDBattleFrameOfs1_0, GDBattleFrameOfs1_1
 BattleSeqPtrTab:
-                DEFW BattleSeq0_STATIC, BattleSeq0_IDLE1, BattleSeq0_IDLE2, BattleSeq0_IDLE3, BattleSeq0_MOVE_MAIN, BattleSeq0_ATTACK2, BattleSeq0_ATTACK2_END, 0, 0, BattleSeq0_DEATH, BattleSeq0_WINCE_UP, BattleSeq0_WINCE_END
-                DEFW BattleSeq1_STATIC, BattleSeq1_IDLE1, BattleSeq1_IDLE2, BattleSeq1_IDLE3, BattleSeq1_MOVE_MAIN, BattleSeq1_ATTACK2, BattleSeq1_ATTACK2_END, BattleSeq1_SHOOT2, BattleSeq1_SHOOT2_END, BattleSeq1_DEATH, BattleSeq1_WINCE_UP, BattleSeq1_WINCE_END
-BattleSeq0_STATIC: DEFB 1, 0
-BattleSeq0_IDLE1: DEFB 1, 1
-BattleSeq0_IDLE2: DEFB 1, 2
-BattleSeq0_IDLE3: DEFB 1, 3
-BattleSeq0_MOVE_MAIN: DEFB 8, 4, 5, 6, 7, 8, 9, 10, 11
-BattleSeq0_ATTACK2: DEFB 7, 15, 16, 17, 18, 19, 20, 21
-BattleSeq0_ATTACK2_END: DEFB 2, 22, 23
-BattleSeq0_DEATH: DEFB 7, 12, 13, 14, 24, 25, 26, 27
-BattleSeq0_WINCE_UP: DEFB 3, 12, 13, 14
-BattleSeq0_WINCE_END: DEFB 1, 13
-BattleSeq1_STATIC: DEFB 1, 0
-BattleSeq1_IDLE1: DEFB 4, 1, 2, 3, 2
-BattleSeq1_IDLE2: DEFB 2, 1, 2
-BattleSeq1_IDLE3: DEFB 3, 2, 3, 2
-BattleSeq1_MOVE_MAIN: DEFB 8, 4, 5, 6, 7, 8, 9, 10, 11
-BattleSeq1_ATTACK2: DEFB 6, 23, 24, 25, 26, 27, 28
-BattleSeq1_ATTACK2_END: DEFB 5, 27, 26, 25, 24, 23
-BattleSeq1_SHOOT2: DEFB 7, 15, 16, 17, 18, 19, 20, 21
-BattleSeq1_SHOOT2_END: DEFB 1, 22
-BattleSeq1_DEATH: DEFB 6, 29, 30, 31, 32, 33, 34
-BattleSeq1_WINCE_UP: DEFB 3, 12, 13, 14
-BattleSeq1_WINCE_END: DEFB 2, 13, 12
+                DEFW GDBattleSeq0_STATIC, GDBattleSeq0_IDLE1, GDBattleSeq0_IDLE2, GDBattleSeq0_IDLE3, GDBattleSeq0_MOVE_MAIN, GDBattleSeq0_ATTACK2, GDBattleSeq0_ATTACK2_END, 0, 0, GDBattleSeq0_DEATH, GDBattleSeq0_WINCE_UP, GDBattleSeq0_WINCE_END
+                DEFW GDBattleSeq1_STATIC, GDBattleSeq1_IDLE1, GDBattleSeq1_IDLE2, GDBattleSeq1_IDLE3, GDBattleSeq1_MOVE_MAIN, GDBattleSeq1_ATTACK2, GDBattleSeq1_ATTACK2_END, GDBattleSeq1_SHOOT2, GDBattleSeq1_SHOOT2_END, GDBattleSeq1_DEATH, GDBattleSeq1_WINCE_UP, GDBattleSeq1_WINCE_END
 ; --- РАБОЧИЕ тик-таблицы: 21 байт ПОДРЯД (layout = набор BattleSpeedSets);
 ;     Battle_ApplySpeed копирует сюда набор выбранной скорости (LDIR 21) ---
 BattleAnimTicks:     DEFB 6          ; BATTLE_FRAME_DELAY (120мс @ speed4)
@@ -1129,5 +1067,79 @@ BTLSET_OK_X0         EQU 272    ; зона кнопки OKAY
 BTLSET_OK_X1         EQU 367
 BTLSET_OK_Y0         EQU 346
 BTLSET_OK_Y1         EQU 371
+
+; ПКМ-справки: [idx] → сектор/размер в PAK; DL-фрагмент на окно (центр экрана)
+BattleHelpSecTab:    DEFW 2645, 2771, 2879, 3005, 3113, 3221, 3376, 3484, 3592
+BattleHelpSecN:      DEFB 126, 108, 126, 108, 108, 155, 108, 108, 108
+Battle_HelpPre_DL:                    ; общий пролог всех окон справок
+                FT_BITMAP_TRANSFORM_A 160
+                FT_BITMAP_TRANSFORM_E 160
+                FT_PALETTE_SOURCE BATTLE_UNIT_PAL_RAMG
+                FT_BEGIN FT_BITMAPS
+                FT_BITMAP_SOURCE BATTLE_WIN_DLG_RAMG
+Battle_HelpPre_DL_SIZE EQU $ - Battle_HelpPre_DL
+Battle_Help0_DL:                     ; LAYOUT/SIZE/VERTEX окна 0 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 210
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 336
+                FT_BITMAP_SIZE_H 489, 336
+                FT_VERTEX2F 4275, 3456
+Battle_Help1_DL:                     ; LAYOUT/SIZE/VERTEX окна 1 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 180
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 288
+                FT_BITMAP_SIZE_H 489, 288
+                FT_VERTEX2F 4275, 3840
+Battle_Help2_DL:                     ; LAYOUT/SIZE/VERTEX окна 2 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 210
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 336
+                FT_BITMAP_SIZE_H 489, 336
+                FT_VERTEX2F 4275, 3456
+Battle_Help3_DL:                     ; LAYOUT/SIZE/VERTEX окна 3 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 180
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 288
+                FT_BITMAP_SIZE_H 489, 288
+                FT_VERTEX2F 4275, 3840
+Battle_Help4_DL:                     ; LAYOUT/SIZE/VERTEX окна 4 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 180
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 288
+                FT_BITMAP_SIZE_H 489, 288
+                FT_VERTEX2F 4275, 3840
+Battle_Help5_DL:                     ; LAYOUT/SIZE/VERTEX окна 5 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 258
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 412
+                FT_BITMAP_SIZE_H 489, 412
+                FT_VERTEX2F 4275, 2841
+Battle_Help6_DL:                     ; LAYOUT/SIZE/VERTEX окна 6 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 180
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 288
+                FT_BITMAP_SIZE_H 489, 288
+                FT_VERTEX2F 4275, 3840
+Battle_Help7_DL:                     ; LAYOUT/SIZE/VERTEX окна 7 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 180
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 288
+                FT_BITMAP_SIZE_H 489, 288
+                FT_VERTEX2F 4275, 3840
+Battle_Help8_DL:                     ; LAYOUT/SIZE/VERTEX окна 8 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 180
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 288
+                FT_BITMAP_SIZE_H 489, 288
+                FT_VERTEX2F 4275, 3840
+BATTLE_HELP_DL_SIZE EQU $ - Battle_Help8_DL   ; per-окно размер одинаков (4 команды)
+BattleHelpDLTab:                      ; [idx] → DEFW ptr (размер общий)
+                DEFW Battle_Help0_DL
+                DEFW Battle_Help1_DL
+                DEFW Battle_Help2_DL
+                DEFW Battle_Help3_DL
+                DEFW Battle_Help4_DL
+                DEFW Battle_Help5_DL
+                DEFW Battle_Help6_DL
+                DEFW Battle_Help7_DL
+                DEFW Battle_Help8_DL
+BattleSetHelpRects:                   ; 6 × DEFW X0,X1,Y0,Y1 (окна справок 3..8)
+                DEFW 195, 260, 135, 200
+                DEFW 287, 352, 135, 200
+                DEFW 379, 444, 135, 200
+                DEFW 228, 293, 245, 310
+                DEFW 346, 411, 245, 310
+                DEFW 272, 367, 346, 371
 
                 endif
