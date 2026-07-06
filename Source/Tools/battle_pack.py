@@ -500,6 +500,134 @@ def compose_armyinfo(agg, ent, unit_type):
     return bytes(cv), W, H, hpl_y, shots_y
 
 
+H2D_PATH = ROOT.parent / "OpenHMM2" / "files" / "data" / "resurrection.h2d"
+
+
+def _read_h2d_image(name):
+    """Мини-ридер fheroes2 resurrection.h2d (h2d_file.cpp): магия H2D\\x02 + count, записи
+    (offset,size,LE32-длина имени,имя); файл = zlib; image = LE32 w,h,x,y + isSingleLayer +
+    индексы KB.PAL [+ transform-слой: 0=пиксель, иначе прозрачный]."""
+    import struct as _s
+    import zlib as _z
+    data = H2D_PATH.read_bytes()
+    assert data[:4] == b"H2D\x02", "не resurrection.h2d v2"
+    (count,) = _s.unpack_from("<I", data, 4)
+    pos = 8
+    for _ in range(count):
+        off, size, nlen = _s.unpack_from("<III", data, pos)
+        pos += 12
+        nm = data[pos:pos + nlen].decode()
+        pos += nlen
+        if nm == name:
+            raw = _z.decompress(data[off:off + size])
+            w, h, _x, _y = _s.unpack_from("<iiii", raw, 0)
+            single = raw[16] != 0
+            pix = bytes(raw[17:17 + w * h])
+            if not single:
+                tr = raw[17 + w * h:17 + 2 * w * h]
+                pix = bytes(p if t == 0 else TRANSPARENT for p, t in zip(pix, tr))
+            return pix, w, h
+    raise KeyError(name)
+
+
+def compose_battle_settings(agg, ent):
+    """Окно настроек боя (openBattleOptionDialog, battle_dialogs.cpp:260): StandardWindow
+    289×272 + 5 опций (ui_option_item drawOption: иконка 65×65, титул smallWhite над иконкой
+    (y−12, поле 87 c переносом и подъёмом строк), значение под (y+65+6)) + OKAY BOTTOM_CENTER
+    {0,5}. Ряд1 (y=31): Speed CSPANEL[0] @x20, Interface SPANEL[16] @x112, Auto Spell Casting
+    CSPANEL[6] @x204; ряд2 (y=141): Audio SPANEL[1] @x53, Hot Keys hotkeys_icon (h2d) @x171.
+    ДИНАМИКА рантайм: иконка Speed (вбейкан кадр 0; кадры 1/2 поверх на bg-подложке), строка
+    «Speed: N» (маски ×1.6), OKAY pressed. Отступления: тени иконок (addGradientShadow)
+    опущены; Auto Spell Casting = Off статично (спеллов в порте нет); подменю Interface/
+    Audio/Hot Keys не открываются (Audio/HotKeys — новоделы fheroes2, у нас нечего настраивать).
+    Возврат (buf, CW, CH, meta)."""
+    from standard_window import render_standard_window
+    fb, CW, CH, _bo = render_standard_window(agg, ent, 289, 272, True)
+    cv = bytearray(fb)
+    fsm = read_icn(agg_entry(agg, ent, "SMALFONT.ICN"))
+    SPACE = 4
+
+    def s_tw(t):
+        return sum(SPACE if c == " " else fsm[ord(c) - 32][0]["w"] for c in t)
+
+    def draw_str(t, x, y):
+        cx = x
+        for c in t:
+            if c == " ":
+                cx += SPACE
+                continue
+            gh, ge = fsm[ord(c) - 32]
+            gi = decode_icn_indices(gh, ge)
+            gw, gg, goy = gh["w"], gh["h"], gh.get("oy", 0)
+            for yy in range(gg):
+                py = y + goy + yy
+                if not (0 <= py < CH):
+                    continue
+                for xx in range(gw):
+                    v = gi[yy * gw + xx]
+                    if v != TRANSPARENT and 0 <= cx + xx < CW:
+                        cv[py * CW + cx + xx] = v
+            cx += gw
+
+    def draw_field(t, cx_center, y_last, field=87):
+        """Перенос по словам в поле field px, построчный центр; последняя строка на y_last
+        (title.height()−title.height(maxWidth) подъёмом, lineH=11)."""
+        words, lines, cur = t.split(" "), [], ""
+        for wd in words:
+            cand = wd if not cur else cur + " " + wd
+            if not cur or s_tw(cand) <= field:
+                cur = cand
+            else:
+                lines.append(cur)
+                cur = wd
+        lines.append(cur)
+        y0 = y_last - (len(lines) - 1) * 11
+        for i, ln in enumerate(lines):
+            draw_str(ln, cx_center - s_tw(ln) // 2, y0 + i * 11)
+
+    def spr(name, fr):
+        h, e = read_icn(agg_entry(agg, ent, name))[fr]
+        return decode_icn_indices(h, e), h["w"], h["h"]
+
+    def blit(src, sw, sh, dx, dy):
+        for yy in range(sh):
+            for xx in range(sw):
+                v = src[yy * sw + xx]
+                if v != TRANSPARENT:
+                    cv[(dy + yy) * CW + dx + xx] = v
+
+    def grab(dx, dy, gw, gh):
+        return bytes(cv[(dy + yy) * CW + dx + xx] for yy in range(gh) for xx in range(gw))
+
+    OPTS = [(20, 31, "CSPANEL.ICN", 0, "Speed", None),           # value «Speed: N» — рантайм
+            (112, 31, "SPANEL.ICN", 16, "Interface", "Settings"),
+            (204, 31, "CSPANEL.ICN", 6, "Auto Spell Casting", "Off"),
+            (53, 141, "SPANEL.ICN", 1, "Audio", "Settings"),
+            (171, 141, None, 0, "Hot Keys", "Configure")]        # иконка из h2d
+    speed_bg = None
+    for ox, oy, icn, fr, title, value in OPTS:
+        bx, by = 16 + ox, 16 + oy
+        if icn is None:
+            ic, iw, ih = _read_h2d_image("hotkeys_icon.image")
+        else:
+            ic, iw, ih = spr(icn, fr)
+        if title == "Speed":
+            speed_bg = grab(bx, by, 65, 65)     # подложка под рантайм-иконки CSPANEL[1]/[2]
+        blit(ic, iw, ih, bx, by)
+        cxc = bx + 32
+        draw_field(title, cxc, by - 12)
+        if value is not None:
+            draw_field(value, cxc, by + 65 + 6)
+    ok, okw, okh = spr("SYSTEM.ICN", 1)          # BUTTON_SMALL_OKAY_GOOD → ориг. SYSTEM OKAY
+    okx, oky = 16 + (289 - okw) // 2, 16 + 272 - okh - 5
+    okay_bg = grab(okx, oky, okw, okh)           # подложка под pressed-кадр
+    blit(ok, okw, okh, okx, oky)
+    meta = {"speed_icon": (36, 47), "speed_bg": speed_bg,
+            "okay": (okx, oky, okw, okh), "okay_bg": okay_bg,
+            "speed_val_c": 36 + 32, "speed_val_y": 47 + 65 + 6}
+    return bytes(cv), CW, CH, meta
+
+
 def build_payload(palette, img, units, agg, ent):
     payload = bytearray()
 
@@ -602,6 +730,41 @@ def build_payload(palette, img, units, agg, ent):
     for dd in range(10):
         m_, w_, h_ = render_text_mask(agg, ent, str(dd))     # дефолт: FONT.ICN, TEXT_SCALE=1.6
         ai_digits.append((put(m_), w_, h_))
+    # --- Динамика окна НАСТРОЕК боя (композит окна — отдельная PAK-entry, см. main):
+    #     иконки Speed CSPANEL[1]/[2] на bg-подложке (прозрачные пиксели кадра показывают фон
+    #     окна — как restore→drawOptions в оригинале), OKAY pressed на подложке,
+    #     строки «Speed: N» (SMALFONT ×1.6 антиалиас, рисуются status_pal) ---
+    set_buf, set_w, set_h, set_meta = compose_battle_settings(agg, ent)
+    csp = read_icn(agg_entry(agg, ent, "CSPANEL.ICN"))
+    set_icons = []
+    for fr in (1, 2):
+        ih_, ie_ = csp[fr]
+        pix = decode_icn_indices(ih_, ie_)
+        iw_, ihh_ = ih_["w"], ih_["h"]
+        cnv = bytearray(set_meta["speed_bg"])                # 65×65 фон под иконкой
+        for yy in range(min(65, ihh_)):
+            for xx in range(min(65, iw_)):
+                v = pix[yy * iw_ + xx]
+                if v != TRANSPARENT:
+                    cnv[yy * 65 + xx] = v
+        set_icons.append((put(bytes(cnv)), 65, 65))
+    okh_, oke_ = read_icn(agg_entry(agg, ent, "SYSTEM.ICN"))[2]
+    okp = decode_icn_indices(okh_, oke_)
+    okw_, okhh_ = okh_["w"], okh_["h"]
+    _, _, mow, moh = set_meta["okay"]
+    cnv = bytearray(set_meta["okay_bg"])                     # подложка под pressed
+    for yy in range(min(moh, okhh_)):
+        for xx in range(min(mow, okw_)):
+            v = okp[yy * okw_ + xx]
+            if v != TRANSPARENT:
+                cnv[yy * mow + xx] = v
+    set_okay1 = (put(bytes(cnv)), mow, moh)
+    set_vals = []
+    for n in range(1, 11):
+        m_, w_, h_ = render_text_mask(agg, ent, f"Speed: {n}", font="SMALFONT.ICN")
+        set_vals.append((put(m_), w_, h_))
+    set_dyn = {"icons": set_icons, "okay1": set_okay1, "vals": set_vals,
+               "buf": set_buf, "W": set_w, "H": set_h, "meta": set_meta}
     # Потери (faithful battle_dialogs.cpp:587 GetKilledTroops → drawSingleDetailedMonsterLine): иконка
     # MONS32 типа + счёт убитых. MONS32-индекс = монстр.id-1 → наш type (0=Peasant=MONS32[0], 1=Archer[1]).
     # Иконы — нативно, палитра ЮНИТОВ (idx0 прозрачный, KB.PAL-цвета); счёт — нативные BattleCountDigitTab.
@@ -663,12 +826,12 @@ def build_payload(palette, img, units, agg, ent):
         unit_addrs.append(rows)
     return (payload, pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_addr,
             status_pal_addr, status_msgs, turn_msgs, win_dlg, top_addr, bot_addr, unit_addrs, evt,
-            yellow_pal_addr, win_texts, count_digits, casualties, ai_digits)
+            yellow_pal_addr, win_texts, count_digits, casualties, ai_digits, set_dyn)
 
 
 def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_addr,
              status_pal_addr, status_msgs, turn_msgs, win_dlg, top_addr, bot_addr, unit_addrs, evt,
-             yellow_pal_addr, win_texts, count_digits, casualties, units, pak, ai):
+             yellow_pal_addr, win_texts, count_digits, casualties, units, pak, ai, set_dyn):
     L = []
     L.append("; Сгенерировано Source/Tools/battle_pack.py — экран боя (Grass, потоковый HMM2BATL.PAK).")
     L.append("                ifndef _HMM2_GENERATED_BATTLE_")
@@ -930,18 +1093,21 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
             L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {w * 16 // 10}, {h * 16 // 10}")
     # Смещение кадра от якоря (vertex 1/16 физ.px, знаковое): GetTroopPosition (battle_interface.cpp:502):
     #   x = ox (side0) / 1−w−ox (side1, reflect); y = oy. Якорь = (центр клетки, низ клетки−9).
-    L.append("BattleFrameOfsTab:                      ; [вариант] → (ofsX,ofsY) DEFW ×кадры (4Б/кадр)")
+    # ДАННЫЕ — в GlobalData #91 (вынос: оверлей у потолка); указатели-таблица в оверлее (#91-адреса).
+    L.append("BattleFrameOfsTab:                      ; [вариант] → &GD-таблицы (ofsX,ofsY)×кадры в #91")
     L.append("                DEFW " + ", ".join(
-        f"BattleFrameOfs{t}_{s}" for t in range(len(units)) for s in range(2)))
+        f"GDBattleFrameOfs{t}_{s}" for t in range(len(units)) for s in range(2)))
+    frameofs_lines = []
     for t, u in enumerate(units):
         for s in range(2):
-            L.append(f"BattleFrameOfs{t}_{s}:")
+            frameofs_lines.append(f"GDBattleFrameOfs{t}_{s}:                ; (ofsX,ofsY) DEFW ×кадры (4Б/кадр)")
             for fr in u["order"]:
                 _b, _m, w, h, ox, oy = u["frames"][fr]
                 lx = (1 - w - ox) if s else ox
-                L.append(f"                DEFW {round(lx * 25.6)}, {round(oy * 25.6)}   ; ICN {fr}")
+                frameofs_lines.append(f"                DEFW {round(lx * 25.6)}, {round(oy * 25.6)}   ; ICN {fr}")
     # якоря клеток — в GlobalData #91 (вынос: оверлей боя у потолка); доступ Battle_CellAnchorAddr
-    anchor_lines = ["GDBattleCellAnchor:                     ; 99 × (ax,ay) DEFW — якорь спрайта клетки"]
+    anchor_lines = frameofs_lines + [
+        "GDBattleCellAnchor:                     ; 99 × (ax,ay) DEFW — якорь спрайта клетки"]
     for idx in range(WIDTH_IN_CELLS * 9):
         row, col = idx // WIDTH_IN_CELLS, idx % WIDTH_IN_CELLS
         px = CELL_OX - (CELL_W // 2 if row % 2 else 0) + CELL_W * col
@@ -1204,6 +1370,72 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     sy0 = (aiy + ai['shots_y'][0]) * 256 // 10 if ai['shots_y'][0] != 0xFF else 0
     sy1 = (aiy + ai['shots_y'][1]) * 256 // 10 if ai['shots_y'][1] != 0xFF else 0
     L.append(f"ArmyInfoShotY16Tab:  DEFW {sy0}, {sy1}   ; Y строки Shots Left ×16 (0=нет строки)")
+    # --- ОКНО НАСТРОЕК боя (openBattleOptionDialog): стримится в ОБЛАСТЬ ФИНАЛА по кнопке
+    #     Settings панели (TEXTBAR[6] @ (0,461) 49×19); финал рестримится при конце боя.
+    #     Рабочий Speed: клик по зоне → speed%10+1 → Battle_ApplySpeed + динамика (иконка/строка). ---
+    stw, sth = set_dyn["W"], set_dyn["H"]
+    stx, sty = (BATTLE_W - stw) // 2, (BATTLE_H - sth) // 2
+    sm = set_dyn["meta"]
+    L.append("")
+    L.append("; Окно настроек боя (стрим в область финала, как ArmyInfo)")
+    L.append(f"SETTINGS_SEC         EQU {set_dyn['sec']}      ; сектор композита окна в PAK")
+    L.append(f"SETTINGS_SECTORS     EQU {set_dyn['sectors']}")
+    L.append(f"SETTINGS_BYTES       EQU {stw * sth}")
+    L.append(f"SETTINGS_X           EQU {stx}      ; экранное лево окна (лог.640×480)")
+    L.append(f"SETTINGS_Y           EQU {sty}")
+    ssw16, ssh16 = stw * 16 // 10, sth * 16 // 10
+    L.append("Battle_Settings_DL:")
+    L.append("                FT_BITMAP_TRANSFORM_A 160")
+    L.append("                FT_BITMAP_TRANSFORM_E 160")
+    L.append("                FT_PALETTE_SOURCE BATTLE_UNIT_PAL_RAMG")
+    L.append("                FT_BEGIN FT_BITMAPS")
+    L.append("                FT_BITMAP_SOURCE BATTLE_WIN_DLG_RAMG")
+    L.append(f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {stw}, {sth}")
+    L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {ssw16}, {ssh16}")
+    L.append(f"                FT_BITMAP_SIZE_H {ssw16}, {ssh16}")
+    L.append(f"                FT_VERTEX2F {stx * 256 // 10}, {sty * 256 // 10}")
+    L.append("Battle_Settings_DL_SIZE EQU $ - Battle_Settings_DL")
+    L.append("Battle_Settings_Post_DL:              ; сброс SIZE_H (ловушка &511)")
+    L.append("                FT_BITMAP_SIZE_H 0, 0")
+    L.append("Battle_Settings_Post_DL_SIZE EQU $ - Battle_Settings_Post_DL")
+    # динамика: иконка Speed (кадры 1/2 на bg-подложке; вбейкан кадр 0 «speed<5»)
+    six, siy = stx + sm["speed_icon"][0], sty + sm["speed_icon"][1]
+    for i, (ia, iw_, ih_) in enumerate(set_dyn["icons"]):
+        L.append(f"Battle_SetSpdIcon{i + 1}_DL:              ; CSPANEL[{i + 1}] (speed {'≥8' if i else '5..7'})")
+        L.append(f"                FT_BITMAP_SOURCE #{ia:06X}")
+        L.append(f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {iw_}, {ih_}")
+        L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {iw_ * 16 // 10}, {ih_ * 16 // 10}")
+        L.append(f"                FT_VERTEX2F {six * 256 // 10}, {siy * 256 // 10}")
+        L.append(f"Battle_SetSpdIcon{i + 1}_DL_SIZE EQU $ - Battle_SetSpdIcon{i + 1}_DL")
+    # OKAY pressed (на подложке; released вбейкан)
+    okx, oky, okw_, okh_ = sm["okay"]
+    oa, ow_, oh_ = set_dyn["okay1"]
+    L.append("Battle_SetOkay1_DL:                   ; OKAY нажата (подложка вбейкана)")
+    L.append(f"                FT_BITMAP_SOURCE #{oa:06X}")
+    L.append(f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {ow_}, {oh_}")
+    L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {ow_ * 16 // 10}, {oh_ * 16 // 10}")
+    L.append(f"                FT_VERTEX2F {(stx + okx) * 256 // 10}, {(sty + oky) * 256 // 10}")
+    L.append("Battle_SetOkay1_DL_SIZE EQU $ - Battle_SetOkay1_DL")
+    # строки «Speed: N» — маски ×1.6 (рисовать status-прологом: TRANSFORM 256 + STATUS_PAL);
+    # вершина X = SETVAL_CX16 − w×8 (центр по иконке Speed), Y фикс.
+    L.append("BattleSetValTab:                      ; [speed−1] → адрес24, w, h (маска «Speed: N» ×1.6)")
+    for va, vw_, vh_ in set_dyn["vals"]:
+        L.append(f"                DEFB #{va & 0xFF:02X}, #{(va >> 8) & 0xFF:02X}, #{va >> 16:02X}, {vw_}, {vh_}")
+    L.append(f"SETVAL_CX16          EQU {(stx + sm['speed_val_c']) * 256 // 10}  ; центр строки значения ×16")
+    L.append(f"SETVAL_Y16           EQU {(sty + sm['speed_val_y']) * 256 // 10}")
+    # клик-зоны (лог. 640×480): кнопка панели, зона Speed-опции, OKAY
+    L.append("BTLSET_BTN_X0        EQU 0        ; кнопка Settings панели (TEXTBAR[6] @ 0,461)")
+    L.append("BTLSET_BTN_X1        EQU 49")
+    L.append("BTLSET_BTN_Y0        EQU 461")
+    L.append("BTLSET_BTN_Y1        EQU 480")
+    L.append(f"BTLSET_SPEED_X0      EQU {six}    ; зона опции Speed (65×65)")
+    L.append(f"BTLSET_SPEED_X1      EQU {six + 65}")
+    L.append(f"BTLSET_SPEED_Y0      EQU {siy}")
+    L.append(f"BTLSET_SPEED_Y1      EQU {siy + 65}")
+    L.append(f"BTLSET_OK_X0         EQU {stx + okx}    ; зона кнопки OKAY")
+    L.append(f"BTLSET_OK_X1         EQU {stx + okx + okw_}")
+    L.append(f"BTLSET_OK_Y0         EQU {sty + oky}")
+    L.append(f"BTLSET_OK_Y1         EQU {sty + oky + okh_}")
     L.append("")
     L.append("                endif")
     BATTLE_INC.write_text("\n".join(L), encoding="utf-8")
@@ -1232,7 +1464,7 @@ def main() -> int:
     units = load_units(agg, ent)
     (payload, pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_addr,
      status_pal_addr, status_msgs, turn_msgs, win_dlg, top_addr, bot_addr, unit_addrs, evt,
-     yellow_pal_addr, win_texts, count_digits, casualties, ai_digits) = build_payload(palette, img, units, agg, ent)
+     yellow_pal_addr, win_texts, count_digits, casualties, ai_digits, set_dyn) = build_payload(palette, img, units, agg, ent)
     # --- ПКМ-попапы ArmyInfo (по типу) — отдельные entries PAK (в RAM_G НЕ живут постоянно:
     #     стримятся в ОБЛАСТЬ ФИНАЛЬНОГО ОКНА по ПКМ; финал рестримится при конце боя) ---
     ai0, aiW, aiH, hpl0, sh0 = compose_armyinfo(agg, ent, 0)
@@ -1240,15 +1472,21 @@ def main() -> int:
     assert (aiW, aiH) == (aiW1, aiH1)
     assert aiW * aiH <= win_dlg[1] * win_dlg[2], \
         f"попап {aiW}x{aiH} больше области финала {win_dlg[1]}x{win_dlg[2]}"
+    set_buf = set_dyn["buf"]
+    assert set_dyn["W"] * set_dyn["H"] <= win_dlg[1] * win_dlg[2], \
+        f"окно настроек {set_dyn['W']}x{set_dyn['H']} больше области финала"
     summary = build_pak(
         [{"type": TYPE_RAMG_BLOB, "target": BATTLE_RAMG_BASE, "data": bytes(payload)},
          {"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(ai0)},   # target 0: грузим вручную
-         {"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(ai1)}],
+         {"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(ai1)},
+         {"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(set_buf)}],  # окно настроек (в обл. финала)
         BATTLE_PAK_PATH,
     )
     body = summary["body_start_sector"]
     pay_secs = (len(payload) + SECTOR - 1) // SECTOR
     ai_secs = (len(ai0) + SECTOR - 1) // SECTOR
+    set_dyn["sec"] = body + pay_secs + 2 * ai_secs           # entries подряд, каждая с сектора
+    set_dyn["sectors"] = (len(set_buf) + SECTOR - 1) // SECTOR
     win_off = win_dlg[0] - BATTLE_RAMG_BASE
     assert win_off % SECTOR == 0
     pak = {
@@ -1268,7 +1506,7 @@ def main() -> int:
     }
     emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_addr,
              status_pal_addr, status_msgs, turn_msgs, win_dlg, top_addr, bot_addr, unit_addrs, evt,
-             yellow_pal_addr, win_texts, count_digits, casualties, units, pak, ai)
+             yellow_pal_addr, win_texts, count_digits, casualties, units, pak, ai, set_dyn)
     print(f"battle pack -> {BATTLE_PAK_PATH.name}: payload={len(payload)} байт "
           f"({pak['payload_sectors']} сект), попапы 2x{len(ai0)} ({ai_secs} сект), PAK={summary['total_bytes']} байт")
     print(f"  armyinfo: {aiW}x{aiH} @ область финала #{win_dlg[0]:06X} (sec {ai['win_sec']}), "
