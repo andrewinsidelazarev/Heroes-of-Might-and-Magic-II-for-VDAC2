@@ -38,6 +38,7 @@ from pathlib import Path
 from agg_tools import read_agg_index_with_expansion
 from object_atlas import agg_entry, read_icn, read_palette
 from pak_builder import build_pak, TYPE_RAMG_BLOB, SECTOR
+from battle_pack import compose_help_window       # переиспользуем генератор ПКМ-справки (BUYBUILD-рамка)
 from viewport_pack import (
     align,
     crop_indices,
@@ -123,6 +124,27 @@ SCEN_DIFF_Y = 91                                 # coordDifficulty.y − rt.y
 SCEN_RATINGS = [70, 100, 120, 140, 160]
 SCEN_OK_XY = (31, 380)                           # buttonOk − rt (pressed overlay)
 SCEN_CANCEL_XY = (287, 380)
+
+# ПКМ-справки экрана сценария (showStandardTextMessage, Dialog::ZERO — показ пока ПКМ зажат).
+# Тексты ТОЧНО из game_scenarioinfo.cpp:442-463 (SELECT/Difficulty/Rating/Okay/Cancel) и
+# player_info.cpp QueueEventProcessing:286-308 (Opponents/Class). Индекс = зона (см. ScenHelpZones).
+SCEN_HELP_WINDOWS = [
+    ("Scenario", "Click here to select which scenario to play."),
+    ("Game Difficulty",
+     "This lets you change the starting difficulty at which you will play. Higher difficulty levels "
+     "start you off with fewer resources, and at the higher settings, give extra resources to the computer."),
+    ("Difficulty Rating",
+     "The difficulty rating reflects a combination of various settings for your game. This number will "
+     "be applied to your final score."),
+    ("Okay", "Click to accept these settings and start a new game."),
+    ("Cancel", "Click to return to the main menu."),
+    ("Opponents",
+     "This lets you change player starting positions and colors. A particular color will always start in "
+     "a particular location. Some positions may only be played by a computer player or only by a human player."),
+    ("Class",
+     "This lets you change the class of a player. Classes are not always changeable. Depending on the "
+     "scenario, a player may receive additional towns and/or heroes not of their primary alignment."),
+]
 
 
 def _frame(icn, idx):
@@ -574,6 +596,47 @@ def emit_inc(addrs, tiles, buttons, lantern, door, newgame, pak):
     L.append(f"SCEN_PAYLOAD_SECTORS EQU {sc['sectors']}")
     L.append(f"SCEN_BODY_SECTOR     EQU {sc['body_sector']}")
     L.append("")
+    # --- ПКМ-справки scenario: [idx] → сектор/размер PAK; окно центрируется на экране ---
+    hlp = sc["helps"]
+    L.append(f"SCEN_HELP_AREA       EQU #{sc['help_area']:06X}   ; свободная зона стрима справка-окна")
+    L.append(f"MENU_SCEN_HELP_COUNT EQU {len(hlp)}")
+    L.append("ScenHelpSecTab: DEFW " + ", ".join(str(hm["sec"]) for hm in hlp))
+    L.append("ScenHelpSecN:   DEFB " + ", ".join(str(hm["sectors"]) for hm in hlp))
+    L.append("ScenHelpPre_DL:                       ; общий пролог всех окон справок (transp — фон вокруг рамки прозрачен)")
+    L.append("                FT_BITMAP_TRANSFORM_A 160")
+    L.append("                FT_BITMAP_TRANSFORM_E 160")
+    L.append("                FT_PALETTE_SOURCE MENU_TRANSPARENT_PAL_RAMG")
+    L.append("                FT_BEGIN FT_BITMAPS")
+    L.append("                FT_BITMAP_SOURCE SCEN_HELP_AREA")
+    L.append("ScenHelpPre_DL_SIZE EQU $ - ScenHelpPre_DL")
+    for i, hm in enumerate(hlp):
+        hw, hh = hm["W"], hm["H"]
+        hx, hy = (640 - hw) // 2, (480 - hh) // 2
+        L.append(f"ScenHelp{i}_DL:                       ; LAYOUT/SIZE/VERTEX окна {i} (пролог общий)")
+        L.append(f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {hw}, {hh}")
+        L.append(f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {hw * 16 // 10}, {hh * 16 // 10}")
+        L.append(f"                FT_BITMAP_SIZE_H {hw * 16 // 10}, {hh * 16 // 10}")
+        L.append(f"                FT_VERTEX2F {hx * 256 // 10}, {hy * 256 // 10}")
+    L.append(f"SCEN_HELP_DL_SIZE EQU $ - ScenHelp{len(hlp) - 1}_DL   ; per-окно размер одинаков (4 команды)")
+    L.append("ScenHelpDLTab:  DEFW " + ", ".join(f"ScenHelp{i}_DL" for i in range(len(hlp))))
+    # Зоны ПКМ-справок (логич. 640×480): [idx] → x0,y0,x1,y1. rt=(110,26).
+    rtx, rty = rt[0], rt[1]
+    ok_w, ok_h = sc["ok"]["w"], sc["ok"]["h"]
+    cn_w, cn_h = sc["cancel"]["w"], sc["cancel"]["h"]
+    st = rtx + 24 + (62 * 5) // 2                     # GetStep4Player центр портрета/класса (=289)
+    zones = [
+        (rtx + 309, rty + 45, rtx + 309 + 80, rty + 45 + 19),                        # 0 Scenario (SELECT)
+        (rtx + 21, rty + 91, rtx + 328 + 71, rty + 91 + 71),                         # 1 Game Difficulty (bbox 5)
+        (rtx + 150, rty + 385, rtx + 270, rty + 385 + 16),                           # 2 Difficulty Rating
+        (rtx + SCEN_OK_XY[0], rty + SCEN_OK_XY[1], rtx + SCEN_OK_XY[0] + ok_w, rty + SCEN_OK_XY[1] + ok_h),      # 3 Okay
+        (rtx + SCEN_CANCEL_XY[0], rty + SCEN_CANCEL_XY[1], rtx + SCEN_CANCEL_XY[0] + cn_w, rty + SCEN_CANCEL_XY[1] + cn_h),  # 4 Cancel
+        (st, rty + 197, st + 62, rty + 197 + 58),                                    # 5 Opponents (portrait)
+        (st, rty + 281, st + 62, rty + 281 + 45),                                    # 6 Class
+    ]
+    L.append("ScenHelpZones:                       ; [idx] → x0,y0,x1,y1 (логич.) для right-click")
+    for z in zones:
+        L.append(f"                DEFW {z[0]}, {z[1]}, {z[2]}, {z[3]}")
+    L.append("")
 
     # --- метаданные HMM2MENU.PAK (грузится загрузчиком с SD в Menu_Enter) ---
     L.append(f"MENU_RAMG_BASE       EQU #{MENU_RAMG_BASE:06X}")
@@ -632,15 +695,32 @@ def main() -> int:
     agg, entries = read_agg_index_with_expansion(AGG_PATH)
     scen_payload, scen_meta = build_scenario(agg, entries, palette, bg)
     assert len(scen_payload) <= 0x0E0000, f"scenario payload {len(scen_payload)} превышает #0E0000"
+    # ПКМ-справки scenario: 7 окон (BUYBUILD-рамка), стрим по idx в зону @ #090BC4 (сразу за
+    # панелью-окном #064840+179340). Справка перекрывает хвост кадров фонаря и кнопки меню — в
+    # scenario они не рисуются, а при выходе ngcancel рестримит меню целиком. Потолок = курсор #0E0000.
+    SCEN_HELP_AREA = 0x090BC4
+    scen_helps = [compose_help_window(agg, entries, t, b) for t, b in SCEN_HELP_WINDOWS]
+    for hb, hw, hh in scen_helps:
+        assert hw * hh <= 0x0E0000 - SCEN_HELP_AREA, \
+            f"справка {hw}x{hh}={hw * hh}Б не влезает в зону #090BC4..#0E0000 ({0x0E0000 - SCEN_HELP_AREA}Б)"
     summary = build_pak(
         [{"type": TYPE_RAMG_BLOB, "target": MENU_RAMG_BASE, "data": bytes(payload)},
-         {"type": TYPE_RAMG_BLOB, "target": MENU_RAMG_BASE, "data": bytes(scen_payload)}],
+         {"type": TYPE_RAMG_BLOB, "target": MENU_RAMG_BASE, "data": bytes(scen_payload)}]
+        + [{"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(hb)} for hb, _, _ in scen_helps],
         MENU_PAK_PATH,
     )
     body = summary["body_start_sector"]
     menu_secs = (len(payload) + SECTOR - 1) // SECTOR
     scen_meta["sectors"] = (len(scen_payload) + SECTOR - 1) // SECTOR
     scen_meta["body_sector"] = body + menu_secs   # 2-я entry идёт сразу за меню-payload
+    hsec = scen_meta["body_sector"] + scen_meta["sectors"]   # справки подряд после scenario payload
+    help_meta = []
+    for hb, hw, hh in scen_helps:
+        hs = (len(hb) + SECTOR - 1) // SECTOR
+        help_meta.append({"sec": hsec, "sectors": hs, "W": hw, "H": hh})
+        hsec += hs
+    scen_meta["helps"] = help_meta
+    scen_meta["help_area"] = SCEN_HELP_AREA
     pak = {
         "payload_bytes": len(payload),
         "payload_sectors": menu_secs,

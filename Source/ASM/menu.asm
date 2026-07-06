@@ -27,6 +27,8 @@
                 include "generated_menu.inc"
 
 MenuScreen:     DEFB 0            ; 0 = главное меню, 1 = подменю NEW GAME, 2 = экран сценария
+ScenHelpShow:   DEFB #FF          ; ПКМ-справка scenario: #FF=нет, 0..6=индекс окна (пока ПКМ зажат)
+ScenHelpDirty:  DEFB 0            ; справка стрималась в #090BC4 (перекрыла кнопки/кадры) → Cancel рестримит
 
 Menu_Enter:
                 LD   A, GAME_MODE_MENU
@@ -205,7 +207,37 @@ MenuScen_Update:
                 LD   (UIClickX), HL
                 CALL Input_MouseY
                 LD   (UIClickY), HL
-                CALL Input_MouseLMB
+                ; --- ПКМ-справка (showStandardTextMessage, Dialog::ZERO): показ пока ПКМ зажат ---
+                LD   A, (ScenHelpShow)
+                CP   #FF
+                JR   Z, .scnohelp
+                CALL Input_MouseRMB              ; справка показана → держать пока ПКМ зажат
+                JR   NZ, .schkeep
+                LD   A, #FF                      ; отпустили → закрыть (рендер вернёт чистый scenario)
+                LD   (ScenHelpShow), A
+.schkeep:       XOR  A
+                RET
+.scnohelp:      CALL Input_MouseRMB             ; ПКМ нажата → открыть справку по зоне под курсором
+                JR   Z, .scnorm
+                LD   IX, ScenHelpZones
+                LD   B, MENU_SCEN_HELP_COUNT
+                LD   C, 0
+.schscan:       PUSH BC
+                CALL Menu_HitTestZone
+                POP  BC
+                OR   A
+                JR   NZ, .schhit
+                LD   DE, 8
+                ADD  IX, DE
+                INC  C
+                DJNZ .schscan
+                XOR  A                           ; ПКМ мимо зон → ничего
+                RET
+.schhit:        LD   A, C
+                CALL Scen_HelpOpen              ; стрим окна idx @ SCEN_HELP_AREA + ScenHelpShow=idx
+                XOR  A
+                RET
+.scnorm:        CALL Input_MouseLMB
                 JR   Z, .screleased
                 LD   A, 1
                 LD   (MenuLmbDown), A
@@ -242,10 +274,15 @@ MenuScen_Update:
                 RET
 .scok:          LD   A, 1                         ; OKAY → резидент зовёт Adventure_Enter (сложность выбрана)
                 RET
-.sccancel:      LD   A, 1                         ; назад в подменю NEW GAME — БЕЗ рестрима:
-                LD   (MenuScreen), A             ; подменю фонарь СТАТИЧЕН (не читает кадры #064840),
-                LD   A, #FF                      ; панель-окно остаётся в RAM_G невидимой → мгновенно, без мусора.
-                LD   (MenuHoverIndex), A         ; кадры фонаря восстановит подменю→главное (MenuNg Cancel).
+.sccancel:      LD   A, (ScenHelpDirty)          ; справка стрималась → перекрыла кнопки/кадры → рестрим
+                OR   A
+                JR   Z, .sccnclean
+                CALL Menu_RenderBgBase           ; фон+база (не читает #064840+) → рестрим «за кадром»
+                CALL Menu_LoadFromPak            ; восстановить кнопки/кадры (HEROES идентичен → без мусора)
+.sccnclean:     LD   A, 1                         ; назад в подменю NEW GAME (фонарь статичен, панель невидима)
+                LD   (MenuScreen), A
+                LD   A, #FF
+                LD   (MenuHoverIndex), A
                 XOR  A
                 RET
 .screleased:    XOR  A
@@ -257,6 +294,10 @@ MenuScen_Update:
 ; Стрим composite экрана сценария (2-я PAK-entry HMM2MENU) в RAM_G base 0 — эксклюзивно с
 ; меню-payload (переход = пере-стрим, как город). Подготовка в slot1, один вызов стримера.
 Menu_LoadScenario:
+                LD   A, #FF                      ; сброс ПКМ-справки при входе в scenario
+                LD   (ScenHelpShow), A
+                XOR  A
+                LD   (ScenHelpDirty), A          ; RAM_G кнопок ещё чист (справок не было)
                 CALL Menu_RenderBgBase           ; показать фон+базу фонаря (кадры #064840 НЕ читаются)
                 LD   HL, MenuPakName             ; → стрим панели @ #064840 «за кадром», без мусора/чёрного
                 LD   DE, MenuNameBuf
@@ -296,6 +337,65 @@ Menu_RenderBgBase:
                 CALL Render_CmdBufCopy
                 CALL Render_GlobalCursor
                 JP   Render_SwapFrameDMA
+
+; ПКМ-справка scenario: стрим окна idx (A=0..6) в SCEN_HELP_AREA + ScenHelpShow=idx. Портит IX (Loader).
+Scen_HelpOpen:
+                LD   (ScenHelpShow), A
+                LD   A, 1                        ; пометить: RAM_G кнопок/кадров перекрыт справкой
+                LD   (ScenHelpDirty), A
+                LD   HL, MenuPakName
+                LD   DE, MenuNameBuf
+                LD   BC, 13
+                LDIR
+                CALL Loader_Init
+                CALL Loader_Mount
+                RET  NC
+                LD   HL, MenuNameBuf
+                CALL Loader_OpenFile
+                RET  NC
+                LD   A, (ScenHelpShow)            ; idx → ScenHelpSecTab[idx] (сектор, DW)
+                LD   L, A
+                LD   H, 0
+                ADD  HL, HL
+                LD   DE, ScenHelpSecTab
+                ADD  HL, DE
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)
+                EX   DE, HL                       ; HL = сектор
+                CALL Loader_SeekSector
+                LD   A, (ScenHelpShow)            ; ScenHelpSecN[idx] (сектора, DB)
+                LD   L, A
+                LD   H, 0
+                LD   DE, ScenHelpSecN
+                ADD  HL, DE
+                LD   C, (HL)
+                LD   B, 0                         ; BC = сектора
+                LD   DE, SCEN_HELP_AREA & #FFFF
+                LD   A, SCEN_HELP_AREA >> 16
+                JP   Loader_StreamToRamGAt        ; окно → RAM_G @ SCEN_HELP_AREA
+
+; Рендер ПКМ-справки поверх scenario: пролог (SOURCE=area) + окно idx + глоб. тень. IN: ScenHelpShow.
+Scen_RenderHelp:
+                LD   HL, ScenHelpPre_DL
+                LD   BC, ScenHelpPre_DL_SIZE
+                CALL Render_CmdBufCopy
+                LD   A, (ScenHelpShow)
+                ADD  A, A                         ; ×2 (DLTab: только ptr, размер общий)
+                LD   L, A
+                LD   H, 0
+                LD   DE, ScenHelpDLTab
+                ADD  HL, DE
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)
+                PUSH DE
+                EX   DE, HL                       ; HL = фрагмент окна idx
+                LD   BC, SCEN_HELP_DL_SIZE
+                CALL Render_WindowShadowDL        ; тень окна (глоб. процедура)
+                POP  HL
+                LD   BC, SCEN_HELP_DL_SIZE
+                JP   Render_CmdBufCopy            ; само окно поверх тени
 
 ; Menu_ComputeHover: найти кнопку под мышью. Out: A=индекс (0..N-1) или #FF; пишет
 ; MenuHoverIndex. Мышь читается раз (UIClickX/Y), затем перебор зон.
@@ -557,6 +657,9 @@ MenuScen_Render:
 .scnobtn:       LD   HL, ScenSpritesEnd_DL
                 LD   BC, ScenSpritesEnd_DL_SIZE
                 CALL Render_CmdBufCopy
+                LD   A, (ScenHelpShow)          ; ПКМ-справка показана → рисуем окно поверх scenario
+                CP   #FF
+                CALL NZ, Scen_RenderHelp
                 CALL Render_GlobalCursor
                 CALL Render_SwapFrameDMA
                 RET

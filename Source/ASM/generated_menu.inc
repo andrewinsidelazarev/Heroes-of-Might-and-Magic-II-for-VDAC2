@@ -406,6 +406,63 @@ ScenCancelZone: DEFW 397, 406, 492, 431
 SCEN_PAYLOAD_SECTORS EQU 385
 SCEN_BODY_SECTOR     EQU 1654
 
+SCEN_HELP_AREA       EQU #090BC4   ; свободная зона стрима справка-окна
+MENU_SCEN_HELP_COUNT EQU 7
+ScenHelpSecTab: DEFW 2039, 2147, 2311, 2447, 2555, 2663, 2827
+ScenHelpSecN:   DEFB 108, 164, 136, 108, 108, 164, 164
+ScenHelpPre_DL:                       ; общий пролог всех окон справок (transp — фон вокруг рамки прозрачен)
+                FT_BITMAP_TRANSFORM_A 160
+                FT_BITMAP_TRANSFORM_E 160
+                FT_PALETTE_SOURCE MENU_TRANSPARENT_PAL_RAMG
+                FT_BEGIN FT_BITMAPS
+                FT_BITMAP_SOURCE SCEN_HELP_AREA
+ScenHelpPre_DL_SIZE EQU $ - ScenHelpPre_DL
+ScenHelp0_DL:                       ; LAYOUT/SIZE/VERTEX окна 0 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 180
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 288
+                FT_BITMAP_SIZE_H 489, 288
+                FT_VERTEX2F 4275, 3840
+ScenHelp1_DL:                       ; LAYOUT/SIZE/VERTEX окна 1 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 274
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 438
+                FT_BITMAP_SIZE_H 489, 438
+                FT_VERTEX2F 4275, 2636
+ScenHelp2_DL:                       ; LAYOUT/SIZE/VERTEX окна 2 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 226
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 361
+                FT_BITMAP_SIZE_H 489, 361
+                FT_VERTEX2F 4275, 3251
+ScenHelp3_DL:                       ; LAYOUT/SIZE/VERTEX окна 3 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 180
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 288
+                FT_BITMAP_SIZE_H 489, 288
+                FT_VERTEX2F 4275, 3840
+ScenHelp4_DL:                       ; LAYOUT/SIZE/VERTEX окна 4 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 180
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 288
+                FT_BITMAP_SIZE_H 489, 288
+                FT_VERTEX2F 4275, 3840
+ScenHelp5_DL:                       ; LAYOUT/SIZE/VERTEX окна 5 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 274
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 438
+                FT_BITMAP_SIZE_H 489, 438
+                FT_VERTEX2F 4275, 2636
+ScenHelp6_DL:                       ; LAYOUT/SIZE/VERTEX окна 6 (пролог общий)
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 306, 274
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 489, 438
+                FT_BITMAP_SIZE_H 489, 438
+                FT_VERTEX2F 4275, 2636
+SCEN_HELP_DL_SIZE EQU $ - ScenHelp6_DL   ; per-окно размер одинаков (4 команды)
+ScenHelpDLTab:  DEFW ScenHelp0_DL, ScenHelp1_DL, ScenHelp2_DL, ScenHelp3_DL, ScenHelp4_DL, ScenHelp5_DL, ScenHelp6_DL
+ScenHelpZones:                       ; [idx] → x0,y0,x1,y1 (логич.) для right-click
+                DEFW 419, 71, 499, 90
+                DEFW 131, 117, 509, 188
+                DEFW 260, 411, 380, 427
+                DEFW 141, 406, 236, 431
+                DEFW 397, 406, 492, 431
+                DEFW 289, 223, 351, 281
+                DEFW 289, 307, 351, 352
+
 MENU_RAMG_BASE       EQU #000000
 MENU_PAYLOAD_BYTES   EQU 846128
 MENU_PAYLOAD_SECTORS EQU 1653
