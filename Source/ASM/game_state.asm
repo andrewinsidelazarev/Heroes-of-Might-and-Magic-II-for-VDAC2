@@ -150,6 +150,7 @@ Adventure_Enter:
                 LD   (StatusState), A
                 CALL Resources_InitStart
                 CALL GState_Reset                ; новая игра → сброс снимка города в #91
+                CALL AiKingdom_Init              ; ★новая игра → казна AI-королевства Sorc (враг) = стартовое золото
 .keepstate:     XOR  A
                 LD   (AdvReenter), A
                 CALL Resources_BuildPanelDL      ; собрать DL панели в RAM_G (по StatusState)
@@ -625,7 +626,8 @@ Game_EndTurn:
                 JR   NC, .nc2
                 LD   HL, #FFFF
 .nc2:           LD   (ResGold), HL
-.nostatue:      CALL Resources_BuildPanelDL      ; пересобрать DL панели (золото изменилось)
+.nostatue:      CALL AiKingdom_EndTurn            ; ★AI-фаза хода: доход королевства Sorc (враг) в #91
+                CALL Resources_BuildPanelDL      ; пересобрать DL панели (золото изменилось)
                 RET
 
 ; Стартовые ресурсы королевства (fheroes2 _getKingdomStartingResources, человек) ПО СЛОЖНОСТИ

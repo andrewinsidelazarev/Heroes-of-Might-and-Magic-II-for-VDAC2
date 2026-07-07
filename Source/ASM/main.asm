@@ -82,6 +82,11 @@ GameDifficulty EQU #4256        ; сложность 0..4 (безопасная 
 GSTATE_MAGIC   EQU #A5
 GSTATE_LEN     EQU 68           ; ASSERT в town.asm сверяет с фактической длиной блока
 GSTATE_OFS_STATUE EQU 30        ; смещение BuiltRuntime[CONSTRUCT_STATUE_SLOT] в блоке (доход +250)
+; --- Мультиигровость (враги): kingdom AI-игрока Sorc в #91 после блока города ---
+; SKIRMISH: игрок Knight (index0, казна KingdomFunds резидент), Sorc = AI (index1, казна здесь в #91).
+AI_KINGDOM_OFS      EQU 1 + GSTATE_LEN            ; offset в #91 от GLOBAL_STATE_BASE (после магии+город)
+AI_KINGDOM_GOLD_OFS EQU AI_KINGDOM_OFS            ; Sorc gold 2б
+AI_KINGDOM_LEN      EQU 2                          ; пока только казна-золото (нарастает: замок/герой)
 MenuClickLatch EQU #4258        ; latch LMB в меню (1 клик = 1 действие)
 MenuNameBuf    EQU #4259        ; slot1-буфер имени PAK (14б, #4259..#4266) для loader
 MenuHoverIndex EQU #4267        ; индекс кнопки под мышью (#FF=нет) — hover-подсветка по оригиналу
@@ -695,6 +700,44 @@ GState_Reset:
                 POP  HL
                 LD   (GLOBAL_STATE_BASE), A
                 LD   A, B
+                SetPage3_A
+                RET
+
+; --- AI-королевство Sorc (враг, мультиигровость): казна в #91 ---
+; Доход хода AI: Sorc gold += 1000 (замок). Портит A,DE,HL. Вызывать раз в ход (Game_EndTurn).
+AiKingdom_EndTurn:
+                GetPage3
+                PUSH AF
+                SetPage3 GLOBAL_DATA_PAGE          ; портит HL — грузим HL ПОСЛЕ
+                LD   HL, GLOBAL_STATE_BASE + AI_KINGDOM_GOLD_OFS
+                LD   E, (HL)
+                INC  HL
+                LD   D, (HL)                       ; DE = Sorc gold
+                PUSH HL                            ; HL = адрес high-байта
+                LD   HL, 1000
+                ADD  HL, DE                        ; +1000 доход замка
+                JR   NC, .nc
+                LD   HL, #FFFF                     ; кламп 65535
+.nc:            EX   DE, HL                        ; DE = новое золото
+                POP  HL                            ; HL = адрес high-байта
+                LD   (HL), D
+                DEC  HL
+                LD   (HL), E                       ; записали 2б
+                POP  AF
+                SetPage3_A
+                RET
+; Init казны AI (новая игра): Sorc gold = стартовое золото (ResStartTab[diff], как у игрока).
+; Вызывать ПОСЛЕ Resources_InitStart (KingdomFunds уже = стартовое). Портит A,DE,HL.
+AiKingdom_Init:
+                LD   DE, (KingdomFunds)            ; стартовое золото (общее для всех по difficulty)
+                GetPage3
+                PUSH AF
+                SetPage3 GLOBAL_DATA_PAGE
+                LD   HL, GLOBAL_STATE_BASE + AI_KINGDOM_GOLD_OFS
+                LD   (HL), E
+                INC  HL
+                LD   (HL), D                       ; Sorc gold = стартовое
+                POP  AF
                 SetPage3_A
                 RET
 
