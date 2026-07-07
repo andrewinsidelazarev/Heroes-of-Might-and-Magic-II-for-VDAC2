@@ -102,6 +102,7 @@ Render_RuntimeFrameCmd:
                 CALL Render_HeroPathCmd
                 endif
                 CALL Render_HeroMarkerCmd
+                CALL Render_SorcMarkerCmd          ; ★вражеский Sorc-герой (маркер, как игрок; под туманом → разведанный)
                 CALL Render_ActorCmd
                 CALL Render_RuntimeTopObjectsCmd   ; top-слой ПОВЕРХ актёра (z-слои)
                 CALL Render_MapAnimCmd             ; анимир. объекты (кадр-дельта), до тумана
@@ -1557,6 +1558,41 @@ Render_ActorCmd:
                 LD   BC, ACTOR_DL_SIZE - 4
                 CALL Render_CmdBufCopy
                 endif
+                RET
+
+; --- Вражеский Sorc-герой: тот же HERO_MARKER_DL (как игрок), позиция из кэша SorcHeroPixel ---
+; Позиция = HeroMarker_UpdateDLPosition (ветка RUNTIME_TILEMAP), но с Sorc-пикселем (без facing).
+HeroMarker_UpdateDLPosition_Sorc:
+                LD   HL, (SorcHeroPixelX)
+                CALL Render_ScaleHL_8_5_ToVertex
+                LD   DE, (RuntimeOriginBaseX16)
+                OR   A
+                SBC  HL, DE
+                LD   DE, (RuntimeDL_ObjectTranslateX_Low)
+                ADD  HL, DE
+                LD   (HERO_MARKER_TRANSLATE_X), HL
+                LD   HL, (SorcHeroPixelY)
+                LD   DE, 18
+                OR   A
+                SBC  HL, DE
+                CALL Render_ScaleHL_8_5_ToVertex
+                LD   DE, (RuntimeOriginBaseY16)
+                OR   A
+                SBC  HL, DE
+                LD   DE, (RuntimeDL_ObjectTranslateY_Low)
+                ADD  HL, DE
+                LD   (HERO_MARKER_TRANSLATE_Y), HL
+                RET
+; Рендер Sorc-героя маркером (если SorcHeroVisible): copy HERO_MARKER_DL @ Sorc-позицию. Вызывать
+; ПОСЛЕ Render_HeroMarkerCmd игрока (перезаписывает HERO_MARKER_TRANSLATE → второй маркер).
+Render_SorcMarkerCmd:
+                LD   A, (SorcHeroVisible)
+                OR   A
+                RET  Z
+                CALL HeroMarker_UpdateDLPosition_Sorc
+                LD   HL, HERO_MARKER_DL
+                LD   BC, HERO_MARKER_DL_SIZE - 4
+                CALL Render_CmdBufCopy
                 RET
 
 Render_Cursor:

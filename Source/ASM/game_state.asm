@@ -154,6 +154,7 @@ Adventure_Enter:
 .keepstate:     XOR  A
                 LD   (AdvReenter), A
                 CALL Resources_BuildPanelDL      ; собрать DL панели в RAM_G (по StatusState)
+                CALL SorcHero_LoadCache          ; ★кэш позиции вражеского Sorc-героя (из #91) для рендера
                 XOR  A
                 LD   (CursorMoveCooldown), A
                 LD   (CursorSpriteIndex), A

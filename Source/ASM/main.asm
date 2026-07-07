@@ -93,7 +93,7 @@ AI_KINGDOM_LEN       EQU 5                          ; gold(2)+heroX+heroY+hasHer
 ; Sorc герой стартует рядом с замком @(9,22) — тайл ниже гейта (как игрок ПОД гейтом), (9,23).
 AI_SORC_CASTLE_X    EQU 9
 AI_SORC_CASTLE_Y    EQU 22
-AI_SORC_HERO_START_X EQU 9
+AI_SORC_HERO_START_X EQU 9        ; Sorc герой у своего замка (в тумане, виден при разведке игроком)
 AI_SORC_HERO_START_Y EQU 23
 MenuClickLatch EQU #4258        ; latch LMB в меню (1 клик = 1 действие)
 MenuNameBuf    EQU #4259        ; slot1-буфер имени PAK (14б, #4259..#4266) для loader
@@ -755,9 +755,48 @@ AiKingdom_Init:
                 SetPage3_A
                 RET
 
+; Загрузить позицию Sorc-героя из #91 в резидентный кэш (пиксель = тайл×32). Портит A,BC,DE,HL.
+; Вызывать при входе adventure и после хода AI (позиция могла измениться).
+SorcHero_LoadCache:
+                GetPage3
+                LD   B, A                          ; B = прежняя страница slot3
+                SetPage3 GLOBAL_DATA_PAGE
+                LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HAS_HERO_OFS)
+                LD   C, A                          ; C = hasHero
+                LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HEROX_OFS)
+                LD   D, A                          ; D = тайл X
+                LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HEROY_OFS)
+                LD   E, A                          ; E = тайл Y
+                LD   A, B
+                SetPage3_A                          ; restore slot3
+                LD   A, C                           ; кэш (нижняя RAM видна всегда)
+                LD   (SorcHeroVisible), A
+                LD   L, D                           ; пиксель X = тайл X × 32
+                LD   H, 0
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL
+                LD   (SorcHeroPixelX), HL
+                LD   L, E                           ; пиксель Y = тайл Y × 32
+                LD   H, 0
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL
+                LD   (SorcHeroPixelY), HL
+                RET
+
 ; Отладочное зеркало боя для statedump (эмулятор дампит страницы 5/6; оверлей боя в slot3 не виден).
 ; Battle_Render копирует сюда состояние каждый кадр: units(20) + startCnt(8) + result(1).
 DbgBattleMirror: DEFS 41           ; +33..40: дебаг меч-курсора {dirW, dx16, dy16, dirC, hover, active}
+; Кэш позиции вражеского Sorc-героя в нижней RAM (видна всегда) — рендер НЕ пейджит #91.
+; Загружается из #91 при входе adventure (SorcHero_LoadCache). Пиксель = тайл×32.
+SorcHeroPixelX:  DEFW 0
+SorcHeroPixelY:  DEFW 0
+SorcHeroVisible: DEFB 0            ; 1 = рисовать Sorc-героя (hasHero из #91)
 
 CoreEnd:
                 ASSERT CoreEnd <= CMD_ADDRESS_PTR
