@@ -814,6 +814,7 @@ AiKingdom_MoveHero:
 .mhxdec:        DEC  E
 .mhxok:         LD   A, E
                 LD   (GLOBAL_STATE_BASE + AI_KINGDOM_HEROX_OFS), A
+                LD   L, E                          ; L = новый Sorc X (для детекта столкновения)
                 LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HEROY_OFS)
                 LD   E, A                          ; Sorc Y
                 LD   A, C                          ; игрок Y ? Sorc Y → шаг
@@ -826,12 +827,11 @@ AiKingdom_MoveHero:
 .mhyok:         LD   A, E
                 LD   (GLOBAL_STATE_BASE + AI_KINGDOM_HEROY_OFS), A
                 ; Столкновение: новый тайл Sorc == тайл игрока (B,C)? → Sorc атакует (бой).
-                ; (SorcAttackPending — резидент slot1, виден из slot3-контекста #91.)
-                LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HEROX_OFS)
-                CP   B
-                JR   NZ, .mhdone
-                LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HEROY_OFS)
+                ; A=новый Sorc Y, L=новый Sorc X (без перечитки #91). SorcAttackPending — резидент.
                 CP   C
+                JR   NZ, .mhdone
+                LD   A, L
+                CP   B
                 JR   NZ, .mhdone
                 LD   A, 1
                 LD   (SorcAttackPending), A
