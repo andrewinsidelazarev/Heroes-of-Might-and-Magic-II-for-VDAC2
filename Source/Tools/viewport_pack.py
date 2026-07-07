@@ -2383,7 +2383,7 @@ def write_runtime_map_inc(path: Path, width: int, height: int, tiles, terrain_re
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page: int, route_red_palette_addr: int = 0, cursor_chunks=None):
+def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, sorc_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page: int, route_red_palette_addr: int = 0, cursor_chunks=None):
     cursor_sprite = cursor_sprites[CURSOR_POINTER_INDEX]
     ui_radar = ui_sprites["radar"]
     lines = [
@@ -2402,6 +2402,11 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
         f"HERO_SPRITE_H           EQU {hero_sprite['h']}",
         f"HERO_SPRITE_OX          EQU {hero_sprite['ox']}",
         f"HERO_SPRITE_OY          EQU {hero_sprite['oy']}",
+        f"SORC_SPRITE_RAMG        EQU #{sorc_sprite['addr']:06X}",
+        f"SORC_SPRITE_W           EQU {sorc_sprite['w']}",
+        f"SORC_SPRITE_H           EQU {sorc_sprite['h']}",
+        f"SORC_SPRITE_OX          EQU {sorc_sprite['ox']}",
+        f"SORC_SPRITE_OY          EQU {sorc_sprite['oy']}",
         f"CURSOR_SPRITE_RAMG      EQU #{cursor_sprite['addr']:06X}",
         f"CURSOR_SPRITE_W         EQU {cursor_sprite['w']}",
         f"CURSOR_SPRITE_H         EQU {cursor_sprite['h']}",
@@ -2829,7 +2834,12 @@ def main() -> int:
     while RAMG_OBJECT_BASE + len(object_payload) < route_red_palette_addr:
         object_payload.append(0)
     object_payload.extend(palette_argb4444_red(palette))
-    hero_sprite = append_overlay_sprite(object_payload, agg_data, entries, palette, "MINIHERO.ICN", 8)
+    # Герой на карте = MINIHERO.ICN, индекс = colorIndex*7 + race (map_object_info.cpp:5819).
+    # Цвета строк: 0=Blue 1=Green 2=Red 3=Yellow 4=Orange 5=Purple; расы: 0=Knight 1=Barbar
+    # 2=Sorc 3=Warlock 4=Wizard 5=Necro 6=Random. Игрок SKIRMISH = Blue Knight «Hampshire»
+    # → idx 0*7+0 = 0. Враг = Yellow Sorceress «Quick Silver» → idx 3*7+2 = 23.
+    hero_sprite = append_overlay_sprite(object_payload, agg_data, entries, palette, "MINIHERO.ICN", 0)
+    sorc_sprite = append_overlay_sprite(object_payload, agg_data, entries, palette, "MINIHERO.ICN", 23)
     cursor_sprites, cursor_payload = append_cursor_sprites(agg_data, entries, palette)
     ui_sprites = append_adventure_ui_sprites(object_payload, agg_data, entries, palette, ground_tiles, width, height, map_data)
 
@@ -2914,7 +2924,7 @@ def main() -> int:
     upload_chunks = write_chunks(root / "Assets/Converted/Viewports", "SKIRMISH_COMPOSITE_UPLOAD_p{:02d}.bin", COMPOSITE_UPLOAD_PAGE_BASE, upload_payload)
     write_terrain_inc(root / "Source/ASM/generated_terrain.inc", terrain_chunks, object_chunks, viewport_chunks, width, height, object_view_page_base)
     cursor_chunks = write_chunks(root / "Assets/Converted/Cursor", "SKIRMISH_CURSOR_p{:02d}.bin", CURSOR_RESIDENT_PAGE, bytes(cursor_payload))
-    write_objects_inc(root / "Source/ASM/generated_objects.inc", object_chunks, len(object_payload), hero_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page, route_red_palette_addr, cursor_chunks)
+    write_objects_inc(root / "Source/ASM/generated_objects.inc", object_chunks, len(object_payload), hero_sprite, sorc_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page, route_red_palette_addr, cursor_chunks)
     write_runtime_map_inc(root / "Source/ASM/generated_runtime_map.inc", width, height, tiles, terrain_remap, object_view_page_base, runtime_map_cells_page, object_view_entries, composite_upload_entries, palette)
     write_map_anim_inc(root / "Source/ASM/generated_map_anim.inc", map_anim_table)
     write_background_inc(root / "Source/ASM/generated_background.inc")

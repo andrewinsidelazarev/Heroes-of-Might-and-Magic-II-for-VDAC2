@@ -628,6 +628,8 @@ Game_EndTurn:
                 LD   HL, #FFFF
 .nc2:           LD   (ResGold), HL
 .nostatue:      CALL AiKingdom_EndTurn            ; ★AI-фаза хода: доход королевства Sorc (враг) в #91
+                CALL AiKingdom_MoveHero          ; ★Sorc-герой шаг к игроку (простой ход AI)
+                CALL SorcHero_LoadCache          ; обновить кэш позиции Sorc для рендера
                 CALL Resources_BuildPanelDL      ; пересобрать DL панели (золото изменилось)
                 RET
 

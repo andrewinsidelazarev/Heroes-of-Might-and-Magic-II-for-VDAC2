@@ -1570,7 +1570,7 @@ HeroMarker_UpdateDLPosition_Sorc:
                 SBC  HL, DE
                 LD   DE, (RuntimeDL_ObjectTranslateX_Low)
                 ADD  HL, DE
-                LD   (HERO_MARKER_TRANSLATE_X), HL
+                LD   (SORC_MARKER_TRANSLATE_X), HL
                 LD   HL, (SorcHeroPixelY)
                 LD   DE, 18
                 OR   A
@@ -1581,7 +1581,7 @@ HeroMarker_UpdateDLPosition_Sorc:
                 SBC  HL, DE
                 LD   DE, (RuntimeDL_ObjectTranslateY_Low)
                 ADD  HL, DE
-                LD   (HERO_MARKER_TRANSLATE_Y), HL
+                LD   (SORC_MARKER_TRANSLATE_Y), HL
                 RET
 ; Рендер Sorc-героя маркером (если SorcHeroVisible): copy HERO_MARKER_DL @ Sorc-позицию. Вызывать
 ; ПОСЛЕ Render_HeroMarkerCmd игрока (перезаписывает HERO_MARKER_TRANSLATE → второй маркер).
@@ -1590,8 +1590,8 @@ Render_SorcMarkerCmd:
                 OR   A
                 RET  Z
                 CALL HeroMarker_UpdateDLPosition_Sorc
-                LD   HL, HERO_MARKER_DL
-                LD   BC, HERO_MARKER_DL_SIZE - 4
+                LD   HL, SORC_MARKER_DL
+                LD   BC, SORC_MARKER_DL_SIZE - 4
                 CALL Render_CmdBufCopy
                 RET
 
@@ -3364,6 +3364,37 @@ HERO_MARKER_TRANSLATE_Y:
                 FT_END
                 FT_DISPLAY
 HERO_MARKER_DL_SIZE EQU $ - HERO_MARKER_DL
+
+; Вражеский герой на карте = отдельный спрайт MINIHERO (Yellow Sorceress idx23),
+; тот же DL-скелет что у игрока, но своя SOURCE и свой TRANSLATE (второй маркер).
+SORC_MARKER_DL:
+                FT_COLOR_RGB 255, 255, 255
+                FT_COLOR_A 255
+                FT_BLEND_FUNC FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA
+                FT_BITMAP_HANDLE 2
+                FT_CELL 0
+                FT_BITMAP_SOURCE SORC_SPRITE_RAMG
+                FT_BITMAP_LAYOUT FT_ARGB4, SORC_SPRITE_W * 2, SORC_SPRITE_H
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, (SORC_SPRITE_W * 8 + 4) / 5, (SORC_SPRITE_H * 8 + 4) / 5
+SORC_MARKER_TRANSFORM_A_LOW:
+                DEFW 160
+SORC_MARKER_TRANSFORM_A_HIGH:
+                DEFW #1500
+SORC_MARKER_TRANSFORM_C_LOW:
+                DEFW 0
+SORC_MARKER_TRANSFORM_C_HIGH:
+                DEFW #1700
+SORC_MARKER_TRANSLATE_X:
+                DEFW 0
+                DEFW #2B00
+SORC_MARKER_TRANSLATE_Y:
+                DEFW 0
+                DEFW #2C00
+                FT_BEGIN FT_BITMAPS
+                FT_VERTEX2F 0, 0
+                FT_END
+                FT_DISPLAY
+SORC_MARKER_DL_SIZE EQU $ - SORC_MARKER_DL
 
                 ifdef DYNAMIC_ACTOR_RAMG
 ACTOR_DL:

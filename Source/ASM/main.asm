@@ -93,7 +93,7 @@ AI_KINGDOM_LEN       EQU 5                          ; gold(2)+heroX+heroY+hasHer
 ; Sorc герой стартует рядом с замком @(9,22) — тайл ниже гейта (как игрок ПОД гейтом), (9,23).
 AI_SORC_CASTLE_X    EQU 9
 AI_SORC_CASTLE_Y    EQU 22
-AI_SORC_HERO_START_X EQU 9        ; Sorc герой у своего замка (в тумане, виден при разведке игроком)
+AI_SORC_HERO_START_X EQU 9        ; Sorc герой у своего замка (в тумане; движется к игроку каждый ход)
 AI_SORC_HERO_START_Y EQU 23
 MenuClickLatch EQU #4258        ; latch LMB в меню (1 клик = 1 действие)
 MenuNameBuf    EQU #4259        ; slot1-буфер имени PAK (14б, #4259..#4266) для loader
@@ -787,6 +787,45 @@ SorcHero_LoadCache:
                 ADD  HL, HL
                 ADD  HL, HL
                 LD   (SorcHeroPixelY), HL
+                RET
+
+; Простой ход Sorc-героя: 1 тайл к игроку (sign по X и Y). Пишет позицию в #91. Портит A,BC,DE,HL.
+; Вызывать в AI-фазе (Game_EndTurn). Далее SorcHero_LoadCache обновит кэш для рендера.
+AiKingdom_MoveHero:
+                LD   A, (HeroTileX)              ; игрок X (резидент)
+                LD   B, A
+                LD   A, (HeroTileY)              ; игрок Y
+                LD   C, A
+                GetPage3
+                LD   D, A                         ; D = прежняя страница slot3
+                SetPage3 GLOBAL_DATA_PAGE
+                LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HAS_HERO_OFS)
+                OR   A
+                JR   Z, .mhdone                   ; нет героя
+                LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HEROX_OFS)
+                LD   E, A                          ; Sorc X
+                LD   A, B                          ; игрок X ? Sorc X → шаг
+                CP   E
+                JR   Z, .mhxok
+                JR   C, .mhxdec
+                INC  E
+                JR   .mhxok
+.mhxdec:        DEC  E
+.mhxok:         LD   A, E
+                LD   (GLOBAL_STATE_BASE + AI_KINGDOM_HEROX_OFS), A
+                LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HEROY_OFS)
+                LD   E, A                          ; Sorc Y
+                LD   A, C                          ; игрок Y ? Sorc Y → шаг
+                CP   E
+                JR   Z, .mhyok
+                JR   C, .mhydec
+                INC  E
+                JR   .mhyok
+.mhydec:        DEC  E
+.mhyok:         LD   A, E
+                LD   (GLOBAL_STATE_BASE + AI_KINGDOM_HEROY_OFS), A
+.mhdone:        LD   A, D
+                SetPage3_A
                 RET
 
 ; Отладочное зеркало боя для statedump (эмулятор дампит страницы 5/6; оверлей боя в slot3 не виден).
