@@ -780,6 +780,10 @@ SorcHero_LoadCache:
                 SetPage3_A                          ; restore slot3
                 LD   A, C                           ; кэш (нижняя RAM видна всегда)
                 LD   (SorcHeroVisible), A
+                LD   A, D                           ; кэш тайла (обратное столкновение игрок→Sorc)
+                LD   (SorcHeroTileX), A
+                LD   A, E
+                LD   (SorcHeroTileY), A
                 LD   A, D                           ; пиксель X = тайл X × 32 (общий хелпер)
                 CALL Tile_MulA32ToHL
                 LD   (SorcHeroPixelX), HL
@@ -850,6 +854,8 @@ SorcHeroPixelY:  DEFW 0
 SorcHeroVisible   EQU #4257        ; 1 = рисовать Sorc-героя (hasHero из #91)
 SorcAttackPending EQU #4271        ; 1 = Sorc-герой дошёл до игрока (AI-фаза) → бой в конце End Turn
 BattleVsSorc      EQU #427F        ; 1 = текущий бой против Sorc-героя (не монстр); .exit обрабатывает исход
+SorcHeroTileX     EQU #41F7        ; тайл Sorc-героя (для обратного столкновения игрок→Sorc)
+SorcHeroTileY     EQU #41F8
 
 CoreEnd:
                 ASSERT CoreEnd <= CMD_ADDRESS_PTR

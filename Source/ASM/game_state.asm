@@ -636,12 +636,17 @@ Game_EndTurn:
                 LD   A, (SorcAttackPending)       ; MoveHero обнуляет каждый ход → clear не нужен
                 OR   A
                 RET  Z
+                JP   Sorc_TriggerBattle           ; Sorc дошёл до игрока → бой (общий триггер)
+
+; Общий триггер боя против Sorc-героя (forward: Sorc→игрок в End Turn; reverse: игрок→Sorc
+; при прибытии). Армия защиты = дефолт SKIRMISH (EngagedMonIdx=#FF → BattleUnitStateInit 2,3).
+; BattleVsSorc=1 → battle.asm .exit пишет маркер исхода (2=победа → Sorc снят в LoadCache).
+Sorc_TriggerBattle:
                 LD   A, #FF
-                LD   (EngagedMonIdx), A           ; армия защиты = дефолт (Init слоты 2,3)
+                LD   (EngagedMonIdx), A
                 LD   A, 1
-                LD   (BattleVsSorc), A            ; .exit обработает исход (победа → Sorc убран)
+                LD   (BattleVsSorc), A
                 JP   Battle_Enter_Tramp
-                RET
 
 ; Стартовые ресурсы королевства (fheroes2 _getKingdomStartingResources, человек) ПО СЛОЖНОСТИ
 ; GameDifficulty: копируем запись ResStartTab[diff] (7×DW gold,wood,merc,ore,sulf,cryst,gems) →
@@ -832,7 +837,18 @@ Hero_SelectStepIfArrived:
                 XOR  A
                 LD   (BattleVsSorc), A            ; монстр-бой, не Sorc (маркер чистый для .exit)
                 JP   Battle_Enter_Tramp
-.no_monster:    LD   A, B
+.no_monster:    ; ★Обратное столкновение: игрок пришёл НА тайл Sorc-героя → бой (игрок атакует).
+                LD   A, (SorcHeroVisible)       ; Sorc на карте (hasHero)?
+                OR   A
+                JR   Z, .no_sorc
+                LD   A, (SorcHeroTileX)
+                CP   B
+                JR   NZ, .no_sorc
+                LD   A, (SorcHeroTileY)
+                CP   C
+                JR   NZ, .no_sorc
+                JP   Sorc_TriggerBattle         ; тайл совпал → бой против Sorc (общий триггер)
+.no_sorc:       LD   A, B
                 CP   24
                 RET  NZ                         ; не колонка 24 → ничего
                 LD   A, C
