@@ -3,8 +3,8 @@
                 define _HMM2_GENERATED_BATTLE_
 
 BATTLE_PAL_RAMG      EQU #000000
-BATTLE_TOP_RAMG      EQU #056E14
-BATTLE_BOT_RAMG      EQU #07C614
+BATTLE_TOP_RAMG      EQU #0571D4
+BATTLE_BOT_RAMG      EQU #07C9D4
 BATTLE_SHADOW_PAL_RAMG EQU #000580
 BATTLE_SHADOW_RAMG   EQU #0005A0
 BATTLE_CONTOUR_PAL_RAMG EQU #000E90
@@ -429,7 +429,7 @@ BattleShootTailPl:                     ; « shots left)»
 BattleShootTailSg:                     ; « shot left)» (N==1)
                 DEFB #14, #0E, #02, 128, 24
 
-BATTLE_YELLOW_PAL_RAMG EQU #052CCC
+BATTLE_YELLOW_PAL_RAMG EQU #05308C
 Battle_WinTitle_Begin_DL:              ; пролог заголовка победы (жёлтая палитра, нативно)
                 FT_BITMAP_TRANSFORM_A 256
                 FT_BITMAP_TRANSFORM_E 256
@@ -477,144 +477,144 @@ BATTLE_GRP_DEATH EQU 9
 BATTLE_GRP_WINCE_UP EQU 10
 BATTLE_GRP_WINCE_END EQU 11
 BattleFrameSrcTab:                      ; [вариант=type*2+side] → FT_BITMAP_SOURCE ×кадры (4Б)
-                DEFW BattleFrameSrc0_0, BattleFrameSrc0_1, BattleFrameSrc1_0, BattleFrameSrc1_1
+                DEFW BattleFrameSrc0_0, BattleFrameSrc0_1, BattleFrameSrc1_0, BattleFrameSrc1_1, BattleFrameSrc2_0, BattleFrameSrc2_1, BattleFrameSrc3_0, BattleFrameSrc3_1
 BattleFrameSrc0_0:
-                FT_BITMAP_SOURCE #0A1E14   ; ICN 1
-                FT_BITMAP_SOURCE #0A3014   ; ICN 2
-                FT_BITMAP_SOURCE #0A4214   ; ICN 3
-                FT_BITMAP_SOURCE #0A5414   ; ICN 4
-                FT_BITMAP_SOURCE #0A6614   ; ICN 5
-                FT_BITMAP_SOURCE #0A7784   ; ICN 6
-                FT_BITMAP_SOURCE #0A8A6C   ; ICN 7
-                FT_BITMAP_SOURCE #0A9E74   ; ICN 8
-                FT_BITMAP_SOURCE #0AB184   ; ICN 9
-                FT_BITMAP_SOURCE #0AC1BC   ; ICN 10
-                FT_BITMAP_SOURCE #0AD2E4   ; ICN 11
-                FT_BITMAP_SOURCE #0AE6EC   ; ICN 12
-                FT_BITMAP_SOURCE #0AF8DC   ; ICN 13
-                FT_BITMAP_SOURCE #0B0ECC   ; ICN 14
-                FT_BITMAP_SOURCE #0B20BC   ; ICN 15
-                FT_BITMAP_SOURCE #0B2EFC   ; ICN 16
-                FT_BITMAP_SOURCE #0B40CC   ; ICN 17
-                FT_BITMAP_SOURCE #0B508C   ; ICN 18
-                FT_BITMAP_SOURCE #0B6514   ; ICN 23
-                FT_BITMAP_SOURCE #0B799C   ; ICN 24
-                FT_BITMAP_SOURCE #0B8E24   ; ICN 25
-                FT_BITMAP_SOURCE #0BA60C   ; ICN 26
-                FT_BITMAP_SOURCE #0BC414   ; ICN 27
-                FT_BITMAP_SOURCE #0BDEBC   ; ICN 28
-                FT_BITMAP_SOURCE #0BF86C   ; ICN 34
-                FT_BITMAP_SOURCE #0C02BC   ; ICN 35
-                FT_BITMAP_SOURCE #0C0B3C   ; ICN 36
-                FT_BITMAP_SOURCE #0C1234   ; ICN 37
+                FT_BITMAP_SOURCE #0A21D4   ; ICN 1
+                FT_BITMAP_SOURCE #0A33D4   ; ICN 2
+                FT_BITMAP_SOURCE #0A45D4   ; ICN 5
+                FT_BITMAP_SOURCE #0A5744   ; ICN 6
+                FT_BITMAP_SOURCE #0A6A2C   ; ICN 7
+                FT_BITMAP_SOURCE #0A7E34   ; ICN 8
+                FT_BITMAP_SOURCE #0A9144   ; ICN 9
+                FT_BITMAP_SOURCE #0AA17C   ; ICN 10
+                FT_BITMAP_SOURCE #0AB2A4   ; ICN 11
+                FT_BITMAP_SOURCE #0AC6AC   ; ICN 12
+                FT_BITMAP_SOURCE #0AD89C   ; ICN 13
+                FT_BITMAP_SOURCE #0AEE8C   ; ICN 14
+                FT_BITMAP_SOURCE #0B007C   ; ICN 15
+                FT_BITMAP_SOURCE #0B0EBC   ; ICN 16
+                FT_BITMAP_SOURCE #0B208C   ; ICN 17
+                FT_BITMAP_SOURCE #0B304C   ; ICN 18
+                FT_BITMAP_SOURCE #0B44D4   ; ICN 23
+                FT_BITMAP_SOURCE #0B595C   ; ICN 24
+                FT_BITMAP_SOURCE #0B6DE4   ; ICN 25
+                FT_BITMAP_SOURCE #0B85CC   ; ICN 26
+                FT_BITMAP_SOURCE #0BA3D4   ; ICN 27
+                FT_BITMAP_SOURCE #0BBE7C   ; ICN 28
+                FT_BITMAP_SOURCE #0BD82C   ; ICN 34
+                FT_BITMAP_SOURCE #0BE27C   ; ICN 35
+                FT_BITMAP_SOURCE #0BEAFC   ; ICN 36
+                FT_BITMAP_SOURCE #0BF1F4   ; ICN 37
 BattleFrameSrc0_1:
-                FT_BITMAP_SOURCE #0A2714   ; ICN 1
-                FT_BITMAP_SOURCE #0A3914   ; ICN 2
-                FT_BITMAP_SOURCE #0A4B14   ; ICN 3
-                FT_BITMAP_SOURCE #0A5D14   ; ICN 4
-                FT_BITMAP_SOURCE #0A6ECC   ; ICN 5
-                FT_BITMAP_SOURCE #0A80F8   ; ICN 6
-                FT_BITMAP_SOURCE #0A9470   ; ICN 7
-                FT_BITMAP_SOURCE #0AA7FC   ; ICN 8
-                FT_BITMAP_SOURCE #0AB9A0   ; ICN 9
-                FT_BITMAP_SOURCE #0ACA50   ; ICN 10
-                FT_BITMAP_SOURCE #0ADCE8   ; ICN 11
-                FT_BITMAP_SOURCE #0AEFE4   ; ICN 12
-                FT_BITMAP_SOURCE #0B03D4   ; ICN 13
-                FT_BITMAP_SOURCE #0B17C4   ; ICN 14
-                FT_BITMAP_SOURCE #0B27DC   ; ICN 15
-                FT_BITMAP_SOURCE #0B37E4   ; ICN 16
-                FT_BITMAP_SOURCE #0B48AC   ; ICN 17
-                FT_BITMAP_SOURCE #0B5AD0   ; ICN 18
-                FT_BITMAP_SOURCE #0B6F58   ; ICN 23
-                FT_BITMAP_SOURCE #0B83E0   ; ICN 24
-                FT_BITMAP_SOURCE #0B9A18   ; ICN 25
-                FT_BITMAP_SOURCE #0BB510   ; ICN 26
-                FT_BITMAP_SOURCE #0BD168   ; ICN 27
-                FT_BITMAP_SOURCE #0BEB94   ; ICN 28
-                FT_BITMAP_SOURCE #0BFD94   ; ICN 34
-                FT_BITMAP_SOURCE #0C06FC   ; ICN 35
-                FT_BITMAP_SOURCE #0C0EB8   ; ICN 36
-                FT_BITMAP_SOURCE #0C15A0   ; ICN 37
+                FT_BITMAP_SOURCE #0A2AD4   ; ICN 1
+                FT_BITMAP_SOURCE #0A3CD4   ; ICN 2
+                FT_BITMAP_SOURCE #0A4E8C   ; ICN 5
+                FT_BITMAP_SOURCE #0A60B8   ; ICN 6
+                FT_BITMAP_SOURCE #0A7430   ; ICN 7
+                FT_BITMAP_SOURCE #0A87BC   ; ICN 8
+                FT_BITMAP_SOURCE #0A9960   ; ICN 9
+                FT_BITMAP_SOURCE #0AAA10   ; ICN 10
+                FT_BITMAP_SOURCE #0ABCA8   ; ICN 11
+                FT_BITMAP_SOURCE #0ACFA4   ; ICN 12
+                FT_BITMAP_SOURCE #0AE394   ; ICN 13
+                FT_BITMAP_SOURCE #0AF784   ; ICN 14
+                FT_BITMAP_SOURCE #0B079C   ; ICN 15
+                FT_BITMAP_SOURCE #0B17A4   ; ICN 16
+                FT_BITMAP_SOURCE #0B286C   ; ICN 17
+                FT_BITMAP_SOURCE #0B3A90   ; ICN 18
+                FT_BITMAP_SOURCE #0B4F18   ; ICN 23
+                FT_BITMAP_SOURCE #0B63A0   ; ICN 24
+                FT_BITMAP_SOURCE #0B79D8   ; ICN 25
+                FT_BITMAP_SOURCE #0B94D0   ; ICN 26
+                FT_BITMAP_SOURCE #0BB128   ; ICN 27
+                FT_BITMAP_SOURCE #0BCB54   ; ICN 28
+                FT_BITMAP_SOURCE #0BDD54   ; ICN 34
+                FT_BITMAP_SOURCE #0BE6BC   ; ICN 35
+                FT_BITMAP_SOURCE #0BEE78   ; ICN 36
+                FT_BITMAP_SOURCE #0BF560   ; ICN 37
 BattleFrameSrc1_0:
-                FT_BITMAP_SOURCE #0C190C   ; ICN 1
-                FT_BITMAP_SOURCE #0C2A94   ; ICN 2
-                FT_BITMAP_SOURCE #0C3B9C   ; ICN 3
-                FT_BITMAP_SOURCE #0C4CA4   ; ICN 4
-                FT_BITMAP_SOURCE #0C5D24   ; ICN 5
-                FT_BITMAP_SOURCE #0C6DA4   ; ICN 6
-                FT_BITMAP_SOURCE #0C7DE4   ; ICN 7
-                FT_BITMAP_SOURCE #0C9214   ; ICN 8
-                FT_BITMAP_SOURCE #0CA1D4   ; ICN 9
-                FT_BITMAP_SOURCE #0CB194   ; ICN 10
-                FT_BITMAP_SOURCE #0CC34C   ; ICN 11
-                FT_BITMAP_SOURCE #0CD504   ; ICN 12
-                FT_BITMAP_SOURCE #0CE684   ; ICN 13
-                FT_BITMAP_SOURCE #0CF50C   ; ICN 14
-                FT_BITMAP_SOURCE #0D034C   ; ICN 15
-                FT_BITMAP_SOURCE #0D1034   ; ICN 16
-                FT_BITMAP_SOURCE #0D1FB4   ; ICN 17
-                FT_BITMAP_SOURCE #0D2EB4   ; ICN 18
-                FT_BITMAP_SOURCE #0D410C   ; ICN 19
-                FT_BITMAP_SOURCE #0D558C   ; ICN 24
-                FT_BITMAP_SOURCE #0D711C   ; ICN 25
-                FT_BITMAP_SOURCE #0D8964   ; ICN 26
-                FT_BITMAP_SOURCE #0D9F54   ; ICN 27
-                FT_BITMAP_SOURCE #0DB224   ; ICN 32
-                FT_BITMAP_SOURCE #0DC3D4   ; ICN 34
-                FT_BITMAP_SOURCE #0DD014   ; ICN 35
-                FT_BITMAP_SOURCE #0DDE14   ; ICN 39
-                FT_BITMAP_SOURCE #0DEC14   ; ICN 40
-                FT_BITMAP_SOURCE #0E0414   ; ICN 41
-                FT_BITMAP_SOURCE #0E2024   ; ICN 45
-                FT_BITMAP_SOURCE #0E30E4   ; ICN 46
-                FT_BITMAP_SOURCE #0E4134   ; ICN 47
-                FT_BITMAP_SOURCE #0E4D94   ; ICN 48
-                FT_BITMAP_SOURCE #0E567C   ; ICN 49
-                FT_BITMAP_SOURCE #0E5EEC   ; ICN 50
+                FT_BITMAP_SOURCE #0BF8CC   ; ICN 1
+                FT_BITMAP_SOURCE #0C0A54   ; ICN 2
+                FT_BITMAP_SOURCE #0C1B5C   ; ICN 3
+                FT_BITMAP_SOURCE #0C2C64   ; ICN 4
+                FT_BITMAP_SOURCE #0C3CE4   ; ICN 5
+                FT_BITMAP_SOURCE #0C4D64   ; ICN 6
+                FT_BITMAP_SOURCE #0C5DA4   ; ICN 7
+                FT_BITMAP_SOURCE #0C71D4   ; ICN 8
+                FT_BITMAP_SOURCE #0C8194   ; ICN 9
+                FT_BITMAP_SOURCE #0C9154   ; ICN 10
+                FT_BITMAP_SOURCE #0CA30C   ; ICN 11
+                FT_BITMAP_SOURCE #0CB4C4   ; ICN 12
+                FT_BITMAP_SOURCE #0CC644   ; ICN 13
+                FT_BITMAP_SOURCE #0CD4CC   ; ICN 14
+                FT_BITMAP_SOURCE #0CE30C   ; ICN 15
+                FT_BITMAP_SOURCE #0CEFF4   ; ICN 16
+                FT_BITMAP_SOURCE #0CFF74   ; ICN 17
+                FT_BITMAP_SOURCE #0D0E74   ; ICN 18
+                FT_BITMAP_SOURCE #0D20CC   ; ICN 19
+                FT_BITMAP_SOURCE #0D354C   ; ICN 24
+                FT_BITMAP_SOURCE #0D50DC   ; ICN 25
+                FT_BITMAP_SOURCE #0D6924   ; ICN 26
+                FT_BITMAP_SOURCE #0D7F14   ; ICN 27
+                FT_BITMAP_SOURCE #0D91E4   ; ICN 32
+                FT_BITMAP_SOURCE #0DA394   ; ICN 34
+                FT_BITMAP_SOURCE #0DAFD4   ; ICN 35
+                FT_BITMAP_SOURCE #0DBDD4   ; ICN 39
+                FT_BITMAP_SOURCE #0DCBD4   ; ICN 40
+                FT_BITMAP_SOURCE #0DE3D4   ; ICN 41
+                FT_BITMAP_SOURCE #0DFFE4   ; ICN 45
+                FT_BITMAP_SOURCE #0E10A4   ; ICN 46
+                FT_BITMAP_SOURCE #0E20F4   ; ICN 47
+                FT_BITMAP_SOURCE #0E2D54   ; ICN 48
+                FT_BITMAP_SOURCE #0E363C   ; ICN 49
+                FT_BITMAP_SOURCE #0E3EAC   ; ICN 50
 BattleFrameSrc1_1:
-                FT_BITMAP_SOURCE #0C21D0   ; ICN 1
-                FT_BITMAP_SOURCE #0C3318   ; ICN 2
-                FT_BITMAP_SOURCE #0C4420   ; ICN 3
-                FT_BITMAP_SOURCE #0C54E4   ; ICN 4
-                FT_BITMAP_SOURCE #0C6564   ; ICN 5
-                FT_BITMAP_SOURCE #0C75C4   ; ICN 6
-                FT_BITMAP_SOURCE #0C87FC   ; ICN 7
-                FT_BITMAP_SOURCE #0C99F4   ; ICN 8
-                FT_BITMAP_SOURCE #0CA9B4   ; ICN 9
-                FT_BITMAP_SOURCE #0CBA70   ; ICN 10
-                FT_BITMAP_SOURCE #0CCC28   ; ICN 11
-                FT_BITMAP_SOURCE #0CDDC4   ; ICN 12
-                FT_BITMAP_SOURCE #0CEDC8   ; ICN 13
-                FT_BITMAP_SOURCE #0CFC2C   ; ICN 14
-                FT_BITMAP_SOURCE #0D09C0   ; ICN 15
-                FT_BITMAP_SOURCE #0D17F4   ; ICN 16
-                FT_BITMAP_SOURCE #0D2734   ; ICN 17
-                FT_BITMAP_SOURCE #0D37E0   ; ICN 18
-                FT_BITMAP_SOURCE #0D4B4C   ; ICN 19
-                FT_BITMAP_SOURCE #0D6354   ; ICN 24
-                FT_BITMAP_SOURCE #0D7D40   ; ICN 25
-                FT_BITMAP_SOURCE #0D945C   ; ICN 26
-                FT_BITMAP_SOURCE #0DA8BC   ; ICN 27
-                FT_BITMAP_SOURCE #0DBAFC   ; ICN 32
-                FT_BITMAP_SOURCE #0DC9F4   ; ICN 34
-                FT_BITMAP_SOURCE #0DD714   ; ICN 35
-                FT_BITMAP_SOURCE #0DE514   ; ICN 39
-                FT_BITMAP_SOURCE #0DF814   ; ICN 40
-                FT_BITMAP_SOURCE #0E121C   ; ICN 41
-                FT_BITMAP_SOURCE #0E2884   ; ICN 45
-                FT_BITMAP_SOURCE #0E390C   ; ICN 46
-                FT_BITMAP_SOURCE #0E4764   ; ICN 47
-                FT_BITMAP_SOURCE #0E5208   ; ICN 48
-                FT_BITMAP_SOURCE #0E5AB4   ; ICN 49
-                FT_BITMAP_SOURCE #0E6248   ; ICN 50
+                FT_BITMAP_SOURCE #0C0190   ; ICN 1
+                FT_BITMAP_SOURCE #0C12D8   ; ICN 2
+                FT_BITMAP_SOURCE #0C23E0   ; ICN 3
+                FT_BITMAP_SOURCE #0C34A4   ; ICN 4
+                FT_BITMAP_SOURCE #0C4524   ; ICN 5
+                FT_BITMAP_SOURCE #0C5584   ; ICN 6
+                FT_BITMAP_SOURCE #0C67BC   ; ICN 7
+                FT_BITMAP_SOURCE #0C79B4   ; ICN 8
+                FT_BITMAP_SOURCE #0C8974   ; ICN 9
+                FT_BITMAP_SOURCE #0C9A30   ; ICN 10
+                FT_BITMAP_SOURCE #0CABE8   ; ICN 11
+                FT_BITMAP_SOURCE #0CBD84   ; ICN 12
+                FT_BITMAP_SOURCE #0CCD88   ; ICN 13
+                FT_BITMAP_SOURCE #0CDBEC   ; ICN 14
+                FT_BITMAP_SOURCE #0CE980   ; ICN 15
+                FT_BITMAP_SOURCE #0CF7B4   ; ICN 16
+                FT_BITMAP_SOURCE #0D06F4   ; ICN 17
+                FT_BITMAP_SOURCE #0D17A0   ; ICN 18
+                FT_BITMAP_SOURCE #0D2B0C   ; ICN 19
+                FT_BITMAP_SOURCE #0D4314   ; ICN 24
+                FT_BITMAP_SOURCE #0D5D00   ; ICN 25
+                FT_BITMAP_SOURCE #0D741C   ; ICN 26
+                FT_BITMAP_SOURCE #0D887C   ; ICN 27
+                FT_BITMAP_SOURCE #0D9ABC   ; ICN 32
+                FT_BITMAP_SOURCE #0DA9B4   ; ICN 34
+                FT_BITMAP_SOURCE #0DB6D4   ; ICN 35
+                FT_BITMAP_SOURCE #0DC4D4   ; ICN 39
+                FT_BITMAP_SOURCE #0DD7D4   ; ICN 40
+                FT_BITMAP_SOURCE #0DF1DC   ; ICN 41
+                FT_BITMAP_SOURCE #0E0844   ; ICN 45
+                FT_BITMAP_SOURCE #0E18CC   ; ICN 46
+                FT_BITMAP_SOURCE #0E2724   ; ICN 47
+                FT_BITMAP_SOURCE #0E31C8   ; ICN 48
+                FT_BITMAP_SOURCE #0E3A74   ; ICN 49
+                FT_BITMAP_SOURCE #0E4208   ; ICN 50
+BattleFrameSrc2_0:
+                FT_BITMAP_SOURCE #0E4564   ; ICN 1
+BattleFrameSrc2_1:
+                FT_BITMAP_SOURCE #0E4DE8   ; ICN 1
+BattleFrameSrc3_0:
+                FT_BITMAP_SOURCE #0E566C   ; ICN 1
+BattleFrameSrc3_1:
+                FT_BITMAP_SOURCE #0E602C   ; ICN 1
 BattleFrameLayTab:                      ; [тип] → LAYOUT+SIZE ×кадры (8Б; общие для зеркала)
-                DEFW BattleFrameLay0, BattleFrameLay1
+                DEFW BattleFrameLay0, BattleFrameLay1, BattleFrameLay2, BattleFrameLay3
 BattleFrameLay0:
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 64
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 102
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 64
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 102
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 64
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 57, 102
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 64
@@ -738,33 +738,42 @@ BattleFrameLay1:
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 64, 43
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 39, 22
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 62, 35
+BattleFrameLay2:
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 33, 66
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 52, 105
+BattleFrameLay3:
+                FT_BITMAP_LAYOUT FT_PALETTED4444, 39, 64
+                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 62, 102
 BattleFrameOfsTab:                      ; [вариант] → &GD-таблицы (ofsX,ofsY)×кадры в #91
-                DEFW GDBattleFrameOfs0_0, GDBattleFrameOfs0_1, GDBattleFrameOfs1_0, GDBattleFrameOfs1_1
-BattleSeqPtrTab:
-                DEFW GDBattleSeq0_STATIC, GDBattleSeq0_IDLE1, GDBattleSeq0_IDLE2, GDBattleSeq0_IDLE3, GDBattleSeq0_MOVE_MAIN, GDBattleSeq0_ATTACK2, GDBattleSeq0_ATTACK2_END, 0, 0, GDBattleSeq0_DEATH, GDBattleSeq0_WINCE_UP, GDBattleSeq0_WINCE_END
-                DEFW GDBattleSeq1_STATIC, GDBattleSeq1_IDLE1, GDBattleSeq1_IDLE2, GDBattleSeq1_IDLE3, GDBattleSeq1_MOVE_MAIN, GDBattleSeq1_ATTACK2, GDBattleSeq1_ATTACK2_END, GDBattleSeq1_SHOOT2, GDBattleSeq1_SHOOT2_END, GDBattleSeq1_DEATH, GDBattleSeq1_WINCE_UP, GDBattleSeq1_WINCE_END
+                DEFW GDBattleFrameOfs0_0, GDBattleFrameOfs0_1, GDBattleFrameOfs1_0, GDBattleFrameOfs1_1, GDBattleFrameOfs2_0, GDBattleFrameOfs2_1, GDBattleFrameOfs3_0, GDBattleFrameOfs3_1
 ; --- РАБОЧИЕ тик-таблицы: 21 байт ПОДРЯД (layout = набор BattleSpeedSets);
 ;     Battle_ApplySpeed копирует сюда набор выбранной скорости (LDIR 21) ---
 BattleAnimTicks:     DEFB 6          ; BATTLE_FRAME_DELAY (120мс @ speed4)
-BattleMoveTickTab:   DEFB 3, 3   ; тиков/кадр MOVE_MAIN (moveSpeed/8)
-BattleShootTickTab:  DEFB 6, 6   ; тиков/кадр SHOOT (shootSpeed/len)
-BattleDeathTicksTab: DEFB 42, 36 ; длительность смерти (len(DEATH)×тик)
+BattleMoveTickTab:   DEFB 3, 3, 17, 34   ; тиков/кадр MOVE_MAIN (moveSpeed/8)
+BattleShootTickTab:  DEFB 6, 6, 6, 6   ; тиков/кадр SHOOT (shootSpeed/len)
+BattleDeathTicksTab: DEFB 42, 36, 6, 6 ; длительность смерти (len(DEATH)×тик)
 BattleWinceTimTab:                      ; [type] → DEFB up_тиков, всего_тиков
                 DEFB 18, 24
                 DEFB 18, 30
+                DEFB 0, 0
+                DEFB 0, 0
 BattleAtkTimTab:                        ; [type] → DEFB мили_пик, мили_всего, выстрел_пик, выстрел_всего
                 DEFB 42, 54, 42, 54
                 DEFB 36, 66, 42, 48
+                DEFB 6, 6, 6, 6
+                DEFB 6, 6, 6, 6
 BattleMoveVel:       DEFB 48         ; vertex-ед/тик (клетка 44px ≈ 23 тика @ speed4)
 BattleArrowSteps:    DEFB 32         ; тиков полёта стрелы (шаг = дельта/steps)
-BATTLE_SPEED_SET_LEN EQU 21
-BattleIdleWaitMinTab: DEFW 214, 280 ; мин. пауза STATIC (тиков; от speed НЕ зависит — BIN idleDelay)
+BATTLE_SPEED_SET_LEN EQU 39
+BattleIdleWaitMinTab: DEFW 214, 280, 330, 330 ; мин. пауза STATIC (тиков; от speed НЕ зависит — BIN idleDelay)
 BATTLE_IDLE_RND_MASK EQU 127            ; пауза = min + (rand8 & mask) ≈ ×(75..125%)
 BattleIdleThreshTab:                    ; [type] → DEFB n_вариантов, порог1, порог2 (rand8)
                 DEFB 3, 85, 171
                 DEFB 3, 51, 154
-BattleStaticSlotTab: DEFB 0, 0     ; слот кадра стойки
-BattleCorpseSlotTab: DEFB 27, 34   ; слот трупа (посл. DEATH)
+                DEFB 3, 85, 171
+                DEFB 3, 77, 192
+BattleStaticSlotTab: DEFB 0, 0, 0, 0     ; слот кадра стойки
+BattleCorpseSlotTab: DEFB 25, 34, 0, 0   ; слот трупа (посл. DEATH)
 BATTLE_ARROW_YOFS EQU -768              ; стрела на высоте груди (−30 лог.px от якоря-ног)
 Battle_CountBar_Pre_DL:
                 FT_COLOR_RGB 0, 0, 0
@@ -800,13 +809,15 @@ Battle_Count_End_DL_SIZE EQU $ - Battle_Count_End_DL
 BattleCasualtyIconTab:                 ; иконы MONS32 type 0/1 [lo,mid,hi,w,h] (палитра юнитов)
                 DEFB #60, #22, #05, 17, 29
                 DEFB #50, #24, #05, 22, 31
+                DEFB #FC, #26, #05, 14, 27
+                DEFB #78, #28, #05, 20, 29
 BattleNoneSprite:                      ; «None» ×1.6 бел. [lo,mid,hi,w,h] (статус-палитра)
-                DEFB #FC, #26, #05, 48, 14
+                DEFB #BC, #2A, #05, 48, 14
 BATTLE_CAS_ATK_Y     EQU 8140
 BATTLE_CAS_DEF_Y     EQU 9676
 BattleArrowSrcTab:                     ; стрела ARCH_MSL[4] ×1.6 [lo,mid,hi,w,h]; [0]=вправо [1]=влево
-                DEFB #9C, #29, #05, 51, 8
-                DEFB #34, #2B, #05, 51, 8
+                DEFB #5C, #2D, #05, 51, 8
+                DEFB #F4, #2E, #05, 51, 8
 BATTLE_CNTBAR_DX  EQU 333               ; 13 лог.px ×25.6 (полуширина бара)
 BATTLE_CNTBAR_DY0 EQU -179              ; верх бара = якорьY − 7 лог.px
 BATTLE_CNTBAR_DY1 EQU 154               ; низ бара = якорьY + 6 лог.px
@@ -919,14 +930,14 @@ BattleUnitStateInit:                   ; read-only старт; Battle_Enter → 
                 DEFW 40
                 DEFB 1, 33, 0
                 DEFW 4
-                DEFB 0, 32, 1
-                DEFW 20
-                DEFB 1, 43, 1
-                DEFW 2
+                DEFB 2, 32, 1
+                DEFW 15
+                DEFB 3, 43, 1
+                DEFW 8
 
 BATTLE_RAMG_BASE     EQU #000000
-BATTLE_PAYLOAD_BYTES EQU 943522
-BATTLE_PAYLOAD_SECTORS EQU 1843
+BATTLE_PAYLOAD_BYTES EQU 944620
+BATTLE_PAYLOAD_SECTORS EQU 1845
 BATTLE_BODY_SECTOR   EQU 1
 BattlePakName:       DEFB "HMM2BATL.PAK", 0
 
@@ -936,14 +947,14 @@ ARMYINFO_W           EQU 551
 ARMYINFO_H           EQU 283
 ARMYINFO_BYTES       EQU 155933
 ARMYINFO_SECTORS     EQU 305
-ArmyInfoSecTab:      DEFW 1844, 2149   ; сектор попапа по типу (в PAK)
+ArmyInfoSecTab:      DEFW 1846, 2151, 2456, 2761   ; сектор попапа по типу (в PAK)
 WINDLG_SEC           EQU 280      ; сектор финала внутри payload (рестрим)
 WINDLG_SECTORS       EQU 327
 ARMYINFO_X           EQU 44      ; экранное лево окна (лог.640×480)
 ARMYINFO_Y           EQU 98
 ; значения статов: value @ x+406; Hit Points Left/Shots Left по типу (#FF=нет строки):
-ArmyInfoHplYTab:     DEFB 103, 119   ; лок.Y строки Hit Points Left
-ArmyInfoShotYTab:    DEFB 255, 71 ; лок.Y Shots Left (255=нет)
+ArmyInfoHplYTab:     DEFB 103, 119, 103, 103   ; лок.Y строки Hit Points Left
+ArmyInfoShotYTab:    DEFB 255, 71, 255, 255   ; лок.Y Shots Left (255=нет)
 ARMYINFO_VAL_X       EQU 406    ; лок.X значений статов
 ; бокс счётчика (dialog_armyinfo.cpp:64): (80,223) 125×23, число по центру, normalWhite
 ARMYINFO_CNT_X       EQU 80
@@ -982,6 +993,8 @@ Battle_ArmyInfo_Post_DL_SIZE EQU $ - Battle_ArmyInfo_Post_DL
 ArmyInfoMonAnchor:                    ; [type] → (ax,ay) DEFW — якорь ног монстра
                 DEFW 4864, 6989
                 DEFW 4864, 6989
+                DEFW 4864, 6989
+                DEFW 4864, 6989
 Battle_AIExitBtn0_DL:               ; отжата
                 FT_BITMAP_SOURCE #021A14
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 94, 25
@@ -1001,11 +1014,11 @@ AIEXIT_Y1            EQU 344
 ARMYINFO_CNT_CX16    EQU 4761   ; центр бокса счётчика ×16 (минус tw×8)
 ARMYINFO_CNT_Y16     EQU 8374   ; верх цифр счётчика ×16
 ARMYINFO_VALX16      EQU 11520  ; лево значений статов ×16
-ArmyInfoHplY16Tab:   DEFW 5145, 5555   ; Y строки Hit Points Left ×16 (по типу)
-ArmyInfoShotY16Tab:  DEFW 0, 4326   ; Y строки Shots Left ×16 (0=нет строки)
+ArmyInfoHplY16Tab:   DEFW 5145, 5555, 5145, 5145   ; Y строки Hit Points Left ×16 (по типу)
+ArmyInfoShotY16Tab:  DEFW 0, 4326, 0, 0   ; Y строки Shots Left ×16 (0=нет строки)
 
 ; Окно настроек боя (стрим в область финала, как ArmyInfo)
-SETTINGS_SEC         EQU 2454      ; сектор композита окна в PAK
+SETTINGS_SEC         EQU 3066      ; сектор композита окна в PAK
 SETTINGS_SECTORS     EQU 191
 SETTINGS_BYTES       EQU 97584
 SETTINGS_X           EQU 159      ; экранное лево окна (лог.640×480)
@@ -1069,7 +1082,7 @@ BTLSET_OK_Y0         EQU 346
 BTLSET_OK_Y1         EQU 371
 
 ; ПКМ-справки: [idx] → сектор/размер в PAK; DL-фрагмент на окно (центр экрана)
-BattleHelpSecTab:    DEFW 2645, 2771, 2879, 3005, 3113, 3221, 3376, 3484, 3592
+BattleHelpSecTab:    DEFW 3257, 3383, 3491, 3617, 3725, 3833, 3988, 4096, 4204
 BattleHelpSecN:      DEFB 126, 108, 126, 108, 108, 155, 108, 108, 108
 Battle_HelpPre_DL:                    ; общий пролог всех окон справок
                 FT_BITMAP_TRANSFORM_A 160

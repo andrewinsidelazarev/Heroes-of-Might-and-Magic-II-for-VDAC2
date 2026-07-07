@@ -409,7 +409,7 @@ Battle_NextTurn:
 Battle_UnitSpeed:
                 CALL Battle_UnitAddr
                 LD   A, (HL)                       ; type
-                INC  A                             ; monster id = type+1
+                CALL Battle_TypeToMonId  ; monster id = type+1 [TypeToMonId]
                 LD   B, A
                 CALL MonsterStats_Read
                 LD   A, (MonsterStatBuf + 6)
@@ -515,7 +515,7 @@ Battle_ArmyInfoOpen:
                 LD   D, (HL)
                 PUSH DE                             ; hp
                 LD   A, (ArmyInfoType)              ; maxHP из #91 (пейджинг)
-                INC  A
+                CALL Battle_TypeToMonId  ; type→id
                 LD   B, A
                 CALL MonsterStats_Read
                 LD   HL, (MonsterStatBuf + 4)       ; maxHP (16-бит)
@@ -1067,6 +1067,18 @@ Battle_UnitAddr:
                 ADD  HL, DE
                 RET
 
+; A = ростер-type → A = engine monster id. ★Заменяет прежний INC A (type+1 верно лишь для
+; Peasant/Archer id1,2). ФОРМУЛА для ростера [Peasant1,Archer2,Sprite21,Dwarf22] (бюджет оверлея
+; — без таблицы): type 0,1 → +1; type 2,3 → +19 (→21,22). ★КОУПЛИНГ: при смене ростера юнитов
+; обновить здесь и UNIT_MONID в battle_pack.py. Сохраняет BC,DE,HL (только A,F — drop-in для INC A).
+Battle_TypeToMonId:
+                CP   2
+                JR   NC, .sorc                     ; type 2,3 (Sprite/Dwarf враг)
+                INC  A                              ; type 0,1 → id 1,2 (Peasant/Archer)
+                RET
+.sorc:          ADD  A, 19                          ; type 2→21 (Sprite), 3→22 (Dwarf)
+                RET
+
 ; A = индекс юнита → HL = &BattleUnitHP[A*2] (hp-пул). Сохраняет A.
 Battle_UnitHPAddr:
                 LD   L, A
@@ -1141,7 +1153,7 @@ Battle_InitHP:
                 LD   A, C                          ; 2) type → maxHP
                 CALL Battle_UnitAddr
                 LD   A, (HL)
-                INC  A
+                CALL Battle_TypeToMonId  ; type→id
                 LD   B, A
                 CALL MonsterStats_Read
                 LD   A, (MonsterStatBuf + 4)       ; maxHP
@@ -1176,7 +1188,7 @@ Battle_InitShots:
 .isloop:        LD   A, C                          ; id = type+1
                 CALL Battle_UnitAddr
                 LD   A, (HL)
-                INC  A
+                CALL Battle_TypeToMonId  ; type→id
                 LD   B, A
                 PUSH BC                            ; MonsterStats_Read портит BC
                 CALL MonsterStats_Read
@@ -1241,7 +1253,7 @@ Battle_Attack:
                 LD   A, (BattleActiveUnit)
                 CALL Battle_UnitAddr
                 LD   A, (HL)                       ; active.type
-                INC  A
+                CALL Battle_TypeToMonId  ; type→id
                 LD   B, A
                 CALL MonsterStats_Read
                 LD   A, (MonsterStatBuf + 0)       ; атака активного → сохранить для r=атака−защита
@@ -1274,7 +1286,7 @@ Battle_Attack:
                 LD   A, (BattleTargetUnit)
                 CALL Battle_UnitAddr
                 LD   A, (HL)                       ; target.type
-                INC  A
+                CALL Battle_TypeToMonId  ; type→id
                 LD   B, A
                 CALL MonsterStats_Read
                 LD   A, (MonsterStatBuf + 4)       ; maxHP цели
@@ -2788,13 +2800,14 @@ Battle_SeqAddr:
                 ADD  A, A                          ; *2 (DEFW)
                 LD   L, A
                 LD   H, 0
-                LD   DE, BattleSeqPtrTab
+                LD   DE, BattleSeqPtrTab           ; ★таблица в #91 (вынос из оверлея) → GData_ReadByte
                 ADD  HL, DE
-                LD   E, (HL)
+                CALL GData_ReadByte                ; A = lo (#91:HL); HL цел, портит B
+                LD   E, A
                 INC  HL
-                LD   D, (HL)
-                LD   A, D
-                OR   E
+                CALL GData_ReadByte                ; A = hi
+                LD   D, A
+                OR   E                             ; D|E: указатель 0? (A=hi уже)
                 EX   DE, HL                        ; HL = seq (или 0 → Z)
                 RET
 
@@ -3712,19 +3725,16 @@ Battle_ApplySpeed:
                 LD   A, 4                           ; вне диапазона (холодный старт) → 4
                 LD   (BattleSpeedSetting), A
                 LD   A, 3
-.vs:            LD   L, A                           ; HL = GDBattleSpeedSets + idx×21 (#91-окно)
-                LD   H, 0
-                LD   E, L
-                LD   D, H
-                ADD  HL, HL                         ; 2
-                ADD  HL, HL                         ; 4
-                ADD  HL, DE                         ; 5
-                ADD  HL, HL                         ; 10
-                ADD  HL, HL                         ; 20
-                ADD  HL, DE                         ; 21
-                LD   DE, GDBattleSpeedSets
+.vs:            LD   HL, 0                          ; HL = idx × BATTLE_SPEED_SET_LEN (#91-окно)
+                LD   DE, BATTLE_SPEED_SET_LEN        ; ★НЕ хардкод 21: len=3+9×юнитов (4 юнита → 39)
+                OR   A                              ; idx (в A) == 0?
+                JR   Z, .off
+                LD   B, A
+.mul:           ADD  HL, DE
+                DJNZ .mul
+.off:           LD   DE, GDBattleSpeedSets
                 ADD  HL, DE
-                LD   DE, BattleAnimTicks            ; рабочий блок (21Б подряд)
+                LD   DE, BattleAnimTicks            ; рабочий блок (BATTLE_SPEED_SET_LEN Б подряд)
                 LD   C, BATTLE_SPEED_SET_LEN
 .cp:            CALL GData_ReadByte                 ; A = (#91:HL); HL цел, портит B
                 LD   (DE), A
@@ -3747,7 +3757,7 @@ Battle_EvalThreat:
                 LD   A, (BattleActiveUnit)           ; активный: id (type+1) + cell
                 CALL Battle_UnitAddr                 ; HL=&type[active]
                 LD   A, (HL)
-                INC  A
+                CALL Battle_TypeToMonId  ; type→id
                 LD   (BattleThrAId), A               ; active.id
                 INC  HL
                 LD   A, (HL)
@@ -3755,7 +3765,7 @@ Battle_EvalThreat:
                 LD   A, C                            ; враг C: id + cell + count
                 CALL Battle_UnitAddr                 ; HL=&type[enemy]
                 LD   A, (HL)
-                INC  A
+                CALL Battle_TypeToMonId  ; type→id
                 LD   (BattleThrEId), A               ; enemy.id
                 INC  HL
                 LD   A, (HL)
@@ -3933,7 +3943,7 @@ Battle_AIPickApproach:
                 LD   (BattleAISide), A                ; active.side
                 POP  HL
                 LD   A, (HL)                          ; active.type → id
-                INC  A
+                CALL Battle_TypeToMonId  ; type→id
                 LD   B, A
                 CALL MonsterStats_Read
                 LD   A, (MonsterStatBuf + 6)
@@ -4197,7 +4207,7 @@ Battle_AIBuildThreatCache:
                 LD   A, (BattlePVIdx)                 ; id (type+1)
                 CALL Battle_UnitAddr
                 LD   A, (HL)
-                INC  A
+                CALL Battle_TypeToMonId  ; type→id
                 LD   B, A
                 CALL MonsterStats_Read                ; → str_fp(+8/9), speed(+6)
                 LD   A, (BattlePVIdx)                 ; archerCache = ОСТАТОК шотов>0 (не статы)
@@ -4481,7 +4491,7 @@ Battle_AIMeleeDefense:
                 LD   A, (BattleActiveUnit)            ; speed активного (гейт speed×2)
                 CALL Battle_UnitAddr
                 LD   A, (HL)
-                INC  A
+                CALL Battle_TypeToMonId  ; type→id
                 LD   B, A
                 CALL MonsterStats_Read
                 LD   A, (MonsterStatBuf + 6)
@@ -5063,7 +5073,7 @@ Battle_AIArcMeleePick:
                 LD   A, (BattleActiveUnit)
                 CALL Battle_UnitAddr
                 LD   A, (HL)
-                INC  A
+                CALL Battle_TypeToMonId  ; type→id
                 LD   (BattleThrAId), A                ; мой id
                 LD   A, (BattleActiveUnit)
                 CALL Battle_UnitAddr
@@ -5077,7 +5087,7 @@ Battle_AIArcMeleePick:
                 LD   A, C
                 CALL Battle_UnitAddr
                 LD   A, (HL)
-                INC  A
+                CALL Battle_TypeToMonId  ; type→id
                 LD   (BattleThrEId), A                ; id врага
                 LD   A, C                             ; hp-пул врага
                 CALL Battle_UnitHPAddr
@@ -6003,7 +6013,7 @@ Battle_AIAnalyze:
                 LD   (BattleAnlIdx), A
                 CALL Battle_UnitAddr                 ; slot3-чтения ДО MonsterStats_Read
                 LD   A, (HL)                         ; type
-                INC  A
+                CALL Battle_TypeToMonId  ; type→id
                 LD   (BattleThrEId), A               ; id (переиспользуем scratch)
                 INC  HL
                 INC  HL                              ; +2 side

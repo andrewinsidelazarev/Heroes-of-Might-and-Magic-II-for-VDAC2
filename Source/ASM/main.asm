@@ -93,7 +93,7 @@ AI_KINGDOM_LEN       EQU 5                          ; gold(2)+heroX+heroY+hasHer
 ; Sorc герой стартует рядом с замком @(9,22) — тайл ниже гейта (как игрок ПОД гейтом), (9,23).
 AI_SORC_CASTLE_X    EQU 9
 AI_SORC_CASTLE_Y    EQU 22
-AI_SORC_HERO_START_X EQU 9        ; Sorc герой у своего замка (в тумане; движется к игроку каждый ход)
+AI_SORC_HERO_START_X EQU 9        ; Sorc герой у своего замка (в тумане; движется к игроку)
 AI_SORC_HERO_START_Y EQU 23
 MenuClickLatch EQU #4258        ; latch LMB в меню (1 клик = 1 действие)
 MenuNameBuf    EQU #4259        ; slot1-буфер имени PAK (14б, #4259..#4266) для loader

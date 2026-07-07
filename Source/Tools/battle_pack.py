@@ -87,8 +87,13 @@ def make_hex_shadow_mask(horiz_space=1):
 # ТАЙМИНГИ (дефолт BattleSpeed=4 → как в BIN): общий тик 120мс=6 кадров@48.83Гц;
 # движение moveSpeed/8 (465/8≈58мс=3к); стрельба shootSpeed/len (850/7≈121мс=6к);
 # idle: STATIC + раз в idleDelay×(75..125%) один вариант по priorities.
-UNIT_TYPES = [("PEASANT.ICN", 1), ("ARCHER.ICN", 1)]   # 0=Peasant, 1=Archer
-UNIT_BIN = ["PEAS_FRM.BIN", "ARCHRFRM.BIN"]
+UNIT_TYPES = [("PEASANT.ICN", 1), ("ARCHER.ICN", 1), ("SPRITE.ICN", 1), ("DWARF.ICN", 1)]
+UNIT_BIN = ["PEAS_FRM.BIN", "ARCHRFRM.BIN", "SPRITFRM.BIN", "DWARFFRM.BIN"]
+# Ростер-индекс (type) → engine monster id (enum Monster). Peasant/Archer = игрок (Knight),
+# Sprite/Dwarf = враг (Sorceress, дефолт-армия класса: Army::Reset tier1 Sprite + tier2 Dwarf).
+# ★НЕ type+1: Sprite id=21, Dwarf id=22 (type+1 совпадал бы лишь для первых монстров) →
+# battle.asm читает статы через BattleTypeToMonId[type], НЕ INC A.
+UNIT_MONID = [1, 2, 21, 22]                            # MONS32/статы #91 индекс = id-1
 BIN_ANIM_NAMES = ["MOVE_START", "MOVE_TILE_START", "MOVE_MAIN", "MOVE_TILE_END", "MOVE_STOP",
                   "MOVE_ONE", "TEMPORARY", "STATIC", "IDLE1", "IDLE2", "IDLE3", "IDLE4", "IDLE5",
                   "DEATH", "WINCE_UP", "WINCE_END", "ATTACK1", "ATTACK1_END", "DOUBLEHEX1",
@@ -124,9 +129,18 @@ def parse_frm_bin(data):
 ANIM_GROUPS = ["STATIC", "IDLE1", "IDLE2", "IDLE3", "MOVE_MAIN",
                "ATTACK2", "ATTACK2_END", "SHOOT2", "SHOOT2_END",
                "DEATH", "WINCE_UP", "WINCE_END"]
+# ★АППАРАТНЫЙ ПРЕДЕЛ RAM_G (1MB): 4 полностью анимир. юнита = перебор 218KB. Игрок (Knight,
+# типы 0,1) — полная анимация; враг (Sorceress, типы 2,3) — урезано STATIC+DEATH (стойка+смерть,
+# 73KB влезает; атака/wince → fallback STATIC в Battle_SeqSlot). Остальные группы стримятся позже
+# (вынос небоевых диалогов из резидентного payload). См. [[hmm2-enemy-army-faithful-plan]].
+_PLAYER_GROUPS = [g for g in ANIM_GROUPS if g not in ("IDLE2", "IDLE3")]   # 1 idle-вариант (бюджет оверлея)
+UNIT_GROUPS = [_PLAYER_GROUPS, _PLAYER_GROUPS, ["STATIC"], ["STATIC"]]   # враг STATIC-only: milestone
+# (оверлей #A8 16KB переполнялся при 4 типах; SeqPtrTab→#91 + игрок idle 3→1 + враг static;
+#  смерть/атака врага + полный idle — шаг 3 после стрим-диалогов, освободит оверлей)
 # Состояние юнитов: (тип, cell, side, count). Раскладка fheroes2 battle_army.cpp:85 GROUPED:
-# атак. Peasant×40@22/Archer×4@33 (вправо, side0), защ. Peasant×20@32/Archer×2@43 (зеркало side1).
-UNIT_STATE = [(0, 22, 0, 40), (1, 33, 0, 4), (0, 32, 1, 20), (1, 43, 1, 2)]
+# атак. Peasant×40@22/Archer×4@33 (игрок, вправо side0). Защ. = дефолт-армия Sorceress:
+# Sprite×15@32 (tier1) + Dwarf×8@43 (tier2), зеркало side1 (Army::Reset defaultArmy).
+UNIT_STATE = [(0, 22, 0, 40), (1, 33, 0, 4), (2, 32, 1, 15), (3, 43, 1, 8)]
 
 STAND_FRAME = 1                       # кадр стойки (STATIC); [0] пустышка 1×1
 
@@ -198,7 +212,9 @@ def load_units(agg, ent):
     for ti, (name, _stand) in enumerate(UNIT_TYPES):
         icn = read_icn(agg_entry(agg, ent, name))
         info = parse_frm_bin(agg_entry(agg, ent, UNIT_BIN[ti]))
-        seqs = {g: info["seqs"][g] for g in ANIM_GROUPS if g in info["seqs"]}
+        # per-unit набор групп (враг урезан до STATIC+DEATH — бюджет RAM_G); таблицы эмита всё
+        # равно итерируют глобальный ANIM_GROUPS (отсутствующие → 0 → fallback STATIC).
+        seqs = {g: info["seqs"][g] for g in UNIT_GROUPS[ti] if g in info["seqs"]}
         order = sorted({f for s in seqs.values() for f in s})
         frames = {}
         for fr in order:
@@ -416,10 +432,12 @@ YELLOW_TEXT_TABLE = {
 }
 AI_SPEED_STR = ["Standing", "Crawling", "Very Slow", "Slow", "Average", "Fast",
                 "Very Fast", "Ultra Fast", "Blazing", "Instant"]     # Speed::String (speed.cpp:84)
-AI_NAMES = ["Peasants", "Archers"]   # Troop::GetName=GetPluralName(count); ед.число при count==1 —
-                                     # отклонение (имя запечено; TODO при свободном RAM_G)
+AI_NAMES = ["Peasants", "Archers", "Sprites", "Dwarves"]   # Troop::GetName=GetPluralName(count);
+                                     # ед.число при count==1 — отклонение (имя запечено; TODO RAM_G)
 AI_STATS = {0: dict(atk=1, dfn=1, dmin=1, dmax=1, hp=1, spd=2, shots=0),      # из monster_info.cpp
-            1: dict(atk=5, dfn=3, dmin=2, dmax=3, hp=10, spd=2, shots=12)}
+            1: dict(atk=5, dfn=3, dmin=2, dmax=3, hp=10, spd=2, shots=12),
+            2: dict(atk=4, dfn=2, dmin=1, dmax=2, hp=2, spd=4, shots=0),      # [21] Sprite
+            3: dict(atk=6, dfn=5, dmin=2, dmax=4, hp=20, spd=2, shots=0)}     # [22] Dwarf
 
 
 def compose_armyinfo(agg, ent, unit_type):
@@ -888,8 +906,8 @@ def build_payload(palette, img, units, agg, ent):
     # Иконы — нативно, палитра ЮНИТОВ (idx0 прозрачный, KB.PAL-цвета); счёт — нативные BattleCountDigitTab.
     mons32 = read_icn(agg_entry(agg, ent, "MONS32.ICN"))
     casualty_icons = []
-    for t in range(2):
-        ih, ie = mons32[t]
+    for t in range(len(UNIT_TYPES)):                  # per ростер-тип; MONS32-индекс = monster id−1
+        ih, ie = mons32[UNIT_MONID[t] - 1]
         casualty_icons.append((put(bytes(decode_icn_indices(ih, ie))), ih["w"], ih["h"]))
     none_m, none_w, none_h = render_text_mask(agg, ent, "None", font="SMALFONT.ICN")  # ×1.6 бел., статус-пал.
     none_sprite = (put(none_m), none_w, none_h)
@@ -1237,9 +1255,11 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     # Последовательности групп: [type*NGROUPS+грп] → DEFW seq {DEFB len, слоты...}; 0 = группы нет.
     # ДАННЫЕ — в GlobalData #91 (вынос: оверлей у потолка); указатели (#91-адреса) в оверлее,
     # чтение Battle_SeqLen/SeqSlot через GData_ReadByte.
-    L.append("BattleSeqPtrTab:")
+    # ★BattleSeqPtrTab вынесен в #91 (бюджет оверлея #A8 16KB при 4 типах): указатели рядом с
+    # данными GDBattleSeq*; Battle_SeqAddr читает 2Б через GData_ReadByte.
+    seqptr_lines = ["BattleSeqPtrTab:                        ; #91: [type*NGROUPS+грп]→DEFW (вынос из оверлея)"]
     for t, u in enumerate(units):
-        L.append("                DEFW " + ", ".join(
+        seqptr_lines.append("                DEFW " + ", ".join(
             (f"GDBattleSeq{t}_{g}" if g in u["seqs"] else "0") for g in ANIM_GROUPS))
     seq_lines = []
     for t, u in enumerate(units):
@@ -1260,13 +1280,15 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
         mv_t, sh_t, dd_t, wc_t, at_t = [], [], [], [], []
         for u in units:
             info, seqs = u["info"], u["seqs"]
-            mv_t.append(_ticks(info["move_ms"] / max(1, len(seqs["MOVE_MAIN"]))))
+            # ★урезанный юнит (враг STATIC+DEATH) не имеет MOVE_MAIN/ATTACK2/SHOOT2 → .get + fallback
+            # (эти анимации всё равно падают в STATIC в Battle_SeqSlot; тайминг = 1 тик, чтобы не 0).
+            mv_t.append(_ticks(info["move_ms"] / max(1, len(seqs.get("MOVE_MAIN", [])))))
             st = _ticks(info["shoot_ms"] / len(seqs["SHOOT2"])) if "SHOOT2" in seqs else a_t
             sh_t.append(st)
-            dd_t.append(min(255, len(seqs["DEATH"]) * a_t))
+            dd_t.append(min(255, max(1, len(seqs.get("DEATH", []))) * a_t))
             wu = len(seqs.get("WINCE_UP", [])) * a_t
             wc_t.append((wu, min(255, wu + len(seqs.get("WINCE_END", [])) * a_t)))
-            mp = len(seqs["ATTACK2"]) * a_t                   # пик мили = конец ATTACK2 (контакт)
+            mp = max(1, len(seqs.get("ATTACK2", []))) * a_t   # пик мили = конец ATTACK2 (нет → 1 тик)
             mtot = mp + len(seqs.get("ATTACK2_END", [])) * a_t
             if "SHOOT2" in seqs:
                 sp = len(seqs["SHOOT2"]) * st
@@ -1293,7 +1315,9 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
             thr.append(255)
         idle_thr.append((len(pr), thr[0], thr[1]))
         static_slot.append(u["slot"][seqs["STATIC"][0]])
-        corpse_slot.append(u["slot"][seqs["DEATH"][-1]])       # труп = последний DEATH-кадр
+        # труп = последний DEATH-кадр; урезанный юнит (враг STATIC-only) → STATIC как «труп»
+        corpse_fr = seqs["DEATH"][-1] if "DEATH" in seqs else seqs["STATIC"][0]
+        corpse_slot.append(u["slot"][corpse_fr])
     L.append("; --- РАБОЧИЕ тик-таблицы: 21 байт ПОДРЯД (layout = набор BattleSpeedSets);")
     L.append(";     Battle_ApplySpeed копирует сюда набор выбранной скорости (LDIR 21) ---")
     L.append(f"BattleAnimTicks:     DEFB {anim_t}          ; BATTLE_FRAME_DELAY (120мс @ speed4)")
@@ -1308,7 +1332,8 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
         L.append(f"                DEFB {mp}, {mtot}, {sp}, {stot}")
     L.append(f"BattleMoveVel:       DEFB {_dvel}         ; vertex-ед/тик (клетка 44px ≈ 23 тика @ speed4)")
     L.append(f"BattleArrowSteps:    DEFB {_darw}         ; тиков полёта стрелы (шаг = дельта/steps)")
-    L.append("BATTLE_SPEED_SET_LEN EQU 21")
+    _speed_set_len = 3 + 9 * len(units)                 # a(1)+mv(N)+sh(N)+dd(N)+wince(2N)+atk(4N)+vel+arr
+    L.append(f"BATTLE_SPEED_SET_LEN EQU {_speed_set_len}")
     # выносы боя в GlobalData #91 (оверлей боя у потолка 16К); чтение GData_ReadByte
     LS = ["; ==== АВТОГЕНЕРАЦИЯ battle_pack.py — НЕ ПРАВИТЬ (выносы боя в GlobalData #91) ====",
           "; Battle_ApplySpeed копирует набор в рабочий блок BattleAnimTicks..BattleArrowSteps.",
@@ -1316,9 +1341,10 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     for s in range(1, 11):
         a, mv, sh, dd, wc, at, vl, ar = _timings(_speed_k(s))
         row = [a] + mv + sh + dd + [b for p in wc for b in p] + [b for q in at for b in q] + [vl, ar]
-        assert len(row) == 21
+        assert len(row) == _speed_set_len
         LS.append("                DEFB " + ", ".join(map(str, row)) + f"   ; speed {s}")
     LS.extend(anchor_lines)
+    LS.extend(seqptr_lines)                                 # ★указатели SeqPtrTab (вынос из оверлея в #91)
     LS.extend(seq_lines)                                    # seq-последовательности групп (тоже #91)
     LS.extend(seq_lines_wt)                                 # записи надписей окна итога (тоже #91)
     (BATTLE_INC.parent / "generated_battle_speed.inc").write_text("\n".join(LS) + "\n", encoding="utf-8")
@@ -1417,7 +1443,8 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     L.append(f"ARMYINFO_H           EQU {aih}")
     L.append(f"ARMYINFO_BYTES       EQU {ai['bytes']}")
     L.append(f"ARMYINFO_SECTORS     EQU {ai['sectors']}")
-    L.append(f"ArmyInfoSecTab:      DEFW {ai['sec'][0]}, {ai['sec'][1]}   ; сектор попапа по типу (в PAK)")
+    L.append("ArmyInfoSecTab:      DEFW " + ", ".join(str(s) for s in ai['sec'])
+             + "   ; сектор попапа по типу (в PAK)")
     L.append(f"WINDLG_SEC           EQU {ai['win_sec']}      ; сектор финала внутри payload (рестрим)")
     L.append(f"WINDLG_SECTORS       EQU {ai['win_sectors']}")
     # позиции ДИНАМИКИ (лог. коорд. внутри окна; экранный X окна = (640−W)/2, Y = (480−H)/2):
@@ -1425,9 +1452,10 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     L.append(f"ARMYINFO_X           EQU {aix}      ; экранное лево окна (лог.640×480)")
     L.append(f"ARMYINFO_Y           EQU {aiy}")
     L.append("; значения статов: value @ x+406; Hit Points Left/Shots Left по типу (#FF=нет строки):")
-    L.append(f"ArmyInfoHplYTab:     DEFB {ai['hpl_y'][0]}, {ai['hpl_y'][1]}   ; лок.Y строки Hit Points Left")
-    L.append(f"ArmyInfoShotYTab:    DEFB {ai['shots_y'][0] if ai['shots_y'][0] != 0xFF else 255}, "
-             f"{ai['shots_y'][1] if ai['shots_y'][1] != 0xFF else 255} ; лок.Y Shots Left (255=нет)")
+    L.append("ArmyInfoHplYTab:     DEFB " + ", ".join(str(y) for y in ai['hpl_y'])
+             + "   ; лок.Y строки Hit Points Left")
+    L.append("ArmyInfoShotYTab:    DEFB " + ", ".join(str(y if y != 0xFF else 255) for y in ai['shots_y'])
+             + "   ; лок.Y Shots Left (255=нет)")
     L.append("ARMYINFO_VAL_X       EQU 406    ; лок.X значений статов")
     L.append("; бокс счётчика (dialog_armyinfo.cpp:64): (80,223) 125×23, число по центру, normalWhite")
     L.append("ARMYINFO_CNT_X       EQU 80")
@@ -1489,12 +1517,12 @@ def emit_inc(pal_addr, unit_pal_addr, shadow_pal_addr, shadow_addr, contour_pal_
     L.append(f"ARMYINFO_CNT_CX16    EQU {cnt_cx16}   ; центр бокса счётчика ×16 (минус tw×8)")
     L.append(f"ARMYINFO_CNT_Y16     EQU {cnt_cy16}   ; верх цифр счётчика ×16")
     L.append(f"ARMYINFO_VALX16      EQU {(aix + 406) * 256 // 10}  ; лево значений статов ×16")
-    hy0 = (aiy + ai['hpl_y'][0]) * 256 // 10
-    hy1 = (aiy + ai['hpl_y'][1]) * 256 // 10
-    L.append(f"ArmyInfoHplY16Tab:   DEFW {hy0}, {hy1}   ; Y строки Hit Points Left ×16 (по типу)")
-    sy0 = (aiy + ai['shots_y'][0]) * 256 // 10 if ai['shots_y'][0] != 0xFF else 0
-    sy1 = (aiy + ai['shots_y'][1]) * 256 // 10 if ai['shots_y'][1] != 0xFF else 0
-    L.append(f"ArmyInfoShotY16Tab:  DEFW {sy0}, {sy1}   ; Y строки Shots Left ×16 (0=нет строки)")
+    hy = [(aiy + y) * 256 // 10 for y in ai['hpl_y']]
+    L.append("ArmyInfoHplY16Tab:   DEFW " + ", ".join(str(v) for v in hy)
+             + "   ; Y строки Hit Points Left ×16 (по типу)")
+    sy = [((aiy + y) * 256 // 10 if y != 0xFF else 0) for y in ai['shots_y']]
+    L.append("ArmyInfoShotY16Tab:  DEFW " + ", ".join(str(v) for v in sy)
+             + "   ; Y строки Shots Left ×16 (0=нет строки)")
     # --- ОКНО НАСТРОЕК боя (openBattleOptionDialog): стримится в ОБЛАСТЬ ФИНАЛА по кнопке
     #     Settings панели (TEXTBAR[6] @ (0,461) 49×19); финал рестримится при конце боя.
     #     Рабочий Speed: клик по зоне → speed%10+1 → Battle_ApplySpeed + динамика (иконка/строка). ---
@@ -1623,9 +1651,11 @@ def main() -> int:
      yellow_pal_addr, win_texts, count_digits, casualties, ai_digits, set_dyn) = build_payload(palette, img, units, agg, ent)
     # --- ПКМ-попапы ArmyInfo (по типу) — отдельные entries PAK (в RAM_G НЕ живут постоянно:
     #     стримятся в ОБЛАСТЬ ФИНАЛЬНОГО ОКНА по ПКМ; финал рестримится при конце боя) ---
-    ai0, aiW, aiH, hpl0, sh0 = compose_armyinfo(agg, ent, 0)
-    ai1, aiW1, aiH1, hpl1, sh1 = compose_armyinfo(agg, ent, 1)
-    assert (aiW, aiH) == (aiW1, aiH1)
+    ai_popups = [compose_armyinfo(agg, ent, t) for t in range(len(UNIT_TYPES))]   # по типу ростера
+    aiW, aiH = ai_popups[0][1], ai_popups[0][2]
+    for _buf, _w, _h, _hpl, _sh in ai_popups:
+        assert (_w, _h) == (aiW, aiH), "попапы ArmyInfo разного размера"
+    ai0 = ai_popups[0][0]                              # эталон размера (все одинаковы)
     assert aiW * aiH <= win_dlg[1] * win_dlg[2], \
         f"попап {aiW}x{aiH} больше области финала {win_dlg[1]}x{win_dlg[2]}"
     set_buf = set_dyn["buf"]
@@ -1635,17 +1665,16 @@ def main() -> int:
     for hb, hw, hh in helps:
         assert hw * hh <= win_dlg[1] * win_dlg[2], f"справка {hw}x{hh} больше области финала"
     summary = build_pak(
-        [{"type": TYPE_RAMG_BLOB, "target": BATTLE_RAMG_BASE, "data": bytes(payload)},
-         {"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(ai0)},   # target 0: грузим вручную
-         {"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(ai1)},
-         {"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(set_buf)}]  # окно настроек (в обл. финала)
+        [{"type": TYPE_RAMG_BLOB, "target": BATTLE_RAMG_BASE, "data": bytes(payload)}]
+        + [{"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(p[0])} for p in ai_popups]  # target 0: вручную
+        + [{"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(set_buf)}]  # окно настроек (в обл. финала)
         + [{"type": TYPE_RAMG_BLOB, "target": 0, "data": bytes(hb)} for hb, _, _ in helps],
         BATTLE_PAK_PATH,
     )
     body = summary["body_start_sector"]
     pay_secs = (len(payload) + SECTOR - 1) // SECTOR
     ai_secs = (len(ai0) + SECTOR - 1) // SECTOR
-    set_dyn["sec"] = body + pay_secs + 2 * ai_secs           # entries подряд, каждая с сектора
+    set_dyn["sec"] = body + pay_secs + len(ai_popups) * ai_secs   # после всех попапов, каждая с сектора
     set_dyn["sectors"] = (len(set_buf) + SECTOR - 1) // SECTOR
     hsec = set_dyn["sec"] + set_dyn["sectors"]
     help_meta = []
@@ -1663,8 +1692,8 @@ def main() -> int:
     }
     ai = {
         "W": aiW, "H": aiH,
-        "hpl_y": (hpl0, hpl1), "shots_y": (sh0, sh1),
-        "sec": (body + pay_secs, body + pay_secs + ai_secs),   # entries подряд, каждая с сектора
+        "hpl_y": tuple(p[3] for p in ai_popups), "shots_y": tuple(p[4] for p in ai_popups),
+        "sec": tuple(body + pay_secs + i * ai_secs for i in range(len(ai_popups))),   # каждая с сектора
         "sectors": ai_secs,
         "bytes": len(ai0),
         "win_sec": body + win_off // SECTOR,                   # РЕстрим финала из payload-куска
