@@ -917,6 +917,7 @@ GlobalData_Start:
                 include "generated_minimap_tab.inc" ; цвета тайлов мини-карты (1296Б; вынос из резидента)
                 include "generated_town_hit.inc"    ; GDTownHitMap 2.5К (вынос: оверлей города упёрся в 16К)
                 include "generated_battle_speed.inc" ; наборы тик-таблиц боя per speed (210Б; бой у потолка)
+                include "generated_pickup.inc"       ; PickupList (~60Б; вынос из резидента, читается редко)
 GLOBAL_STATE_BASE EQU $                             ; ← мутабельное глоб.состояние начинается здесь
 GlobalData_End:
                 ASSERT GlobalData_End <= #FFFF

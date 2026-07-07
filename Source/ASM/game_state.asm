@@ -903,10 +903,15 @@ HeroPrevTileY:  DEFB 0
 ; панель. taken-битмап защищает от повторного начисления.
 PickupTaken:    DEFS (PICKUP_COUNT + 7) / 8
 
+Pickup_SavedP3: DEFB 0                          ; сохранённый slot3 на время чтения PickupList из #91
+Pickup_ResIdx:  DEFB 0                          ; resource_idx найденного тайла (перед restore slot3)
 Hero_CheckPickup:
                 LD   A, PICKUP_COUNT
                 OR   A
                 RET  Z
+                GetPage3                        ; PickupList вынесен в data-страницу #91 (не резидент)
+                LD   (Pickup_SavedP3), A
+                SetPage3 GLOBAL_DATA_PAGE
                 LD   IX, PickupList
                 LD   B, PICKUP_COUNT
                 LD   C, 0
@@ -916,15 +921,19 @@ Hero_CheckPickup:
                 LD   A, (HeroTileY)
                 CP   (IX + 1)
                 JR   NZ, .next
+                LD   A, (IX + 2)               ; resource_idx (в #91)
+                LD   (Pickup_ResIdx), A
+                LD   A, (Pickup_SavedP3)        ; вернуть slot3 ДО резидентной обработки
+                SetPage3_A
                 PUSH BC
-                CALL Pickup_BitPtr             ; HL = байт taken, A = маска
+                CALL Pickup_BitPtr             ; HL = байт taken, A = маска (по C)
                 LD   D, A
                 AND  (HL)
                 JR   NZ, .seen                 ; уже подобрано
                 LD   A, (HL)
                 OR   D
                 LD   (HL), A                   ; пометить taken
-                LD   A, (IX + 2)               ; resource_idx
+                LD   A, (Pickup_ResIdx)        ; resource_idx
                 CALL Pickup_AddResource
                 CALL Resources_BuildPanelDL
 .seen:          POP  BC
@@ -933,6 +942,8 @@ Hero_CheckPickup:
                 LD   DE, 3
                 ADD  IX, DE
                 DJNZ .loop
+                LD   A, (Pickup_SavedP3)        ; нет совпадения → вернуть slot3
+                SetPage3_A
                 RET
 
 ; in: C = индекс подбора → HL = байт в PickupTaken, A = маска бита.

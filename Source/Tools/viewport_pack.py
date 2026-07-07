@@ -2110,13 +2110,18 @@ def write_runtime_map_inc(path: Path, width: int, height: int, tiles, terrain_re
                     pickups.append((px, py, (sprite - 1) // 2))
     lines.append("")
     lines.append(f"PICKUP_COUNT            EQU {len(pickups)}")
-    lines.append("PickupList:")
-    for px, py, idx in pickups:
-        lines.append(f"                DEFB {px}, {py}, {idx}")
-    if not pickups:
-        lines.append("                DEFB 0")
-    lines.append("PickupAmounts:          DEFW 7, 4, 7, 4, 4, 4, 700")  # wood,merc,ore,sulf,crys,gems,gold
+    lines.append("PickupAmounts:          DEFW 7, 4, 7, 4, 4, 4, 700")  # резидент (Pickup_AddResource)
     lines.append("")
+    # PickupList (tile_x,tile_y,resource_idx)×N → data-страница #91 (generated_pickup.inc):
+    # читается РЕДКО (Hero_CheckPickup при прибытии героя), поэтому вынесен из резидента —
+    # доступ обычным SetPage3 GLOBAL_DATA_PAGE (не хот-путь). Освобождает ~60Б core.
+    plines = ["; Сгенерировано Source/Tools/viewport_pack.py — PickupList в #91 (вынос из резидента).",
+              "PickupList:"]
+    for px, py, idx in pickups:
+        plines.append(f"                DEFB {px}, {py}, {idx}")
+    if not pickups:
+        plines.append("                DEFB 0")
+    (path.parent / "generated_pickup.inc").write_text("\n".join(plines) + "\n", encoding="utf-8")
 
     if composite_upload_entries is not None:
         lines.extend(
