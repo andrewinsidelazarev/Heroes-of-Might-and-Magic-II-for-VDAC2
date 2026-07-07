@@ -1746,11 +1746,17 @@ def viewport_dl(width, height, map_data, transfer_plan: ObjectTransferPlan, orig
     return bytes(out)
 
 
-def _build_objects_dl(objects, origin_x, origin_y, sprite_cache, label):
+def _build_objects_dl(objects, origin_x, origin_y, sprite_cache, label, preserve_z_order=False):
     out = bytearray()
     origin_base_x = map_tile_vertex2f_units(origin_x)
     origin_base_y = map_tile_vertex2f_units(origin_y)
-    groups = {}
+    # draw = список видимых объектов; для preserve_z_order сохраняем ПОРЯДОК из
+    # _objects_for_view (tile y-major, part-order внутри тайла = z-порядок оригинала:
+    # флаг замка добавляется _topObjectPart последним → рисуется ПОВЕРХ здания).
+    # Иначе (bottom-оверлей) — старый addr-батчинг: группируем по спрайту, минимум
+    # FT_BITMAP_SOURCE. ВАЖНО для top: addr-батчинг ставил флаг (меньший addr) ПОД
+    # стену замка (больший addr) на том же тайле → флаги владения пропадали.
+    draw = []
     for obj in objects:
         sprite = sprite_cache.get((obj["icn"], obj["index"]))
         if not sprite:
@@ -1765,9 +1771,13 @@ def _build_objects_dl(objects, origin_x, origin_y, sprite_cache, label):
         world_y = obj["map_y"] * TILE_PX + sprite["oy"]
         view_x = map_vertex2f_units(world_x) - origin_base_x
         view_y = map_vertex2f_units(world_y) - origin_base_y
-        key = (sprite["addr"], sprite.get("fmt", FT_ARGB4), sprite.get("stride", sprite["w"] * 2), sprite["h"])
-        groups.setdefault(key, []).append((sprite.get("cell", 0), sprite["w"], view_x, view_y))
-    if groups:
+        draw.append((sprite["addr"], sprite.get("fmt", FT_ARGB4), sprite.get("stride", sprite["w"] * 2),
+                     sprite["h"], sprite.get("cell", 0), sprite["w"], view_x, view_y))
+    if draw:
+        if not preserve_z_order:
+            # addr-батчинг: стабильная сортировка по (source-ключ) → соседние
+            # вершины одного спрайта идут подряд, один FT_BITMAP_SOURCE на группу.
+            draw.sort(key=lambda d: (d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]))
         out.extend(c_color_rgb(255, 255, 255))
         out.extend(c_color_a(255))
         out.extend(c_blend_func(FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA))
@@ -1776,20 +1786,23 @@ def _build_objects_dl(objects, origin_x, origin_y, sprite_cache, label):
         out.extend(c_bitmap_transform_a(DISPLAY_BITMAP_TRANSFORM))
         out.extend(c_bitmap_transform_e(DISPLAY_BITMAP_TRANSFORM))
         out.extend(c_begin(FT_BITMAPS))
+        last_src = None
         last_size = None
         last_cell = 0
-        for addr, fmt, stride, h in sorted(groups):
-            out.extend(c_bitmap_source(addr))
-            out.extend(c_bitmap_layout(fmt, stride, h))
-            for cell, w, x, y in sorted(groups[(addr, fmt, stride, h)]):
-                size_state = (w, h)
-                if size_state != last_size:
-                    out.extend(c_bitmap_size((w * DISPLAY_SCALE_NUM + DISPLAY_SCALE_DEN - 1) // DISPLAY_SCALE_DEN, (h * DISPLAY_SCALE_NUM + DISPLAY_SCALE_DEN - 1) // DISPLAY_SCALE_DEN))
-                    last_size = size_state
-                if cell != last_cell:
-                    out.extend(c_cell(cell))
-                    last_cell = cell
-                out.extend(c_vertex2f(x, y))
+        for addr, fmt, stride, h, cell, w, x, y in draw:
+            src = (addr, fmt, stride, h)
+            if src != last_src:
+                out.extend(c_bitmap_source(addr))
+                out.extend(c_bitmap_layout(fmt, stride, h))
+                last_src = src
+            size_state = (w, h)
+            if size_state != last_size:
+                out.extend(c_bitmap_size((w * DISPLAY_SCALE_NUM + DISPLAY_SCALE_DEN - 1) // DISPLAY_SCALE_DEN, (h * DISPLAY_SCALE_NUM + DISPLAY_SCALE_DEN - 1) // DISPLAY_SCALE_DEN))
+                last_size = size_state
+            if cell != last_cell:
+                out.extend(c_cell(cell))
+                last_cell = cell
+            out.extend(c_vertex2f(x, y))
         out.extend(c_end())
         out.extend(c_blend_func(FT_ONE, FT_ZERO))
     if len(out) + 4 > OBJECT_VIEW_DL_SIZE:
@@ -1807,7 +1820,8 @@ def object_view_dl(width, height, transfer_plan: ObjectTransferPlan, origin_x, o
 def top_object_view_dl(width, height, transfer_plan: ObjectTransferPlan, origin_x, origin_y, sprite_cache):
     # top-оверлей (level2), CMD_APPEND ПОСЛЕ актёра (поверх героев)
     objects = original_top_objects_for_view(width, height, transfer_plan, origin_x, origin_y)
-    return _build_objects_dl(objects, origin_x, origin_y, sprite_cache, "top object view")
+    # top-слой: z-порядок оригинала (флаг замка ПОВЕРХ здания на том же тайле).
+    return _build_objects_dl(objects, origin_x, origin_y, sprite_cache, "top object view", preserve_z_order=True)
 
 
 def write_terrain_inc(path: Path, terrain_chunks, object_chunks, viewport_chunks, width: int, height: int, object_view_page_base: int):
