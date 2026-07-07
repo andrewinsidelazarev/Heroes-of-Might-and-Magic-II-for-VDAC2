@@ -154,7 +154,7 @@ Adventure_Enter:
 .keepstate:     XOR  A
                 LD   (AdvReenter), A
                 CALL Resources_BuildPanelDL      ; собрать DL панели в RAM_G (по StatusState)
-                CALL SorcHero_LoadCache          ; ★кэш позиции вражеского Sorc-героя (из #91) для рендера
+                CALL SorcHero_LoadCache          ; ★кэш Sorc + разрешение исхода Sorc-боя (BattleVsSorc)
                 XOR  A
                 LD   (CursorMoveCooldown), A
                 LD   (CursorSpriteIndex), A
@@ -631,6 +631,16 @@ Game_EndTurn:
                 CALL AiKingdom_MoveHero          ; ★Sorc-герой шаг к игроку (простой ход AI)
                 CALL SorcHero_LoadCache          ; обновить кэш позиции Sorc для рендера
                 CALL Resources_BuildPanelDL      ; пересобрать DL панели (золото изменилось)
+                ; ★Sorc-герой дошёл до игрока (AI-фаза) → Sorc атакует: бой. Армия защиты =
+                ; дефолт SKIRMISH (EngagedMonIdx=#FF → BattleUnitStateInit слоты 2,3).
+                LD   A, (SorcAttackPending)       ; MoveHero обнуляет каждый ход → clear не нужен
+                OR   A
+                RET  Z
+                LD   A, #FF
+                LD   (EngagedMonIdx), A           ; армия защиты = дефолт (Init слоты 2,3)
+                LD   A, 1
+                LD   (BattleVsSorc), A            ; .exit обработает исход (победа → Sorc убран)
+                JP   Battle_Enter_Tramp
                 RET
 
 ; Стартовые ресурсы королевства (fheroes2 _getKingdomStartingResources, человек) ПО СЛОЖНОСТИ
@@ -819,6 +829,8 @@ Hero_SelectStepIfArrived:
                 CP   #FF
                 JR   Z, .no_monster
                 LD   (EngagedMonIdx), A          ; бой с этим монстром (армия из таблицы)
+                XOR  A
+                LD   (BattleVsSorc), A            ; монстр-бой, не Sorc (маркер чистый для .exit)
                 JP   Battle_Enter_Tramp
 .no_monster:    LD   A, B
                 CP   24

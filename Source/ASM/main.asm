@@ -761,7 +761,16 @@ SorcHero_LoadCache:
                 GetPage3
                 LD   B, A                          ; B = прежняя страница slot3
                 SetPage3 GLOBAL_DATA_PAGE
-                LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HAS_HERO_OFS)
+                ; Разрешение исхода Sorc-боя (в #91-контексте): battle.asm .exit ставит
+                ; BattleVsSorc=2 при победе игрока (BattleResult живёт в battle-overlay,
+                ; из adventure не читается — маркер передаётся через резидент). ==2 → hasHero=0.
+                LD   A, (BattleVsSorc)
+                CP   2
+                JR   NZ, .noresolve
+                XOR  A
+                LD   (BattleVsSorc), A
+                LD   (GLOBAL_STATE_BASE + AI_KINGDOM_HAS_HERO_OFS), A
+.noresolve:     LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HAS_HERO_OFS)
                 LD   C, A                          ; C = hasHero
                 LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HEROX_OFS)
                 LD   D, A                          ; D = тайл X
@@ -771,27 +780,19 @@ SorcHero_LoadCache:
                 SetPage3_A                          ; restore slot3
                 LD   A, C                           ; кэш (нижняя RAM видна всегда)
                 LD   (SorcHeroVisible), A
-                LD   L, D                           ; пиксель X = тайл X × 32
-                LD   H, 0
-                ADD  HL, HL
-                ADD  HL, HL
-                ADD  HL, HL
-                ADD  HL, HL
-                ADD  HL, HL
+                LD   A, D                           ; пиксель X = тайл X × 32 (общий хелпер)
+                CALL Tile_MulA32ToHL
                 LD   (SorcHeroPixelX), HL
-                LD   L, E                           ; пиксель Y = тайл Y × 32
-                LD   H, 0
-                ADD  HL, HL
-                ADD  HL, HL
-                ADD  HL, HL
-                ADD  HL, HL
-                ADD  HL, HL
+                LD   A, E                           ; пиксель Y = тайл Y × 32
+                CALL Tile_MulA32ToHL
                 LD   (SorcHeroPixelY), HL
                 RET
 
 ; Простой ход Sorc-героя: 1 тайл к игроку (sign по X и Y). Пишет позицию в #91. Портит A,BC,DE,HL.
 ; Вызывать в AI-фазе (Game_EndTurn). Далее SorcHero_LoadCache обновит кэш для рендера.
 AiKingdom_MoveHero:
+                XOR  A                            ; pending свежий каждый ход (init не нужен)
+                LD   (SorcAttackPending), A
                 LD   A, (HeroTileX)              ; игрок X (резидент)
                 LD   B, A
                 LD   A, (HeroTileY)              ; игрок Y
@@ -824,18 +825,31 @@ AiKingdom_MoveHero:
 .mhydec:        DEC  E
 .mhyok:         LD   A, E
                 LD   (GLOBAL_STATE_BASE + AI_KINGDOM_HEROY_OFS), A
+                ; Столкновение: новый тайл Sorc == тайл игрока (B,C)? → Sorc атакует (бой).
+                ; (SorcAttackPending — резидент slot1, виден из slot3-контекста #91.)
+                LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HEROX_OFS)
+                CP   B
+                JR   NZ, .mhdone
+                LD   A, (GLOBAL_STATE_BASE + AI_KINGDOM_HEROY_OFS)
+                CP   C
+                JR   NZ, .mhdone
+                LD   A, 1
+                LD   (SorcAttackPending), A
 .mhdone:        LD   A, D
                 SetPage3_A
                 RET
 
 ; Отладочное зеркало боя для statedump (эмулятор дампит страницы 5/6; оверлей боя в slot3 не виден).
 ; Battle_Render копирует сюда состояние каждый кадр: units(20) + startCnt(8) + result(1).
-DbgBattleMirror: DEFS 41           ; +33..40: дебаг меч-курсора {dirW, dx16, dy16, dirC, hover, active}
+DbgBattleMirror: DEFS 29           ; statedump-зеркало боя: units(20)+startCnt(8)+result(1)
 ; Кэш позиции вражеского Sorc-героя в нижней RAM (видна всегда) — рендер НЕ пейджит #91.
 ; Загружается из #91 при входе adventure (SorcHero_LoadCache). Пиксель = тайл×32.
 SorcHeroPixelX:  DEFW 0
 SorcHeroPixelY:  DEFW 0
-SorcHeroVisible: DEFB 0            ; 1 = рисовать Sorc-героя (hasHero из #91)
+; Sorc-флаги — в свободных резидентных байтах (EQU не растят core, лимит #B000):
+SorcHeroVisible   EQU #4257        ; 1 = рисовать Sorc-героя (hasHero из #91)
+SorcAttackPending EQU #4271        ; 1 = Sorc-герой дошёл до игрока (AI-фаза) → бой в конце End Turn
+BattleVsSorc      EQU #427F        ; 1 = текущий бой против Sorc-героя (не монстр); .exit обрабатывает исход
 
 CoreEnd:
                 ASSERT CoreEnd <= CMD_ADDRESS_PTR

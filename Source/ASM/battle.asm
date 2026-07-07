@@ -996,7 +996,20 @@ Battle_Update:
 .skipturn:      CALL Battle_EndTurn                  ; Skip: юнит завершает ход без действия (SKIP)
                 XOR  A
                 RET
-.exit:          ; --- исход боя с БРОДЯЧИМ МОНСТРОМ (EngagedMonIdx≠#FF) ---
+.exit:          ; --- исход боя против Sorc-героя: пишем РЕЗИДЕНТНЫЙ маркер BattleVsSorc для
+                ; SorcHero_LoadCache (пейджить #91 из battle-overlay нельзя; BattleResult живёт
+                ; тут, в overlay — из adventure не читается). 2=победа игрока (Sorc убит), 0=иначе.
+                LD   A, (BattleVsSorc)
+                DEC  A                             ; ==1 (шёл Sorc-бой)?
+                JR   NZ, .exit_mon
+                LD   A, (BattleResult)             ; overlay — доступен здесь
+                DEC  A                             ; 1=Victory → 0
+                LD   A, 0                          ; поражение → маркер 0 (Sorc жив; TODO LOSS-экран)
+                JR   NZ, .exit_vsset
+                LD   A, 2                          ; победа → маркер 2 (LoadCache снимет Sorc)
+.exit_vsset:    LD   (BattleVsSorc), A
+                JR   .exit_plain
+.exit_mon:      ; --- исход боя с БРОДЯЧИМ МОНСТРОМ (EngagedMonIdx≠#FF) ---
                 LD   A, (EngagedMonIdx)
                 CP   #FF
                 JR   Z, .exit_plain
@@ -6874,7 +6887,6 @@ Battle_RenderCursor:
                 LD   A, CURSOR_BATTLE_BASE_INDEX + 4   ; WAR_POINTER
                 JR   .setidx
 .onfield:       LD   A, (BattleStatusMsg)
-                LD   (DbgBattleMirror + 33), A     ; dbg: msg на входе выбора курсора
                 CP   9
                 JR   C, .ok
                 XOR  A                             ; msg вне 0..8 → None
@@ -6961,10 +6973,8 @@ Battle_SwordCursor:
                 OR   A
                 SBC  HL, DE                        ; HL = dx (лог.)
                 EX   DE, HL                        ; DE = dx
-                LD   (DbgBattleMirror + 34), DE    ; dbg: dx
                 LD   H, B                          ; HL = dy
                 LD   L, C
-                LD   (DbgBattleMirror + 36), HL    ; dbg: dy
                 ; зона (ЛОГ. px, ≈ трети гекса 44×52): dy<−9 верх, dy>9 низ, иначе середина
                 PUSH DE
                 LD   DE, 9
@@ -6991,11 +7001,8 @@ Battle_SwordCursor:
                 LD   C, A
 .havedir:       LD   A, C                          ; поиск доступного: k=0, потом +k (час.) / −k
                 LD   (BattleSwordDir), A
-                LD   (DbgBattleMirror + 33), A     ; dbg: желаемое направление
                 LD   A, (BattleHoverCell)
-                LD   (DbgBattleMirror + 39), A     ; dbg: hover-клетка
                 LD   A, (BattleActiveUnit)
-                LD   (DbgBattleMirror + 40), A     ; dbg: активный юнит
                 LD   B, 0
 .sfind:         LD   A, (BattleSwordDir)
                 ADD  A, B
@@ -7021,7 +7028,6 @@ Battle_SwordCursor:
                 LD   A, (BattleSwordDir)           ; фолбэк (не должно случаться): исходное
                 LD   C, A
 .sfound:        LD   A, C
-                LD   (DbgBattleMirror + 38), A     ; dbg: выбранное направление
                 LD   HL, BattleDirSwordTab         ; направление → спрайт меча
                 LD   E, C
                 LD   D, 0
