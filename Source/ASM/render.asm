@@ -3104,7 +3104,39 @@ HeroMarker_UpdateDLPosition:
                 ADD  HL, DE
                 endif
                 LD   (HERO_MARKER_TRANSLATE_Y), HL
+                ; --- walk-анимация: кадр по прогрессу движения (шаг раз в 2 кадра ≈ 9 кадров/тайл);
+                ;     idle → кадр 0 (стойка). SOURCE self-mod: low16 = base + кадр × FRAME_BYTES. ---
+                LD   A, (HeroWalkActive)
+                OR   A
+                JR   Z, .hstand
+                LD   A, (HeroAnimDiv)
+                INC  A
+                CP   2
+                JR   C, .hdivstore                ; div<2 → кадр без изменений
+                LD   HL, HeroAnimFrame
+                INC  (HL)
+                LD   A, (HL)
+                CP   HERO_ANIM_COUNT
+                JR   C, .hframeok
+                LD   (HL), 0                       ; wrap 9→0
+.hframeok:      XOR  A                             ; div = 0
+.hdivstore:     LD   (HeroAnimDiv), A
+                JR   .hsrc
+.hstand:        XOR  A
+                LD   (HeroAnimFrame), A
+                LD   (HeroAnimDiv), A
+.hsrc:          LD   HL, HERO_SPRITE_RAMG & #FFFF
+                LD   A, (HeroAnimFrame)
+                OR   A
+                JR   Z, .hsrcset
+                LD   DE, HERO_ANIM_FRAME_BYTES
+                LD   B, A
+.hsrcadd:       ADD  HL, DE
+                DJNZ .hsrcadd
+.hsrcset:       LD   (HERO_MARKER_SRC_LOW), HL
                 RET
+HeroAnimFrame:  DEFB 0
+HeroAnimDiv:    DEFB 0
 
 Actor_UpdateDLPosition:
                 ifdef DYNAMIC_ACTOR_RAMG
@@ -3341,6 +3373,7 @@ HERO_MARKER_DL:
                 FT_BLEND_FUNC FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA
                 FT_BITMAP_HANDLE 2
                 FT_CELL 0
+HERO_MARKER_SRC_LOW:                              ; low16 адреса SOURCE (self-mod: кадр walk)
                 FT_BITMAP_SOURCE HERO_SPRITE_RAMG
                 FT_BITMAP_LAYOUT FT_ARGB4, HERO_SPRITE_W * 2, HERO_SPRITE_H
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, (HERO_SPRITE_W * 8 + 4) / 5, (HERO_SPRITE_H * 8 + 4) / 5
