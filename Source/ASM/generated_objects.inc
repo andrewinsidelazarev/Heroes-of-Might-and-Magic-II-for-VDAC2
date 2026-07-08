@@ -664,178 +664,51 @@ UI_BtnPressed_7_DL:
 Objects_Upload:
                 GetPage3
                 LD   (.RestorePage), A
-                SetPage3 #72
-                LD   HL, #C000
+                LD   A, #72
+                LD   (.CurPage), A
                 LD   A, #07
-                LD   DE, #9000
+                LD   (.DHi), A
+                LD   HL, #9000
+                LD   (.DLo), HL
+                LD   A, 27
+                LD   (.Remain), A
+.upl:           LD   A, (.CurPage)
+                SetPage3_A
+                LD   HL, #C000
+                LD   A, (.DHi)
+                LD   DE, (.DLo)
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #73
+                LD   A, (.CurPage)
+                INC  A
+                LD   (.CurPage), A
+                LD   HL, (.DLo)
+                LD   DE, #4000
+                ADD  HL, DE
+                LD   (.DLo), HL
+                JR   NC, .noc
+                LD   A, (.DHi)
+                INC  A
+                LD   (.DHi), A
+.noc:           LD   A, (.Remain)
+                DEC  A
+                LD   (.Remain), A
+                JR   NZ, .upl
+                LD   A, (.CurPage)
+                SetPage3_A
                 LD   HL, #C000
-                LD   A, #07
-                LD   DE, #D000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #74
-                LD   HL, #C000
-                LD   A, #08
-                LD   DE, #1000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #75
-                LD   HL, #C000
-                LD   A, #08
-                LD   DE, #5000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #76
-                LD   HL, #C000
-                LD   A, #08
-                LD   DE, #9000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #77
-                LD   HL, #C000
-                LD   A, #08
-                LD   DE, #D000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #78
-                LD   HL, #C000
-                LD   A, #09
-                LD   DE, #1000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #79
-                LD   HL, #C000
-                LD   A, #09
-                LD   DE, #5000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #7A
-                LD   HL, #C000
-                LD   A, #09
-                LD   DE, #9000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #7B
-                LD   HL, #C000
-                LD   A, #09
-                LD   DE, #D000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #7C
-                LD   HL, #C000
-                LD   A, #0A
-                LD   DE, #1000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #7D
-                LD   HL, #C000
-                LD   A, #0A
-                LD   DE, #5000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #7E
-                LD   HL, #C000
-                LD   A, #0A
-                LD   DE, #9000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #7F
-                LD   HL, #C000
-                LD   A, #0A
-                LD   DE, #D000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #80
-                LD   HL, #C000
-                LD   A, #0B
-                LD   DE, #1000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #81
-                LD   HL, #C000
-                LD   A, #0B
-                LD   DE, #5000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #82
-                LD   HL, #C000
-                LD   A, #0B
-                LD   DE, #9000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #83
-                LD   HL, #C000
-                LD   A, #0B
-                LD   DE, #D000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #84
-                LD   HL, #C000
-                LD   A, #0C
-                LD   DE, #1000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #85
-                LD   HL, #C000
-                LD   A, #0C
-                LD   DE, #5000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #86
-                LD   HL, #C000
-                LD   A, #0C
-                LD   DE, #9000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #87
-                LD   HL, #C000
-                LD   A, #0C
-                LD   DE, #D000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #88
-                LD   HL, #C000
-                LD   A, #0D
-                LD   DE, #1000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #89
-                LD   HL, #C000
-                LD   A, #0D
-                LD   DE, #5000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #8A
-                LD   HL, #C000
-                LD   A, #0D
-                LD   DE, #9000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #8B
-                LD   HL, #C000
-                LD   A, #0D
-                LD   DE, #D000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #8C
-                LD   HL, #C000
-                LD   A, #0E
-                LD   DE, #1000
-                LD   BC, 16384
-                CALL FT.WriteMem
-                SetPage3 #8D
-                LD   HL, #C000
-                LD   A, #0E
-                LD   DE, #5000
+                LD   A, (.DHi)
+                LD   DE, (.DLo)
                 LD   BC, 6650
                 CALL FT.WriteMem
-.RestorePage    EQU $+1
-                LD   A, #00
+                LD   A, (.RestorePage)
                 SetPage3_A
                 RET
+.CurPage:       DEFB 0
+.DHi:           DEFB 0
+.DLo:           DEFW 0
+.Remain:        DEFB 0
+.RestorePage:   DEFB 0
 
 Cursor_GlobalUpload:
                 GetPage3

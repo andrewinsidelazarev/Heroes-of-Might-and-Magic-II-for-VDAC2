@@ -2700,27 +2700,68 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
     generate_btn_dl("UI_BtnPressed", ui_sprites["buttons_pressed"])
 
     lines.append("")
-    lines.extend(
-        [
+    # ★ЦИКЛ вместо развёрнутого по-страничного списка (был ~17Б×N ≈ 476Б резидента, рос с
+    # атласом → переполнял core #B000). Страницы контигуальны от first_page, FT dest контигуален
+    # от RAMG_OBJECT_BASE (+16384/стр с переносом hi). N−1 полных 16384 + последняя real_size
+    # (НЕ 16384 — иначе перельёт в курсор #0E8000). Освобождает ~410Б core.
+    first_page = object_chunks[0][1]
+    last_size = object_chunks[-1][2]
+    n_pages = len(object_chunks)
+    base_hi = (RAMG_OBJECT_BASE >> 16) & 0xFF
+    base_lo = RAMG_OBJECT_BASE & 0xFFFF
+    assert n_pages >= 2 and all(rs == 16384 for _, _, rs in object_chunks[:-1]), \
+        "Objects_Upload цикл ждёт N>=2 и все кроме последней страницы = 16384"
+    lines.extend([
         "Objects_Upload:",
         "                GetPage3",
         "                LD   (.RestorePage), A",
-        ]
-    )
-    ramg = RAMG_OBJECT_BASE
-    for _, page, real_size in object_chunks:
-        lines.extend(
-            [
-                f"                SetPage3 #{page:02X}",
-                "                LD   HL, #C000",
-                f"                LD   A, #{(ramg >> 16) & 0xFF:02X}",
-                f"                LD   DE, #{ramg & 0xFFFF:04X}",
-                f"                LD   BC, {real_size}",
-                "                CALL FT.WriteMem",
-            ]
-        )
-        ramg += real_size
-    lines.extend([".RestorePage    EQU $+1", "                LD   A, #00", "                SetPage3_A", "                RET", ""])
+        f"                LD   A, #{first_page:02X}",
+        "                LD   (.CurPage), A",
+        f"                LD   A, #{base_hi:02X}",
+        "                LD   (.DHi), A",
+        f"                LD   HL, #{base_lo:04X}",
+        "                LD   (.DLo), HL",
+        f"                LD   A, {n_pages - 1}",
+        "                LD   (.Remain), A",
+        ".upl:           LD   A, (.CurPage)",
+        "                SetPage3_A",
+        "                LD   HL, #C000",
+        "                LD   A, (.DHi)",
+        "                LD   DE, (.DLo)",
+        "                LD   BC, 16384",
+        "                CALL FT.WriteMem",
+        "                LD   A, (.CurPage)",
+        "                INC  A",
+        "                LD   (.CurPage), A",
+        "                LD   HL, (.DLo)",
+        "                LD   DE, #4000",
+        "                ADD  HL, DE",
+        "                LD   (.DLo), HL",
+        "                JR   NC, .noc",
+        "                LD   A, (.DHi)",
+        "                INC  A",
+        "                LD   (.DHi), A",
+        ".noc:           LD   A, (.Remain)",
+        "                DEC  A",
+        "                LD   (.Remain), A",
+        "                JR   NZ, .upl",
+        "                LD   A, (.CurPage)",
+        "                SetPage3_A",
+        "                LD   HL, #C000",
+        "                LD   A, (.DHi)",
+        "                LD   DE, (.DLo)",
+        f"                LD   BC, {last_size}",
+        "                CALL FT.WriteMem",
+        "                LD   A, (.RestorePage)",
+        "                SetPage3_A",
+        "                RET",
+        ".CurPage:       DEFB 0",
+        ".DHi:           DEFB 0",
+        ".DLo:           DEFW 0",
+        ".Remain:        DEFB 0",
+        ".RestorePage:   DEFB 0",
+        "",
+    ])
     # Глобальный курсор: резидентная загрузка спрайтов в постоянную зону RAM_G один раз
     # (вызывается из Game_Init). Спрайты в SPG-странице CURSOR_RESIDENT_PAGE.
     if cursor_chunks:
