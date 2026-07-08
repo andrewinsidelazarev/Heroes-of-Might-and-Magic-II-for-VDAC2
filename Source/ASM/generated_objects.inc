@@ -13,8 +13,11 @@ HERO_SPRITE_W           EQU 42
 HERO_SPRITE_H           EQU 54
 HERO_SPRITE_OX          EQU -8
 HERO_SPRITE_OY          EQU -49
-HERO_ANIM_FRAME_BYTES   EQU 4536   ; байт/кадр walk (self-mod SOURCE low16)
-HERO_ANIM_COUNT         EQU 8          ; кадров walk-цикла
+HERO_ANIM_FRAME_BYTES   EQU 4536   ; байт/кадр walk
+HERO_ANIM_COUNT         EQU 8          ; кадров/направление
+HERO_DIR_COUNT          EQU 5          ; направлений
+HERO_BUF_A_RAMG         EQU #0F6A00
+HERO_BUF_B_RAMG         EQU #0F7BB8
 SORC_SPRITE_RAMG        EQU #0B32F4
 SORC_SPRITE_W           EQU 32
 SORC_SPRITE_H           EQU 50
@@ -745,58 +748,53 @@ Cursor_GlobalUpload:
                 RET
 
 HERO_ANIM_BASE_PAGE  EQU #AB
-HERO_ANIM_DIR_PAGES  EQU 3
-HERO_ANIM_LAST_BYTES EQU 3520
+HERO_FRAME_SLOT      EQU 8192          ; 2 кадра/страницу (без straddle)
+HeroBufSel:      DEFB 0                          ; 0=A показан→грузить B; 1=B показан→грузить A
+; HeroAnim_Upload: старт — кадр HORIZ(dir2,f0)=индекс 16 в буфер B, SOURCE на него.
 HeroAnim_Upload:
-                LD   A, 2
-HeroAnim_LoadDir:
-                LD   C, A
                 XOR  A
-                OR   C
-                JR   Z, .hapgok
-                LD   B, C
-.hapmul:        ADD  A, HERO_ANIM_DIR_PAGES
-                DJNZ .hapmul
-.hapgok:        ADD  A, HERO_ANIM_BASE_PAGE
-                LD   (.HaPage), A
-                GetPage3
-                LD   (.HaRestore), A
-                LD   HL, #6A00
-                LD   (.HaDlo), HL
-                LD   A, HERO_ANIM_DIR_PAGES
-                DEC  A
-                LD   (.HaCnt), A
-.haupl:        LD   A, (.HaCnt)
+                LD   (HeroBufSel), A
+                LD   A, 16
+; HeroAnim_StreamFrame: A=индекс кадра (dir*COUNT+f). Грузит кадр в НЕВИДИМЫЙ буфер
+; (луч читает ДРУГОЙ → запись без разрыва при любом тайминге), затем SOURCE в DL →
+; этот буфер (атомарно на DLSWAP). Разрыва спрайта физически быть не может.
+HeroAnim_StreamFrame:
+                LD   B, A
+                SRL  B                            ; B = индекс/2 = дельта страницы
+                AND  1                            ; A = индекс&1 (0→окно #C000, 1→#E000)
+                LD   HL, #C000
                 OR   A
-                JR   Z, .halast
-                DEC  A
-                LD   (.HaCnt), A
-                LD   A, (.HaPage)
+                JR   Z, .sfoff0
+                LD   HL, #E000
+.sfoff0:        LD   (.SfSrc), HL
+                LD   A, B
+                ADD  A, HERO_ANIM_BASE_PAGE
+                LD   (.SfPage), A
+                LD   A, (HeroBufSel)              ; целевой = НЕВИДИМЫЙ буфер
+                OR   A
+                JR   NZ, .sftgtA
+                LD   HL, #7BB8         ; sel0 → грузить B
+                JR   .sftgts
+.sftgtA:        LD   HL, #6A00         ; sel1 → грузить A
+.sftgts:        LD   (.SfDst), HL
+                GetPage3
+                LD   (.SfRestore), A
+                LD   A, (.SfPage)
                 SetPage3_A
-                LD   HL, #C000
+                LD   HL, (.SfSrc)
                 LD   A, #0F
-                LD   DE, (.HaDlo)
-                LD   BC, 16384
+                LD   DE, (.SfDst)
+                LD   BC, HERO_ANIM_FRAME_BYTES
                 CALL FT.WriteMem
-                LD   A, (.HaPage)
-                INC  A
-                LD   (.HaPage), A
-                LD   HL, (.HaDlo)
-                LD   DE, #4000
-                ADD  HL, DE
-                LD   (.HaDlo), HL
-                JR   .haupl
-.halast:       LD   A, (.HaPage)
+                LD   A, (.SfRestore)
                 SetPage3_A
-                LD   HL, #C000
-                LD   A, #0F
-                LD   DE, (.HaDlo)
-                LD   BC, HERO_ANIM_LAST_BYTES
-                CALL FT.WriteMem
-                LD   A, (.HaRestore)
-                SetPage3_A
+                LD   HL, (.SfDst)                 ; SOURCE в DL → загруженный буфер
+                LD   (HERO_MARKER_SRC_LOW), HL
+                LD   A, (HeroBufSel)              ; переключить «показанный» буфер
+                XOR  1
+                LD   (HeroBufSel), A
                 RET
-.HaPage:        DEFB 0
-.HaDlo:         DEFW 0
-.HaCnt:         DEFB 0
-.HaRestore:     DEFB 0
+.SfSrc:         DEFW 0
+.SfDst:         DEFW 0
+.SfPage:        DEFB 0
+.SfRestore:     DEFB 0

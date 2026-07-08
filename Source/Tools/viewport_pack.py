@@ -857,16 +857,15 @@ def append_hero_walk(payload: bytearray, agg_data: bytes, entries, palette, icn_
     boxw = max(h["ox"] + h["w"] for h, _ in allf) - minox
     boxh = max(h["oy"] + h["h"] for h, _ in allf) - minoy
     frame_bytes = boxw * boxh * 2
-    dir_bytes = frame_bytes * count
-    dir_pages = (dir_bytes + 16383) // 16384                    # страниц/направление (page-align)
-    last_bytes = dir_bytes - (dir_pages - 1) * 16384            # частичный размер последней страницы
-    dir_stride = dir_pages * 16384
-    base_addr = base + align(len(payload), 4)
-    while base + len(payload) < base_addr:
-        payload.append(0)
+    # ★Потоковая double-буферизация: каждый кадр в SPG падится до FRAME_SLOT=8192
+    # (2 кадра/страницу, кадр НЕ пересекает границу страницы → стример = 1 SetPage3+1 запись).
+    # frame_index = dir*count + f; SPG-страница = BASE + index//2, окно #C000/#E000 по (index&1).
+    FRAME_SLOT = 8192
+    assert frame_bytes <= FRAME_SLOT, f"кадр героя {frame_bytes}Б не влезает в слот {FRAME_SLOT}"
+    payload_start = len(payload)
     for b in dir_bases:
-        dstart = len(payload)
         for i in range(count):
+            fstart = len(payload)
             header, encoded = sprites[b + i]
             buf = bytearray(frame_bytes)                          # прозрачный фон (ARGB4 alpha0)
             px = decode_icn_sprite(header, encoded, palette)
@@ -877,11 +876,11 @@ def append_hero_walk(payload: bytearray, agg_data: bytes, entries, palette, icn_
                 d = ((dy + row) * boxw + dx) * 2
                 buf[d:d + w * 2] = px[s:s + w * 2]
             payload.extend(buf)
-        while len(payload) - dstart < dir_stride:               # паддинг направления до границы страницы
-            payload.append(0)
-    return {"addr": base_addr, "w": boxw, "h": boxh, "ox": minox, "oy": minoy,
+            while len(payload) - fstart < FRAME_SLOT:            # паддинг кадра до слота (без straddle)
+                payload.append(0)
+    return {"addr": base, "w": boxw, "h": boxh, "ox": minox, "oy": minoy,
             "icn": icn_name, "fmt": FT_ARGB4, "stride": boxw * 2, "frame_bytes": frame_bytes,
-            "count": count, "dir_pages": dir_pages, "dir_count": len(dir_bases), "last_bytes": last_bytes}
+            "count": count, "dir_count": len(dir_bases), "frame_slot": FRAME_SLOT}
 
 
 # ---- Анимация adventure-объектов (костры/мельницы/лава/водяные колёса) ----
@@ -2466,8 +2465,11 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
         f"HERO_SPRITE_H           EQU {hero_sprite['h']}",
         f"HERO_SPRITE_OX          EQU {hero_sprite['ox']}",
         f"HERO_SPRITE_OY          EQU {hero_sprite['oy']}",
-        f"HERO_ANIM_FRAME_BYTES   EQU {hero_sprite.get('frame_bytes', 0)}   ; байт/кадр walk (self-mod SOURCE low16)",
-        f"HERO_ANIM_COUNT         EQU {hero_sprite.get('count', 1)}          ; кадров walk-цикла",
+        f"HERO_ANIM_FRAME_BYTES   EQU {hero_sprite.get('frame_bytes', 0)}   ; байт/кадр walk",
+        f"HERO_ANIM_COUNT         EQU {hero_sprite.get('count', 1)}          ; кадров/направление",
+        f"HERO_DIR_COUNT          EQU {hero_sprite.get('dir_count', 1)}          ; направлений",
+        f"HERO_BUF_A_RAMG         EQU #{HERO_ANIM_RAMG:06X}",                                  # ★double-buffer: буфер A
+        f"HERO_BUF_B_RAMG         EQU #{HERO_ANIM_RAMG + ((hero_sprite.get('frame_bytes', 0) + 3) & ~3):06X}",  # буфер B (за A, выравн.4)
         f"SORC_SPRITE_RAMG        EQU #{sorc_sprite['addr']:06X}",
         f"SORC_SPRITE_W           EQU {sorc_sprite['w']}",
         f"SORC_SPRITE_H           EQU {sorc_sprite['h']}",
@@ -2830,67 +2832,62 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
     # полных 16384 + последняя LAST_BYTES; иначе перельёт за #0FFFFF). HeroAnim_Upload = дефолт HORIZ.
     if hero_anim_chunks:
         first_page = hero_anim_chunks[0][1]
-        dir_pages = hero_sprite.get("dir_pages", 3)
-        last_bytes = hero_sprite.get("last_bytes", 16384)
+        frame_slot = hero_sprite.get("frame_slot", 8192)
         ramg_hi = (HERO_ANIM_RAMG >> 16) & 0xFF
-        ramg_lo = HERO_ANIM_RAMG & 0xFFFF
+        base_lo_a = HERO_ANIM_RAMG & 0xFFFF
+        base_lo_b = (HERO_ANIM_RAMG + ((hero_sprite.get("frame_bytes", 0) + 3) & ~3)) & 0xFFFF
         lines.extend([
             f"HERO_ANIM_BASE_PAGE  EQU #{first_page:02X}",
-            f"HERO_ANIM_DIR_PAGES  EQU {dir_pages}",
-            f"HERO_ANIM_LAST_BYTES EQU {last_bytes}",
-            "HeroAnim_Upload:",                                   # дефолт-направление (HORIZ=2)
-            "                LD   A, 2",
-            "HeroAnim_LoadDir:",                                  # A = направление → грузит его в резерв
-            "                LD   C, A",                          # page = BASE + dir×DIR_PAGES
+            f"HERO_FRAME_SLOT      EQU {frame_slot}          ; 2 кадра/страницу (без straddle)",
+            "HeroBufSel:      DEFB 0                          ; 0=A показан→грузить B; 1=B показан→грузить A",
+            "; HeroAnim_Upload: старт — кадр HORIZ(dir2,f0)=индекс 16 в буфер B, SOURCE на него.",
+            "HeroAnim_Upload:",
             "                XOR  A",
-            "                OR   C",
-            "                JR   Z, .hapgok",
-            "                LD   B, C",
-            ".hapmul:        ADD  A, HERO_ANIM_DIR_PAGES",
-            "                DJNZ .hapmul",
-            ".hapgok:        ADD  A, HERO_ANIM_BASE_PAGE",
-            "                LD   (.HaPage), A",
-            "                GetPage3",
-            "                LD   (.HaRestore), A",
-            f"                LD   HL, #{ramg_lo:04X}",            # FT dest lo (hi=const)
-            "                LD   (.HaDlo), HL",
-            "                LD   A, HERO_ANIM_DIR_PAGES",
-            "                DEC  A",
-            "                LD   (.HaCnt), A",                    # полных страниц = DIR_PAGES-1
-            ".haupl:        LD   A, (.HaCnt)",
+            "                LD   (HeroBufSel), A",
+            "                LD   A, 16",
+            "; HeroAnim_StreamFrame: A=индекс кадра (dir*COUNT+f). Грузит кадр в НЕВИДИМЫЙ буфер",
+            "; (луч читает ДРУГОЙ → запись без разрыва при любом тайминге), затем SOURCE в DL →",
+            "; этот буфер (атомарно на DLSWAP). Разрыва спрайта физически быть не может.",
+            "HeroAnim_StreamFrame:",
+            "                LD   B, A",
+            "                SRL  B                            ; B = индекс/2 = дельта страницы",
+            "                AND  1                            ; A = индекс&1 (0→окно #C000, 1→#E000)",
+            "                LD   HL, #C000",
             "                OR   A",
-            "                JR   Z, .halast",
-            "                DEC  A",
-            "                LD   (.HaCnt), A",
-            "                LD   A, (.HaPage)",
+            "                JR   Z, .sfoff0",
+            "                LD   HL, #E000",
+            ".sfoff0:        LD   (.SfSrc), HL",
+            "                LD   A, B",
+            "                ADD  A, HERO_ANIM_BASE_PAGE",
+            "                LD   (.SfPage), A",
+            "                LD   A, (HeroBufSel)              ; целевой = НЕВИДИМЫЙ буфер",
+            "                OR   A",
+            "                JR   NZ, .sftgtA",
+            f"                LD   HL, #{base_lo_b:04X}         ; sel0 → грузить B",
+            "                JR   .sftgts",
+            f".sftgtA:        LD   HL, #{base_lo_a:04X}         ; sel1 → грузить A",
+            ".sftgts:        LD   (.SfDst), HL",
+            "                GetPage3",
+            "                LD   (.SfRestore), A",
+            "                LD   A, (.SfPage)",
             "                SetPage3_A",
-            "                LD   HL, #C000",
+            "                LD   HL, (.SfSrc)",
             f"                LD   A, #{ramg_hi:02X}",
-            "                LD   DE, (.HaDlo)",
-            "                LD   BC, 16384",
+            "                LD   DE, (.SfDst)",
+            "                LD   BC, HERO_ANIM_FRAME_BYTES",
             "                CALL FT.WriteMem",
-            "                LD   A, (.HaPage)",
-            "                INC  A",
-            "                LD   (.HaPage), A",
-            "                LD   HL, (.HaDlo)",
-            "                LD   DE, #4000",
-            "                ADD  HL, DE",
-            "                LD   (.HaDlo), HL",
-            "                JR   .haupl",
-            ".halast:       LD   A, (.HaPage)",                   # последняя (частичная) страница
+            "                LD   A, (.SfRestore)",
             "                SetPage3_A",
-            "                LD   HL, #C000",
-            f"                LD   A, #{ramg_hi:02X}",
-            "                LD   DE, (.HaDlo)",
-            "                LD   BC, HERO_ANIM_LAST_BYTES",
-            "                CALL FT.WriteMem",
-            "                LD   A, (.HaRestore)",
-            "                SetPage3_A",
+            "                LD   HL, (.SfDst)                 ; SOURCE в DL → загруженный буфер",
+            "                LD   (HERO_MARKER_SRC_LOW), HL",
+            "                LD   A, (HeroBufSel)              ; переключить «показанный» буфер",
+            "                XOR  1",
+            "                LD   (HeroBufSel), A",
             "                RET",
-            ".HaPage:        DEFB 0",
-            ".HaDlo:         DEFW 0",
-            ".HaCnt:         DEFB 0",
-            ".HaRestore:     DEFB 0",
+            ".SfSrc:         DEFW 0",
+            ".SfDst:         DEFW 0",
+            ".SfPage:        DEFB 0",
+            ".SfRestore:     DEFB 0",
             "",
         ])
     path.write_text("\n".join(lines), encoding="utf-8")

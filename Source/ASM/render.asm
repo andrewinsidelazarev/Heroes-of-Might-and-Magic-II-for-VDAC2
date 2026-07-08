@@ -3125,18 +3125,26 @@ HeroMarker_UpdateDLPosition:
 .hstand:        XOR  A
                 LD   (HeroAnimFrame), A
                 LD   (HeroAnimDiv), A
-.hsrc:          LD   HL, HERO_SPRITE_RAMG & #FFFF
-                LD   A, (HeroAnimFrame)
-                OR   A
-                JR   Z, .hsrcset
-                LD   DE, HERO_ANIM_FRAME_BYTES
+.hsrc:          ; ★потоковый кадр: индекс = HeroCurrentDir*HERO_ANIM_COUNT(8) + HeroAnimFrame.
+                ; При смене кадра — стрим в НЕВИДИМЫЙ буфер + swap SOURCE (без разрыва спрайта).
+                LD   A, (HeroCurrentDir)
+                ADD  A, A
+                ADD  A, A
+                ADD  A, A                          ; A = dir*8
                 LD   B, A
-.hsrcadd:       ADD  HL, DE
-                DJNZ .hsrcadd
-.hsrcset:       LD   (HERO_MARKER_SRC_LOW), HL
+                LD   A, (HeroAnimFrame)
+                ADD  A, B                          ; A = индекс кадра
+                LD   B, A
+                LD   A, (HeroLastFrameIdx)
+                CP   B
+                RET  Z                             ; кадр не сменился → буфер/SOURCE уже верны
+                LD   A, B
+                LD   (HeroLastFrameIdx), A
+                CALL HeroAnim_StreamFrame          ; A=индекс → грузит невидимый буфер + SOURCE
                 RET
 HeroAnimFrame:  DEFB 0
 HeroAnimDiv:    DEFB 0
+HeroLastFrameIdx: DEFB #FF
 
 Actor_UpdateDLPosition:
                 ifdef DYNAMIC_ACTOR_RAMG

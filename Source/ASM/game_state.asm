@@ -171,8 +171,8 @@ Adventure_Enter:
                 ; Objects_Upload затирал курсор. ИСПРАВЛЕНО переносом базы на #0E8000 (viewport_pack.py).
                 ; Этот перезалив оставлен как СТРАХОВКА на случай будущих аплоадов в зону курсора.
                 CALL Cursor_GlobalUpload
-                CALL HeroAnim_Upload              ; walk-кадры героя (HORIZ) в резерв (как курсор)
-                LD   A, 2                         ; резерв держит HORIZ → HeroCurrentDir=2 (синхрон)
+                CALL HeroAnim_Upload              ; старт: кадр HORIZ(dir2,f0) в буфер + SOURCE (стример)
+                LD   A, 2                         ; текущее направление = HORIZ
                 LD   (HeroCurrentDir), A
                 RET
 
@@ -1326,9 +1326,9 @@ Hero_UpdateAnimDir:
                 CP   B
                 RET  Z                            ; направление не сменилось
                 LD   A, B
-                LD   (HeroCurrentDir), A
-                JP   HeroAnim_LoadDir             ; грузит кадры направления в резерв (A=dir)
-HeroCurrentDir: DEFB #FF
+                LD   (HeroCurrentDir), A          ; только направление; кадр стримит render пофреймово
+                RET
+HeroCurrentDir:  DEFB #FF
 
 Hero_TryStepCandidate:
                 LD   A, B
