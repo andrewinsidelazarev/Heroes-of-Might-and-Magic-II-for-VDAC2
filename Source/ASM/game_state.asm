@@ -65,7 +65,9 @@ Game_Init:
                 LD   (GameDifficulty), A          ; init ЗДЕСЬ (резидент, boot), НЕ в Menu_Enter —
                                                   ; там чтение/запись ломало загрузку меню в чёрный
                 CALL Cursor_GlobalUpload          ; глобальный курсор в постоянную RAM_G (раз)
-                CALL HeroAnim_Upload              ; walk-кадры adventure-героя в резерв #0F2000 (раз)
+                CALL HeroAnim_Upload              ; walk-кадры adventure-героя (HORIZ) в резерв (раз)
+                LD   A, 2                         ; резерв держит HORIZ → HeroCurrentDir=2 (синхрон)
+                LD   (HeroCurrentDir), A
                 CALL Music_InitPort               ; AY port A → выход (иначе MIDI не идёт на пин)
                 CALL Music_GMReset                ; SAM2695 → General MIDI (раз при старте)
             IFDEF DBG_BOOT_ADVENTURE
@@ -169,7 +171,9 @@ Adventure_Enter:
                 ; Objects_Upload затирал курсор. ИСПРАВЛЕНО переносом базы на #0E8000 (viewport_pack.py).
                 ; Этот перезалив оставлен как СТРАХОВКА на случай будущих аплоадов в зону курсора.
                 CALL Cursor_GlobalUpload
-                CALL HeroAnim_Upload              ; walk-кадры героя в резерв #0F2000 (как курсор)
+                CALL HeroAnim_Upload              ; walk-кадры героя (HORIZ) в резерв (как курсор)
+                LD   A, 2                         ; резерв держит HORIZ → HeroCurrentDir=2 (синхрон)
+                LD   (HeroCurrentDir), A
                 RET
 
 Game_Update:
@@ -1283,7 +1287,48 @@ Hero_SetStepBC:
 .face_right:    LD   A, 1
                 LD   (HeroFacingRight), A
 .moved:         OR   1
+                PUSH AF
+                CALL Hero_UpdateAnimDir           ; направление walk-анимации → грузить при смене
+                POP  AF
                 RET
+
+; Направление анимации героя из (dx,dy)=(HeroStepX−TileX, HeroStepY−TileY): TOP(0)/TOP-DIAG(1)/
+; HORIZ(2)/BOT-DIAG(3)/BOT(4). При смене → HeroAnim_LoadDir (грузит кадры направления в резерв).
+; Facing (mirror лево/право) уже задан по dx. Портит A,BC,DE,HL.
+Hero_UpdateAnimDir:
+                LD   A, (HeroTileX)
+                LD   L, A
+                LD   A, (HeroStepX)
+                SUB  L                            ; A = dx
+                LD   H, A                         ; H = dx
+                LD   A, (HeroTileY)
+                LD   L, A
+                LD   A, (HeroStepY)
+                SUB  L                            ; A = dy
+                OR   A
+                JP   M, .adtop                    ; dy<0 → верхняя группа
+                JR   Z, .adhoriz                  ; dy==0 → горизонт
+                LD   A, H                         ; dy>0: dx==0 → BOT, иначе BOT-DIAG
+                OR   A
+                LD   A, 4
+                JR   Z, .adset
+                LD   A, 3
+                JR   .adset
+.adtop:         LD   A, H
+                OR   A
+                LD   A, 0
+                JR   Z, .adset
+                LD   A, 1
+                JR   .adset
+.adhoriz:       LD   A, 2
+.adset:         LD   B, A
+                LD   A, (HeroCurrentDir)
+                CP   B
+                RET  Z                            ; направление не сменилось
+                LD   A, B
+                LD   (HeroCurrentDir), A
+                JP   HeroAnim_LoadDir             ; грузит кадры направления в резерв (A=dir)
+HeroCurrentDir: DEFB #FF
 
 Hero_TryStepCandidate:
                 LD   A, B

@@ -844,34 +844,44 @@ def append_overlay_sprite(payload: bytearray, agg_data: bytes, entries, palette,
     return {"addr": addr, "w": header["w"], "h": header["h"], "ox": header["ox"], "oy": header["oy"], "icn": icn_name, "index": index, "fmt": FT_ARGB4, "stride": header["w"] * 2}
 
 
-def append_hero_walk(payload: bytearray, agg_data: bytes, entries, palette, icn_name: str, base_index: int, count: int, base: int):
-    """Walk-кадры adventure-героя (KNGT32/SORC32: base_index..+count-1) в payload с базой `base`
-    (резерв RAM_G #0F2000, НЕ атлас — иначе сдвиг ломает панель). Все кадры паддятся в ОБЩИЙ box,
-    выровненный по якорю (ox,oy) — точка земли совпадает, размер кадра одинаков → DL self-mod'ит
-    только FT_BITMAP_SOURCE (frame_bytes/кадр). Кадр 0 = стойка. Возврат + frame_bytes/count."""
+def append_hero_walk(payload: bytearray, agg_data: bytes, entries, palette, icn_name: str, dir_bases, count: int, base: int):
+    """Walk-кадры adventure-героя ВСЕХ направлений (dir_bases=[0,9,18,27,36]=TOP/TOP-DIAG/HORIZ/
+    BOT-DIAG/BOT, по count кадров) в payload с базой `base` (резерв за курсором). ВСЕ кадры паддятся
+    в ОБЩИЙ union-box (выровнены по якорю) → размер кадра одинаков, DL self-mod'ит SOURCE+facing.
+    Каждое направление PAGE-ALIGN'ится — в резерв грузится ТЕКУЩЕЕ (45 кадров не влезают в RAM_G).
+    count=8 (не 9): 8×union влезает в ~38KB после курсора И синхронится 1 цикл/тайл. Кадр 0=стойка."""
     sprites = read_icn(agg_entry(agg_data, entries, icn_name))
-    frames = [sprites[base_index + i] for i in range(count)]
-    minox = min(h["ox"] for h, _ in frames)
-    minoy = min(h["oy"] for h, _ in frames)
-    boxw = max(h["ox"] + h["w"] for h, _ in frames) - minox
-    boxh = max(h["oy"] + h["h"] for h, _ in frames) - minoy
+    allf = [sprites[b + i] for b in dir_bases for i in range(count)]
+    minox = min(h["ox"] for h, _ in allf)
+    minoy = min(h["oy"] for h, _ in allf)
+    boxw = max(h["ox"] + h["w"] for h, _ in allf) - minox
+    boxh = max(h["oy"] + h["h"] for h, _ in allf) - minoy
+    frame_bytes = boxw * boxh * 2
+    dir_bytes = frame_bytes * count
+    dir_pages = (dir_bytes + 16383) // 16384                    # страниц/направление (page-align)
+    last_bytes = dir_bytes - (dir_pages - 1) * 16384            # частичный размер последней страницы
+    dir_stride = dir_pages * 16384
     base_addr = base + align(len(payload), 4)
     while base + len(payload) < base_addr:
         payload.append(0)
-    frame_bytes = boxw * boxh * 2
-    for header, encoded in frames:
-        buf = bytearray(frame_bytes)                              # прозрачный фон (ARGB4 alpha0)
-        px = decode_icn_sprite(header, encoded, palette)          # w*h*2 ARGB4
-        w, h = header["w"], header["h"]
-        dx, dy = header["ox"] - minox, header["oy"] - minoy
-        for row in range(h):
-            s = row * w * 2
-            d = ((dy + row) * boxw + dx) * 2
-            buf[d:d + w * 2] = px[s:s + w * 2]
-        payload.extend(buf)
+    for b in dir_bases:
+        dstart = len(payload)
+        for i in range(count):
+            header, encoded = sprites[b + i]
+            buf = bytearray(frame_bytes)                          # прозрачный фон (ARGB4 alpha0)
+            px = decode_icn_sprite(header, encoded, palette)
+            w, h = header["w"], header["h"]
+            dx, dy = header["ox"] - minox, header["oy"] - minoy
+            for row in range(h):
+                s = row * w * 2
+                d = ((dy + row) * boxw + dx) * 2
+                buf[d:d + w * 2] = px[s:s + w * 2]
+            payload.extend(buf)
+        while len(payload) - dstart < dir_stride:               # паддинг направления до границы страницы
+            payload.append(0)
     return {"addr": base_addr, "w": boxw, "h": boxh, "ox": minox, "oy": minoy,
-            "icn": icn_name, "index": base_index, "fmt": FT_ARGB4, "stride": boxw * 2,
-            "frame_bytes": frame_bytes, "count": count}
+            "icn": icn_name, "fmt": FT_ARGB4, "stride": boxw * 2, "frame_bytes": frame_bytes,
+            "count": count, "dir_pages": dir_pages, "dir_count": len(dir_bases), "last_bytes": last_bytes}
 
 
 # ---- Анимация adventure-объектов (костры/мельницы/лава/водяные колёса) ----
@@ -2815,22 +2825,74 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
             ])
             ramg += real_size
         lines.extend([".CurRestore     EQU $+1", "                LD   A, #00", "                SetPage3_A", "                RET", ""])
-    # ★Walk-кадры героя в резерв RAM_G (HERO_ANIM_RAMG): резидентная загрузка раз (как курсор),
-    # вызывается из Game_Init/adventure-entry. Кадры в SPG-страницах HERO_ANIM_PAGE+.
+    # ★Walk-кадры героя: резерв RAM_G держит ТЕКУЩЕЕ направление (45 кадров не влезают).
+    # HeroAnim_LoadDir(A=направление 0..dir_count-1) грузит его dir_pages страниц (DIR_PAGES-1
+    # полных 16384 + последняя LAST_BYTES; иначе перельёт за #0FFFFF). HeroAnim_Upload = дефолт HORIZ.
     if hero_anim_chunks:
-        lines.extend(["HeroAnim_Upload:", "                GetPage3", "                LD   (.HaRestore), A"])
-        ramg = HERO_ANIM_RAMG
-        for _, page, real_size in hero_anim_chunks:
-            lines.extend([
-                f"                SetPage3 #{page:02X}",
-                "                LD   HL, #C000",
-                f"                LD   A, #{(ramg >> 16) & 0xFF:02X}",
-                f"                LD   DE, #{ramg & 0xFFFF:04X}",
-                f"                LD   BC, {real_size}",
-                "                CALL FT.WriteMem",
-            ])
-            ramg += real_size
-        lines.extend([".HaRestore      EQU $+1", "                LD   A, #00", "                SetPage3_A", "                RET", ""])
+        first_page = hero_anim_chunks[0][1]
+        dir_pages = hero_sprite.get("dir_pages", 3)
+        last_bytes = hero_sprite.get("last_bytes", 16384)
+        ramg_hi = (HERO_ANIM_RAMG >> 16) & 0xFF
+        ramg_lo = HERO_ANIM_RAMG & 0xFFFF
+        lines.extend([
+            f"HERO_ANIM_BASE_PAGE  EQU #{first_page:02X}",
+            f"HERO_ANIM_DIR_PAGES  EQU {dir_pages}",
+            f"HERO_ANIM_LAST_BYTES EQU {last_bytes}",
+            "HeroAnim_Upload:",                                   # дефолт-направление (HORIZ=2)
+            "                LD   A, 2",
+            "HeroAnim_LoadDir:",                                  # A = направление → грузит его в резерв
+            "                LD   C, A",                          # page = BASE + dir×DIR_PAGES
+            "                XOR  A",
+            "                OR   C",
+            "                JR   Z, .hapgok",
+            "                LD   B, C",
+            ".hapmul:        ADD  A, HERO_ANIM_DIR_PAGES",
+            "                DJNZ .hapmul",
+            ".hapgok:        ADD  A, HERO_ANIM_BASE_PAGE",
+            "                LD   (.HaPage), A",
+            "                GetPage3",
+            "                LD   (.HaRestore), A",
+            f"                LD   HL, #{ramg_lo:04X}",            # FT dest lo (hi=const)
+            "                LD   (.HaDlo), HL",
+            "                LD   A, HERO_ANIM_DIR_PAGES",
+            "                DEC  A",
+            "                LD   (.HaCnt), A",                    # полных страниц = DIR_PAGES-1
+            ".haupl:        LD   A, (.HaCnt)",
+            "                OR   A",
+            "                JR   Z, .halast",
+            "                DEC  A",
+            "                LD   (.HaCnt), A",
+            "                LD   A, (.HaPage)",
+            "                SetPage3_A",
+            "                LD   HL, #C000",
+            f"                LD   A, #{ramg_hi:02X}",
+            "                LD   DE, (.HaDlo)",
+            "                LD   BC, 16384",
+            "                CALL FT.WriteMem",
+            "                LD   A, (.HaPage)",
+            "                INC  A",
+            "                LD   (.HaPage), A",
+            "                LD   HL, (.HaDlo)",
+            "                LD   DE, #4000",
+            "                ADD  HL, DE",
+            "                LD   (.HaDlo), HL",
+            "                JR   .haupl",
+            ".halast:       LD   A, (.HaPage)",                   # последняя (частичная) страница
+            "                SetPage3_A",
+            "                LD   HL, #C000",
+            f"                LD   A, #{ramg_hi:02X}",
+            "                LD   DE, (.HaDlo)",
+            "                LD   BC, HERO_ANIM_LAST_BYTES",
+            "                CALL FT.WriteMem",
+            "                LD   A, (.HaRestore)",
+            "                SetPage3_A",
+            "                RET",
+            ".HaPage:        DEFB 0",
+            ".HaDlo:         DEFW 0",
+            ".HaCnt:         DEFB 0",
+            ".HaRestore:     DEFB 0",
+            "",
+        ])
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -2956,7 +3018,7 @@ def main() -> int:
     # (без него сдвиг −3KB ломает правую панель). HERO_SPRITE_RAMG → KNGT32-резерв. Враг пока MINIHERO.
     _hero_atlas_placeholder = append_overlay_sprite(object_payload, agg_data, entries, palette, "MINIHERO.ICN", 0)
     hero_anim_payload = bytearray()
-    hero_sprite = append_hero_walk(hero_anim_payload, agg_data, entries, palette, "KNGT32.ICN", 18, 9, base=HERO_ANIM_RAMG)
+    hero_sprite = append_hero_walk(hero_anim_payload, agg_data, entries, palette, "KNGT32.ICN", [0, 9, 18, 27, 36], 8, base=HERO_ANIM_RAMG)
     sorc_sprite = append_overlay_sprite(object_payload, agg_data, entries, palette, "MINIHERO.ICN", 23)
     cursor_sprites, cursor_payload = append_cursor_sprites(agg_data, entries, palette)
     ui_sprites = append_adventure_ui_sprites(object_payload, agg_data, entries, palette, ground_tiles, width, height, map_data)
@@ -3072,7 +3134,7 @@ def main() -> int:
     print(f"runtime map cells: page=#{runtime_map_cells_page:02X}, bytes={runtime_map_cells_chunks[0][2]}")
     if COMPOSITE_STATIC_TILEMAP:
         print(f"composite upload scripts={len(upload_payload)} bytes, pages={len(upload_chunks)}")
-    print(f"hero sprite: {hero_sprite['icn']}#{hero_sprite['index']} {hero_sprite['w']}x{hero_sprite['h']}")
+    print(f"hero walk: {hero_sprite['icn']} {hero_sprite.get('dir_count',1)}dir x{hero_sprite['count']}кадр box {hero_sprite['w']}x{hero_sprite['h']}")
     print(f"cursor sprites: ADVMCO pointer + move distance 1..8 ({len(cursor_sprites)} total)")
     print(f"adventure UI: ADVBORD strips={ui_strip_count}, radar + {len(ui_sprites['buttons'])} ADVBTNS")
     return 0

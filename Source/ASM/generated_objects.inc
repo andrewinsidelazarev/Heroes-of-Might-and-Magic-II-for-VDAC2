@@ -9,12 +9,12 @@ OBJECT_ATLAS_PAGE_BASE  EQU #07
 OBJECT_ATLAS_PAGE_COUNT EQU 28
 OBJECT_ATLAS_SIZE       EQU 449018
 HERO_SPRITE_RAMG        EQU #0F6A00
-HERO_SPRITE_W           EQU 41
-HERO_SPRITE_H           EQU 50
+HERO_SPRITE_W           EQU 42
+HERO_SPRITE_H           EQU 54
 HERO_SPRITE_OX          EQU -8
-HERO_SPRITE_OY          EQU -45
-HERO_ANIM_FRAME_BYTES   EQU 4100   ; байт/кадр walk (self-mod SOURCE low16)
-HERO_ANIM_COUNT         EQU 9          ; кадров walk-цикла
+HERO_SPRITE_OY          EQU -49
+HERO_ANIM_FRAME_BYTES   EQU 4536   ; байт/кадр walk (self-mod SOURCE low16)
+HERO_ANIM_COUNT         EQU 8          ; кадров walk-цикла
 SORC_SPRITE_RAMG        EQU #0B32F4
 SORC_SPRITE_W           EQU 32
 SORC_SPRITE_H           EQU 50
@@ -744,28 +744,59 @@ Cursor_GlobalUpload:
                 SetPage3_A
                 RET
 
+HERO_ANIM_BASE_PAGE  EQU #AB
+HERO_ANIM_DIR_PAGES  EQU 3
+HERO_ANIM_LAST_BYTES EQU 3520
 HeroAnim_Upload:
+                LD   A, 2
+HeroAnim_LoadDir:
+                LD   C, A
+                XOR  A
+                OR   C
+                JR   Z, .hapgok
+                LD   B, C
+.hapmul:        ADD  A, HERO_ANIM_DIR_PAGES
+                DJNZ .hapmul
+.hapgok:        ADD  A, HERO_ANIM_BASE_PAGE
+                LD   (.HaPage), A
                 GetPage3
                 LD   (.HaRestore), A
-                SetPage3 #AB
+                LD   HL, #6A00
+                LD   (.HaDlo), HL
+                LD   A, HERO_ANIM_DIR_PAGES
+                DEC  A
+                LD   (.HaCnt), A
+.haupl:        LD   A, (.HaCnt)
+                OR   A
+                JR   Z, .halast
+                DEC  A
+                LD   (.HaCnt), A
+                LD   A, (.HaPage)
+                SetPage3_A
                 LD   HL, #C000
                 LD   A, #0F
-                LD   DE, #6A00
+                LD   DE, (.HaDlo)
                 LD   BC, 16384
                 CALL FT.WriteMem
-                SetPage3 #AC
+                LD   A, (.HaPage)
+                INC  A
+                LD   (.HaPage), A
+                LD   HL, (.HaDlo)
+                LD   DE, #4000
+                ADD  HL, DE
+                LD   (.HaDlo), HL
+                JR   .haupl
+.halast:       LD   A, (.HaPage)
+                SetPage3_A
                 LD   HL, #C000
                 LD   A, #0F
-                LD   DE, #AA00
-                LD   BC, 16384
+                LD   DE, (.HaDlo)
+                LD   BC, HERO_ANIM_LAST_BYTES
                 CALL FT.WriteMem
-                SetPage3 #AD
-                LD   HL, #C000
-                LD   A, #0F
-                LD   DE, #EA00
-                LD   BC, 4132
-                CALL FT.WriteMem
-.HaRestore      EQU $+1
-                LD   A, #00
+                LD   A, (.HaRestore)
                 SetPage3_A
                 RET
+.HaPage:        DEFB 0
+.HaDlo:         DEFW 0
+.HaCnt:         DEFB 0
+.HaRestore:     DEFB 0
