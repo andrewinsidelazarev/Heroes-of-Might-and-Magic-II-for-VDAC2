@@ -65,6 +65,7 @@ Game_Init:
                 LD   (GameDifficulty), A          ; init ЗДЕСЬ (резидент, boot), НЕ в Menu_Enter —
                                                   ; там чтение/запись ломало загрузку меню в чёрный
                 CALL Cursor_GlobalUpload          ; глобальный курсор в постоянную RAM_G (раз)
+                CALL HeroAnim_Upload              ; walk-кадры adventure-героя в резерв #0F2000 (раз)
                 CALL Music_InitPort               ; AY port A → выход (иначе MIDI не идёт на пин)
                 CALL Music_GMReset                ; SAM2695 → General MIDI (раз при старте)
             IFDEF DBG_BOOT_ADVENTURE
@@ -168,6 +169,7 @@ Adventure_Enter:
                 ; Objects_Upload затирал курсор. ИСПРАВЛЕНО переносом базы на #0E8000 (viewport_pack.py).
                 ; Этот перезалив оставлен как СТРАХОВКА на случай будущих аплоадов в зону курсора.
                 CALL Cursor_GlobalUpload
+                CALL HeroAnim_Upload              ; walk-кадры героя в резерв #0F2000 (как курсор)
                 RET
 
 Game_Update:

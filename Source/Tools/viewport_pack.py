@@ -72,6 +72,11 @@ RAMG_OBJECT_BASE = ((COMPOSITE_RAMG_CACHE_SIZE + 0x0FFF) & ~0x0FFF) if COMPOSITE
 # Доступен всем сценам; не перезаписывается сменой сцены.
 CURSOR_RAMG_BASE = 0x0E8000
 CURSOR_RESIDENT_PAGE = 0xA2          # SPG-страница курсор-спрайтов (рядом с loader #A0/#A1, ≤#F0)
+# ★Walk-кадры adventure-героя (KNGT32) — в СВОБОДНЫЙ резерв RAM_G #0F1EDC+ (ЗА DL-блоками
+# #0F0000-#0F1EDB), НЕ в object-атлас (иначе сдвиг атласа ломает панель + коллизия курсора).
+# Грузятся резидентно раз (HeroAnim_Upload, как курсор) из SPG-страниц #AB+.
+HERO_ANIM_RAMG = 0x0F2000
+HERO_ANIM_PAGE = 0xAB                 # свободные SPG-страницы #AB-#AF (курсор #A2-#A5, оверлеи #A6/#A8/#AA)
 OBJECT_PALETTE_SIZE = 512
 OBJECT_OPAQUE_PALETTE_SIZE = 512
 OBJECT_TRANSPARENT_INDEX = 0
@@ -837,6 +842,36 @@ def append_overlay_sprite(payload: bytearray, agg_data: bytes, entries, palette,
         payload.append(0)
     payload.extend(decode_icn_sprite(header, encoded, palette))
     return {"addr": addr, "w": header["w"], "h": header["h"], "ox": header["ox"], "oy": header["oy"], "icn": icn_name, "index": index, "fmt": FT_ARGB4, "stride": header["w"] * 2}
+
+
+def append_hero_walk(payload: bytearray, agg_data: bytes, entries, palette, icn_name: str, base_index: int, count: int, base: int):
+    """Walk-кадры adventure-героя (KNGT32/SORC32: base_index..+count-1) в payload с базой `base`
+    (резерв RAM_G #0F2000, НЕ атлас — иначе сдвиг ломает панель). Все кадры паддятся в ОБЩИЙ box,
+    выровненный по якорю (ox,oy) — точка земли совпадает, размер кадра одинаков → DL self-mod'ит
+    только FT_BITMAP_SOURCE (frame_bytes/кадр). Кадр 0 = стойка. Возврат + frame_bytes/count."""
+    sprites = read_icn(agg_entry(agg_data, entries, icn_name))
+    frames = [sprites[base_index + i] for i in range(count)]
+    minox = min(h["ox"] for h, _ in frames)
+    minoy = min(h["oy"] for h, _ in frames)
+    boxw = max(h["ox"] + h["w"] for h, _ in frames) - minox
+    boxh = max(h["oy"] + h["h"] for h, _ in frames) - minoy
+    base_addr = base + align(len(payload), 4)
+    while base + len(payload) < base_addr:
+        payload.append(0)
+    frame_bytes = boxw * boxh * 2
+    for header, encoded in frames:
+        buf = bytearray(frame_bytes)                              # прозрачный фон (ARGB4 alpha0)
+        px = decode_icn_sprite(header, encoded, palette)          # w*h*2 ARGB4
+        w, h = header["w"], header["h"]
+        dx, dy = header["ox"] - minox, header["oy"] - minoy
+        for row in range(h):
+            s = row * w * 2
+            d = ((dy + row) * boxw + dx) * 2
+            buf[d:d + w * 2] = px[s:s + w * 2]
+        payload.extend(buf)
+    return {"addr": base_addr, "w": boxw, "h": boxh, "ox": minox, "oy": minoy,
+            "icn": icn_name, "index": base_index, "fmt": FT_ARGB4, "stride": boxw * 2,
+            "frame_bytes": frame_bytes, "count": count}
 
 
 # ---- Анимация adventure-объектов (костры/мельницы/лава/водяные колёса) ----
@@ -2402,7 +2437,7 @@ def write_runtime_map_inc(path: Path, width: int, height: int, tiles, terrain_re
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, sorc_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page: int, route_red_palette_addr: int = 0, cursor_chunks=None):
+def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, sorc_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page: int, route_red_palette_addr: int = 0, cursor_chunks=None, hero_anim_chunks=None):
     cursor_sprite = cursor_sprites[CURSOR_POINTER_INDEX]
     ui_radar = ui_sprites["radar"]
     lines = [
@@ -2421,6 +2456,8 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
         f"HERO_SPRITE_H           EQU {hero_sprite['h']}",
         f"HERO_SPRITE_OX          EQU {hero_sprite['ox']}",
         f"HERO_SPRITE_OY          EQU {hero_sprite['oy']}",
+        f"HERO_ANIM_FRAME_BYTES   EQU {hero_sprite.get('frame_bytes', 0)}   ; байт/кадр walk (self-mod SOURCE low16)",
+        f"HERO_ANIM_COUNT         EQU {hero_sprite.get('count', 1)}          ; кадров walk-цикла",
         f"SORC_SPRITE_RAMG        EQU #{sorc_sprite['addr']:06X}",
         f"SORC_SPRITE_W           EQU {sorc_sprite['w']}",
         f"SORC_SPRITE_H           EQU {sorc_sprite['h']}",
@@ -2778,6 +2815,22 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
             ])
             ramg += real_size
         lines.extend([".CurRestore     EQU $+1", "                LD   A, #00", "                SetPage3_A", "                RET", ""])
+    # ★Walk-кадры героя в резерв RAM_G (HERO_ANIM_RAMG): резидентная загрузка раз (как курсор),
+    # вызывается из Game_Init/adventure-entry. Кадры в SPG-страницах HERO_ANIM_PAGE+.
+    if hero_anim_chunks:
+        lines.extend(["HeroAnim_Upload:", "                GetPage3", "                LD   (.HaRestore), A"])
+        ramg = HERO_ANIM_RAMG
+        for _, page, real_size in hero_anim_chunks:
+            lines.extend([
+                f"                SetPage3 #{page:02X}",
+                "                LD   HL, #C000",
+                f"                LD   A, #{(ramg >> 16) & 0xFF:02X}",
+                f"                LD   DE, #{ramg & 0xFFFF:04X}",
+                f"                LD   BC, {real_size}",
+                "                CALL FT.WriteMem",
+            ])
+            ramg += real_size
+        lines.extend([".HaRestore      EQU $+1", "                LD   A, #00", "                SetPage3_A", "                RET", ""])
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -2898,7 +2951,12 @@ def main() -> int:
     # Цвета строк: 0=Blue 1=Green 2=Red 3=Yellow 4=Orange 5=Purple; расы: 0=Knight 1=Barbar
     # 2=Sorc 3=Warlock 4=Wizard 5=Necro 6=Random. Игрок SKIRMISH = Blue Knight «Hampshire»
     # → idx 0*7+0 = 0. Враг = Yellow Sorceress «Quick Silver» → idx 3*7+2 = 23.
-    hero_sprite = append_overlay_sprite(object_payload, agg_data, entries, palette, "MINIHERO.ICN", 0)
+    # ★Герой карты = настоящий KNGT32 walk-цикл (гор.9 кадров idx18..26) в РЕЗЕРВ RAM_G #0F2000.
+    # MINIHERO#0 оставлен ЗАГЛУШКОЙ в object_payload — сохраняет layout атласа БАЙТ-В-БАЙТ
+    # (без него сдвиг −3KB ломает правую панель). HERO_SPRITE_RAMG → KNGT32-резерв. Враг пока MINIHERO.
+    _hero_atlas_placeholder = append_overlay_sprite(object_payload, agg_data, entries, palette, "MINIHERO.ICN", 0)
+    hero_anim_payload = bytearray()
+    hero_sprite = append_hero_walk(hero_anim_payload, agg_data, entries, palette, "KNGT32.ICN", 18, 9, base=HERO_ANIM_RAMG)
     sorc_sprite = append_overlay_sprite(object_payload, agg_data, entries, palette, "MINIHERO.ICN", 23)
     cursor_sprites, cursor_payload = append_cursor_sprites(agg_data, entries, palette)
     ui_sprites = append_adventure_ui_sprites(object_payload, agg_data, entries, palette, ground_tiles, width, height, map_data)
@@ -2984,12 +3042,13 @@ def main() -> int:
     upload_chunks = write_chunks(root / "Assets/Converted/Viewports", "SKIRMISH_COMPOSITE_UPLOAD_p{:02d}.bin", COMPOSITE_UPLOAD_PAGE_BASE, upload_payload)
     write_terrain_inc(root / "Source/ASM/generated_terrain.inc", terrain_chunks, object_chunks, viewport_chunks, width, height, object_view_page_base)
     cursor_chunks = write_chunks(root / "Assets/Converted/Cursor", "SKIRMISH_CURSOR_p{:02d}.bin", CURSOR_RESIDENT_PAGE, bytes(cursor_payload))
-    write_objects_inc(root / "Source/ASM/generated_objects.inc", object_chunks, len(object_payload), hero_sprite, sorc_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page, route_red_palette_addr, cursor_chunks)
+    hero_anim_chunks = write_chunks(root / "Assets/Converted/HeroAnim", "SKIRMISH_HEROANIM_p{:02d}.bin", HERO_ANIM_PAGE, bytes(hero_anim_payload))
+    write_objects_inc(root / "Source/ASM/generated_objects.inc", object_chunks, len(object_payload), hero_sprite, sorc_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page, route_red_palette_addr, cursor_chunks, hero_anim_chunks)
     write_runtime_map_inc(root / "Source/ASM/generated_runtime_map.inc", width, height, tiles, terrain_remap, object_view_page_base, runtime_map_cells_page, object_view_entries, composite_upload_entries, palette)
     write_map_anim_inc(root / "Source/ASM/generated_map_anim.inc", map_anim_table)
     write_background_inc(root / "Source/ASM/generated_background.inc")
     write_empty_adventure_dl(root / "Source/ASM/generated_adventure_dl.inc")
-    update_spgbld(root / "spgbld_vdac2.ini", terrain_chunks + object_chunks + route_table_chunks + runtime_map_cells_chunks + object_view_chunks + upload_chunks + viewport_chunks + cursor_chunks)
+    update_spgbld(root / "spgbld_vdac2.ini", terrain_chunks + object_chunks + route_table_chunks + runtime_map_cells_chunks + object_view_chunks + upload_chunks + viewport_chunks + cursor_chunks + hero_anim_chunks)
 
     if COMPOSITE_STATIC_TILEMAP:
         write_composite_view_preview(root / "Diagnostics/terrain_ground32_preview.png", terrain_payload, palette, width, height, 0, 0)

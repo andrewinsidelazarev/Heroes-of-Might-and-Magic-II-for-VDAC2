@@ -8,11 +8,13 @@ OBJECT_OPAQUE_PALETTE_SIZE EQU 512
 OBJECT_ATLAS_PAGE_BASE  EQU #07
 OBJECT_ATLAS_PAGE_COUNT EQU 28
 OBJECT_ATLAS_SIZE       EQU 449018
-HERO_SPRITE_RAMG        EQU #0B273C
-HERO_SPRITE_W           EQU 30
+HERO_SPRITE_RAMG        EQU #0F2000
+HERO_SPRITE_W           EQU 41
 HERO_SPRITE_H           EQU 50
-HERO_SPRITE_OX          EQU 0
-HERO_SPRITE_OY          EQU 0
+HERO_SPRITE_OX          EQU -8
+HERO_SPRITE_OY          EQU -45
+HERO_ANIM_FRAME_BYTES   EQU 4100   ; байт/кадр walk (self-mod SOURCE low16)
+HERO_ANIM_COUNT         EQU 9          ; кадров walk-цикла
 SORC_SPRITE_RAMG        EQU #0B32F4
 SORC_SPRITE_W           EQU 32
 SORC_SPRITE_H           EQU 50
@@ -738,6 +740,32 @@ Cursor_GlobalUpload:
                 LD   BC, 10740
                 CALL FT.WriteMem
 .CurRestore     EQU $+1
+                LD   A, #00
+                SetPage3_A
+                RET
+
+HeroAnim_Upload:
+                GetPage3
+                LD   (.HaRestore), A
+                SetPage3 #AB
+                LD   HL, #C000
+                LD   A, #0F
+                LD   DE, #2000
+                LD   BC, 16384
+                CALL FT.WriteMem
+                SetPage3 #AC
+                LD   HL, #C000
+                LD   A, #0F
+                LD   DE, #6000
+                LD   BC, 16384
+                CALL FT.WriteMem
+                SetPage3 #AD
+                LD   HL, #C000
+                LD   A, #0F
+                LD   DE, #A000
+                LD   BC, 4132
+                CALL FT.WriteMem
+.HaRestore      EQU $+1
                 LD   A, #00
                 SetPage3_A
                 RET
