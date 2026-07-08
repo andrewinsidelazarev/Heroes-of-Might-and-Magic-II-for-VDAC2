@@ -72,10 +72,10 @@ RAMG_OBJECT_BASE = ((COMPOSITE_RAMG_CACHE_SIZE + 0x0FFF) & ~0x0FFF) if COMPOSITE
 # Доступен всем сценам; не перезаписывается сменой сцены.
 CURSOR_RAMG_BASE = 0x0E8000
 CURSOR_RESIDENT_PAGE = 0xA2          # SPG-страница курсор-спрайтов (рядом с loader #A0/#A1, ≤#F0)
-# ★Walk-кадры adventure-героя (KNGT32) — в СВОБОДНЫЙ резерв RAM_G #0F1EDC+ (ЗА DL-блоками
-# #0F0000-#0F1EDB), НЕ в object-атлас (иначе сдвиг атласа ломает панель + коллизия курсора).
-# Грузятся резидентно раз (HeroAnim_Upload, как курсор) из SPG-страниц #AB+.
-HERO_ANIM_RAMG = 0x0F2000
+# ★Walk-кадры adventure-героя (KNGT32) — в резерв RAM_G ЗА ХВОСТОМ КУРСОРА (курсор #0E8000..
+# #0F69F4 = 58KB!), НЕ в object-атлас (сдвиг ломает панель). #0F2000 БЫЛ БАГ: затирал спрайты
+# курсора (меч-курсор → мусор). Грузятся раз (HeroAnim_Upload) из SPG-страниц #AB+.
+HERO_ANIM_RAMG = 0x0F6A00
 HERO_ANIM_PAGE = 0xAB                 # свободные SPG-страницы #AB-#AF (курсор #A2-#A5, оверлеи #A6/#A8/#AA)
 OBJECT_PALETTE_SIZE = 512
 OBJECT_OPAQUE_PALETTE_SIZE = 512

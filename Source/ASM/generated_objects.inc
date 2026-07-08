@@ -8,7 +8,7 @@ OBJECT_OPAQUE_PALETTE_SIZE EQU 512
 OBJECT_ATLAS_PAGE_BASE  EQU #07
 OBJECT_ATLAS_PAGE_COUNT EQU 28
 OBJECT_ATLAS_SIZE       EQU 449018
-HERO_SPRITE_RAMG        EQU #0F2000
+HERO_SPRITE_RAMG        EQU #0F6A00
 HERO_SPRITE_W           EQU 41
 HERO_SPRITE_H           EQU 50
 HERO_SPRITE_OX          EQU -8
@@ -750,19 +750,19 @@ HeroAnim_Upload:
                 SetPage3 #AB
                 LD   HL, #C000
                 LD   A, #0F
-                LD   DE, #2000
+                LD   DE, #6A00
                 LD   BC, 16384
                 CALL FT.WriteMem
                 SetPage3 #AC
                 LD   HL, #C000
                 LD   A, #0F
-                LD   DE, #6000
+                LD   DE, #AA00
                 LD   BC, 16384
                 CALL FT.WriteMem
                 SetPage3 #AD
                 LD   HL, #C000
                 LD   A, #0F
-                LD   DE, #A000
+                LD   DE, #EA00
                 LD   BC, 4132
                 CALL FT.WriteMem
 .HaRestore      EQU $+1
