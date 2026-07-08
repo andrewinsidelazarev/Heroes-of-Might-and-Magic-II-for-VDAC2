@@ -844,19 +844,36 @@ def append_overlay_sprite(payload: bytearray, agg_data: bytes, entries, palette,
     return {"addr": addr, "w": header["w"], "h": header["h"], "ox": header["ox"], "oy": header["oy"], "icn": icn_name, "index": index, "fmt": FT_ARGB4, "stride": header["w"] * 2}
 
 
-def append_hero_walk(payload: bytearray, agg_data: bytes, entries, palette, icn_name: str, dir_bases, count: int, base: int):
+def append_hero_walk(payload: bytearray, agg_data: bytes, entries, palette, icn_name: str, dir_bases, count: int, base: int, flag_icn: str = None):
     """Walk-кадры adventure-героя ВСЕХ направлений (dir_bases=[0,9,18,27,36]=TOP/TOP-DIAG/HORIZ/
-    BOT-DIAG/BOT, по count кадров) в payload с базой `base` (резерв за курсором). ВСЕ кадры паддятся
-    в ОБЩИЙ union-box (выровнены по якорю) → размер кадра одинаков, DL self-mod'ит SOURCE+facing.
-    Каждое направление PAGE-ALIGN'ится — в резерв грузится ТЕКУЩЕЕ (45 кадров не влезают в RAM_G).
-    count=8 (не 9): 8×union влезает в ~38KB после курсора И синхронится 1 цикл/тайл. Кадр 0=стойка."""
+    BOT-DIAG/BOT, по count кадров) в payload. Кадры паддятся в ОБЩИЙ union-box по якорю.
+    flag_icn (B-FLAG32 и т.п.) — флаг владения ЗАПЕКАЕТСЯ поверх героя (тот же frame-index, как
+    getFlagSpriteInfo; порядок оригинала: герой, затем флаг сверху). Стример тянет кадр с флагом."""
     sprites = read_icn(agg_entry(agg_data, entries, icn_name))
-    allf = [sprites[b + i] for b in dir_bases for i in range(count)]
-    minox = min(h["ox"] for h, _ in allf)
-    minoy = min(h["oy"] for h, _ in allf)
-    boxw = max(h["ox"] + h["w"] for h, _ in allf) - minox
-    boxh = max(h["oy"] + h["h"] for h, _ in allf) - minoy
+    flags = read_icn(agg_entry(agg_data, entries, flag_icn)) if flag_icn else None
+    parts = [sprites[b + i] for b in dir_bases for i in range(count)]
+    if flags:
+        parts += [flags[b + i] for b in dir_bases for i in range(count)]   # union-box учитывает флаг
+    minox = min(h["ox"] for h, _ in parts)
+    minoy = min(h["oy"] for h, _ in parts)
+    boxw = max(h["ox"] + h["w"] for h, _ in parts) - minox
+    boxh = max(h["oy"] + h["h"] for h, _ in parts) - minoy
     frame_bytes = boxw * boxh * 2
+
+    def _blit(buf, header, encoded):                                        # alpha-respecting наложение
+        px = decode_icn_sprite(header, encoded, palette)
+        w, h = header["w"], header["h"]
+        dx, dy = header["ox"] - minox, header["oy"] - minoy
+        for row in range(h):
+            base_s = row * w * 2
+            base_d = ((dy + row) * boxw + dx) * 2
+            for col in range(w):
+                s = base_s + col * 2
+                if px[s + 1] >> 4 == 0:                                     # alpha0 → не затирать
+                    continue
+                d = base_d + col * 2
+                buf[d] = px[s]
+                buf[d + 1] = px[s + 1]
     # ★Потоковая double-буферизация: каждый кадр в SPG падится до FRAME_SLOT=8192
     # (2 кадра/страницу, кадр НЕ пересекает границу страницы → стример = 1 SetPage3+1 запись).
     # frame_index = dir*count + f; SPG-страница = BASE + index//2, окно #C000/#E000 по (index&1).
@@ -866,15 +883,10 @@ def append_hero_walk(payload: bytearray, agg_data: bytes, entries, palette, icn_
     for b in dir_bases:
         for i in range(count):
             fstart = len(payload)
-            header, encoded = sprites[b + i]
             buf = bytearray(frame_bytes)                          # прозрачный фон (ARGB4 alpha0)
-            px = decode_icn_sprite(header, encoded, palette)
-            w, h = header["w"], header["h"]
-            dx, dy = header["ox"] - minox, header["oy"] - minoy
-            for row in range(h):
-                s = row * w * 2
-                d = ((dy + row) * boxw + dx) * 2
-                buf[d:d + w * 2] = px[s:s + w * 2]
+            _blit(buf, *sprites[b + i])                           # герой
+            if flags:
+                _blit(buf, *flags[b + i])                         # флаг владения ПОВЕРХ (как в оригинале)
             payload.extend(buf)
             while len(payload) - fstart < FRAME_SLOT:            # паддинг кадра до слота (без straddle)
                 payload.append(0)
@@ -3015,7 +3027,7 @@ def main() -> int:
     # (без него сдвиг −3KB ломает правую панель). HERO_SPRITE_RAMG → KNGT32-резерв. Враг пока MINIHERO.
     _hero_atlas_placeholder = append_overlay_sprite(object_payload, agg_data, entries, palette, "MINIHERO.ICN", 0)
     hero_anim_payload = bytearray()
-    hero_sprite = append_hero_walk(hero_anim_payload, agg_data, entries, palette, "KNGT32.ICN", [0, 9, 18, 27, 36], 8, base=HERO_ANIM_RAMG)
+    hero_sprite = append_hero_walk(hero_anim_payload, agg_data, entries, palette, "KNGT32.ICN", [0, 9, 18, 27, 36], 8, base=HERO_ANIM_RAMG, flag_icn="B-FLAG32.ICN")
     sorc_sprite = append_overlay_sprite(object_payload, agg_data, entries, palette, "MINIHERO.ICN", 23)
     cursor_sprites, cursor_payload = append_cursor_sprites(agg_data, entries, palette)
     ui_sprites = append_adventure_ui_sprites(object_payload, agg_data, entries, palette, ground_tiles, width, height, map_data)

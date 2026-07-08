@@ -9,15 +9,15 @@ OBJECT_ATLAS_PAGE_BASE  EQU #07
 OBJECT_ATLAS_PAGE_COUNT EQU 28
 OBJECT_ATLAS_SIZE       EQU 449018
 HERO_SPRITE_RAMG        EQU #0F6A00
-HERO_SPRITE_W           EQU 42
+HERO_SPRITE_W           EQU 47
 HERO_SPRITE_H           EQU 54
 HERO_SPRITE_OX          EQU -8
 HERO_SPRITE_OY          EQU -49
-HERO_ANIM_FRAME_BYTES   EQU 4536   ; байт/кадр walk
+HERO_ANIM_FRAME_BYTES   EQU 5076   ; байт/кадр walk
 HERO_ANIM_COUNT         EQU 8          ; кадров/направление
 HERO_DIR_COUNT          EQU 5          ; направлений
 HERO_BUF_A_RAMG         EQU #0F6A00
-HERO_BUF_B_RAMG         EQU #0F7BB8
+HERO_BUF_B_RAMG         EQU #0F7DD4
 SORC_SPRITE_RAMG        EQU #0B32F4
 SORC_SPRITE_W           EQU 32
 SORC_SPRITE_H           EQU 50
@@ -773,7 +773,7 @@ HeroAnim_StreamFrame:
                 LD   A, (HeroBufSel)              ; целевой = НЕВИДИМЫЙ буфер
                 OR   A
                 JR   NZ, .sftgtA
-                LD   HL, #7BB8         ; sel0 → грузить B
+                LD   HL, #7DD4         ; sel0 → грузить B
                 JR   .sftgts
 .sftgtA:        LD   HL, #6A00         ; sel1 → грузить A
 .sftgts:        LD   (.SfDst), HL
