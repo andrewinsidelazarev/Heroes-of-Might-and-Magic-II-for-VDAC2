@@ -1,0 +1,4 @@
+Microsoft Windows [Version 10.0.20348.5256]
+(c) Корпорация Майкрософт (Microsoft Corporation). Все права защищены.
+
+C:\Users\Администратор\Desktop\HMM2>

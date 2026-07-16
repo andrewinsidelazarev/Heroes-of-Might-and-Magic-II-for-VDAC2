@@ -26,6 +26,10 @@ OpenHMM2/
 __pycache__/
 *.pyc
 
-# Опорные снимки проекта, публикуемые вместе с репозиторием
+# Старые локальные опорные снимки v001-v019 не добавляем задним числом.
+/Pre-releases/v0[01][0-9]-*/
+
+# Текущая опорная версия публикуется в формате проекта.
 !/Pre-releases/
-!/Pre-releases/**
+!/Pre-releases/v020-2026-07-16-adventure-ui-battle-ai-reference/
+!/Pre-releases/v020-2026-07-16-adventure-ui-battle-ai-reference/**

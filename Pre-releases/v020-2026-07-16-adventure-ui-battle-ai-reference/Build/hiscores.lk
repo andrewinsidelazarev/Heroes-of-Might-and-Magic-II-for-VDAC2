@@ -1,0 +1,10 @@
+-mjwx
+-i C:\Users\Администратор\Desktop\HMM2\Build\hiscores.ihx
+-b _CODE = 0xc050
+-b _DATA = 0x4000
+-k C:\Program Files\SDCC\bin\..\lib\z80
+-l z80
+C:\Users\Администратор\Desktop\HMM2\Build\hiscores.rel
+C:\Users\Администратор\Desktop\HMM2\Build\hiscores_crt0.rel
+
+-e

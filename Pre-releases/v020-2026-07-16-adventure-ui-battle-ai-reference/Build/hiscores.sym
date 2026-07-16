@@ -1,0 +1,106 @@
+ASxxxx Assembler V02.00 + NoICE + SDCC mods  (Zilog Z80 / Hitachi HD64180 / ZX-Next / eZ80)                   Page 1
+Hexadecimal [24-Bits]
+
+Symbol Table
+
+    .__.$$$.                                                    =  002710 L
+    .__.ABS.                                                    =  000000 G
+    .__.CPU.                                                    =  000000 L
+    .__.H$L.                                                    =  000000 L
+    __mullong                                                      ****** GX
+  1 _abi_call_barrier                                              000FD1 R
+  1 _active_generation                                             000FC6 R
+  1 _active_slot                                                   000FC4 R
+  1 _animation_frame                                               000FCA R
+  0 _better_score                                                  0027DE R
+  1 _campaign_scores                                               0001E0 R
+  0 _copy_bytes                                                    000000 R
+  0 _copy_entry_from_disk                                          002171 R
+  0 _copy_entry_to_disk                                            002245 R
+  0 _crc32_block                                                   001DB9 R
+  0 _crc32_update                                                  001D41 R
+  0 _decode_slot                                                   001F73 R
+  0 _default_campaign                                              001A90 R
+  0 _default_standard                                              0018B0 R
+  1 _disk_available                                                000FC5 R
+  1 _disk_image                                                    0003C0 R
+  0 _draw_text_fit                                                 002C7A R
+  0 _emit_sprite_array                                             002BE5 R
+  0 _emit_sprite_current                                           002AA5 R
+  0 _encode_slot                                                   002073 R
+  0 _enter_screen                                                  003479 R
+  0 _hiscores_overlay_entry                                        0034FC GR
+  0 _hs_bg                                                         00001F R
+  0 _hs_button_campaign                                            00008D R
+  0 _hs_button_exit                                                0000B9 R
+  0 _hs_button_standard                                            0000A3 R
+  0 _hs_glyphs                                                     0014EB R
+  0 _hs_monster_ids                                                0000CF R
+  0 _hs_monsters                                                   000111 R
+  0 _hs_title_campaign                                             000077 R
+  0 _hs_title_standard                                             000061 R
+  0 _in_rect                                                       00331F R
+  0 _init_scale_tables                                             0029AE R
+  1 _is_campaign                                                   000FC0 R
+  0 _keyed_tag                                                     001E1B R
+  1 _lmb_latch                                                     000FC1 R
+  0 _load_defaults                                                 0022E2 R
+  0 _load_from_disk                                                00249E R
+  0 _mod15_u8                                                      002E91 R
+  0 _monster_animation_sequence                                    0018A1 R
+  0 _monster_by_day                                                002F3C R
+  0 _monster_by_rating                                             002EAB R
+  0 _monster_rank_index                                            002FDB R
+  0 _parse_plain_slot                                              00230F R
+  1 _pressed_exit                                                  000FC3 R
+  1 _pressed_other                                                 000FC2 R
+  0 _read16                                                        001C7A R
+  0 _read32                                                        001C86 R
+  0 _register_from_abi                                             0034B3 R
+  0 _register_score                                                002810 R
+ASxxxx Assembler V02.00 + NoICE + SDCC mods  (Zilog Z80 / Hitachi HD64180 / ZX-Next / eZ80)                   Page 2
+Hexadecimal [24-Bits]
+
+Symbol Table
+
+  0 _render_or_wait                                                00330F R
+  0 _render_rows                                                   002FF4 R
+  0 _render_screen                                                 003234 R
+  0 _rol8                                                          001F4D R
+  0 _ror8                                                          001F28 R
+  0 _same_completion                                               00271C R
+  0 _save_to_disk                                                  00259D R
+  1 _scale_px_table                                                000FD2 R
+  1 _scale_tables_ready                                            0019D6 R
+  1 _scale_vertex_table                                            0014D4 R
+  1 _screen_dirty                                                  000FD0 R
+  0 _set_game_mode                                                 002A98 R
+  0 _set_palette                                                   002A79 R
+  1 _slot_plain                                                    000BC0 R
+  1 _sprite_base_x                                                 000FCC R
+  1 _sprite_base_y                                                 000FCE R
+  1 _standard_scores                                               000000 R
+  0 _text_width                                                    002C19 R
+  0 _u16_to_text                                                   002DD6 R
+  0 _u16_to_text_divisors_65536_144                                002E89 R
+  0 _update_screen                                                 00337B R
+  0 _write16                                                       001D18 R
+  0 _write32                                                       001D1C R
+  0 _zero_bytes                                                    001C70 R
+
+
+ASxxxx Assembler V02.00 + NoICE + SDCC mods  (Zilog Z80 / Hitachi HD64180 / ZX-Next / eZ80)                   Page 3
+Hexadecimal [24-Bits]
+
+Area Table
+
+   0 _CODE                                      size   3555   flags    0
+   1 _DATA                                      size   19D7   flags    0
+   2 _INITIALIZED                               size      0   flags    0
+   3 _DABS                                      size      0   flags    8
+   4 _HOME                                      size      0   flags    0
+   5 _GSINIT                                    size      0   flags    0
+   6 _GSFINAL                                   size      0   flags    0
+   7 _INITIALIZER                               size      0   flags    0
+   8 _CABS                                      size      0   flags    8
+
