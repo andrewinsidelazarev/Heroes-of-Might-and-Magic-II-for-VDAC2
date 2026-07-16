@@ -3621,3 +3621,88 @@ PAL::RED), а не затемнённая.
 
 ОТКРЫТО: «больше места под игроков в панели» (фидбэк) — список героев/замков 2кол×4ряда
 (y176-304); уточнить у пользователя точный смысл. Дата в статусе — нужен шрифт.
+
+## 2026-07-16: опорная v020, публикация проекта и актуализация GitHub
+
+Перед работой с проектом обязательно:
+
+1. Полностью прочитать `PROJECT_MEMORY.md` от начала до конца.
+2. Сверить текущее состояние с корневым `REFERENCE.md`.
+3. Учитывать, что ранние TODO и формулировки в истории памяти описывают прошлые
+   этапы; актуальное состояние определяется поздними milestones, исходниками и
+   текущей опорной версией.
+
+Проект опубликован в репозитории:
+
+```text
+https://github.com/andrewinsidelazarev/Heroes-of-Might-and-Magic-II-for-VDAC2
+```
+
+В штатном формате проекта сохранена опорная версия:
+
+```text
+Pre-releases\v020-2026-07-16-adventure-ui-battle-ai-reference\
+```
+
+Состав v020:
+
+```text
+Source\
+Build\
+Docs\
+Music\
+build.cmd
+spgbld_vdac2.ini
+PROJECT_MEMORY.md
+REFERENCE.md
+RELEASE_NOTES.md
+```
+
+В GitHub был ошибочно опубликован старый README раннего этапа, называвший проект
+«стартовым каркасом» и перечислявший уже выполненные задачи. README полностью
+актуализирован по памяти, исходникам, истории коммитов и v020.
+
+В актуальном описании зафиксировано, что уже реализованы:
+
+- реальная локальная TSLib и FT812/TS-Config include;
+- VDAC2/FT812 1024×768 с логическими 640×480, VSync и DMA/CMD-конвейером;
+- форматы и build-time конвертеры карт, terrain, объектов, героев, городов,
+  армий, монстров, боя, AGG/ICN/TIL и палитровой графики;
+- playable adventure map: скролл, мини-карта, fog of war, анимации, pathfinding,
+  маршруты и полная анимация героя;
+- единый ввод: клавиатура, Kempston Joystick и Kempston Mouse;
+- главное меню, New Game, выбор сценария и High Scores;
+- town: здания, подсказки, recruit/economy/garrison, tavern, marketplace, well;
+- battle: движение, melee/ranged attack, анимации, projectile, cursor themes,
+  status/help/settings, enemy AI и win/lose summary;
+- enemy adventure AI и переход в бой при столкновении;
+- `MIDIxxxx.XMI -> MIDI -> event stream` и воспроизведение через SAM2695;
+- загрузка сцен и данных с SD из HMM2MENU/HMM2TOWN/HMM2BATL/HMM2HISC/
+  HMM2MAP/HMM2SCN PAK.
+
+Короткое поле GitHub About также обновлено и теперь описывает проект как
+играбельный порт, а не как заготовку.
+
+Коммиты публикации:
+
+```text
+6b4bd04  release: replace archive with v020 project snapshot
+92d7f40  docs: актуализировать описание проекта
+```
+
+После актуализации README выполнена полная штатная проверка:
+
+```text
+.\build.cmd
+
+sjasmplus: 0 errors, 0 warnings
+Core split: p05=12288 bytes, p06=12210 bytes
+RAM_DL max frame=7892/8192
+RAM_G calculator: OK
+SPG build: OK
+FT812/RAM_G/DL verify: OK
+```
+
+Важно: существующие локальные изменения во вложенных каталогах эмуляторов и
+неотслеживаемые служебные файлы не входят в публикацию и не должны добавляться
+массовым `git add -A`.
