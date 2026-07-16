@@ -279,7 +279,8 @@ def main() -> int:
             + max(0, runtime.get("ACTOR_DL_SIZE", 0) - 4)  # актёр (условно)
             + runtime.get("MAP_ANIM_CMD_BYTES", 0)         # анимир. объекты (кап MAP_ANIM_MAX_PER_FRAME)
             + runtime["FOG_CMD_BYTES"]                     # туман
-            + runtime["AdventureUI_DL_SIZE"]               # UI-рамка
+            + runtime["AdventureUI_DL_SIZE"]               # UI-рамка (FIFO)
+            + runtime["UIADV_ICONSDYN_SIZE"]               # динамика списка (RAM_G, CMD_APPEND)
             + runtime["MINIMAP_RECT_CMD_BYTES"]            # рамка вьюпорта + точка героя на радаре
             + runtime["CURSOR_DL_SIZE"] - 4
         )

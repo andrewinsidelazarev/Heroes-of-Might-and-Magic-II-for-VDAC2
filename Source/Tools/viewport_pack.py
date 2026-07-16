@@ -77,6 +77,13 @@ CURSOR_RESIDENT_PAGE = 0xA2          # SPG-страница курсор-спр�
 # курсора (меч-курсор → мусор). Грузятся раз (HeroAnim_Upload) из SPG-страниц #AB+.
 HERO_ANIM_RAMG = 0x0F6A00
 HERO_ANIM_PAGE = 0xAB                 # свободные SPG-страницы #AB-#AF (курсор #A2-#A5, оверлеи #A6/#A8/#AA)
+# ★UI-ассеты adventure (статический DL рамки + LOCATORS/SUNMOON/SCROLL списков и статуса) —
+# ХВОСТ RAM_G за hero-буферами (#0F6A00 + 2×frame ≈ #0F91A8). Object-атлас упирается в курсор
+# #0E8000 — новым ассетам места там нет. Грузятся при Adventure_Enter (UIAdv_Upload, SPG #BF+).
+# ВНИМАНИЕ: town-сцена стримит хвост-entry ≥#0F8000 → зона перекрывается городом;
+# Adventure_Enter обязан перезаливать (re-enter уже делает это).
+UI_ADV_RAMG = 0x0F9200
+UI_ADV_PAGE = 0xBF                    # SPG-страницы #BF-#C0 свободны (#C4 занят composite-upload)
 OBJECT_PALETTE_SIZE = 512
 OBJECT_OPAQUE_PALETTE_SIZE = 512
 OBJECT_TRANSPARENT_INDEX = 0
@@ -232,6 +239,53 @@ def c_vertex2f(x, y):
 
 def c_vertex2ii(x, y, handle, cell):
     return cmd((2 << 30) | ((x & 511) << 21) | ((y & 511) << 12) | ((handle & 31) << 7) | (cell & 127))
+
+
+FT_LINE_STRIP = 4
+
+
+def c_line_width(width):
+    return cmd((14 << 24) | (width & 4095))
+
+
+def c_scissor_xy(x, y):
+    return cmd((27 << 24) | ((x & 1023) << 11) | (y & 1023))
+
+
+def c_scissor_size(w, h):
+    return cmd((28 << 24) | ((w & 2047) << 12) | (h & 2047))
+
+
+def c_bitmap_transform_b(value):
+    return cmd((22 << 24) | (value & 131071))
+
+
+def c_bitmap_transform_c(value):
+    return cmd((23 << 24) | (value & 16777215))
+
+
+def c_bitmap_transform_d(value):
+    return cmd((24 << 24) | (value & 131071))
+
+
+def c_bitmap_transform_f(value):
+    return cmd((26 << 24) | (value & 16777215))
+
+
+def c_vertex_translate_x(value):
+    return cmd((43 << 24) | (value & 131071))
+
+
+def c_vertex_translate_y(value):
+    return cmd((44 << 24) | (value & 131071))
+
+
+def c_bitmap_layout_h(linestride, height):
+    return cmd((40 << 24) | (((linestride >> 10) & 3) << 2) | ((height >> 9) & 3))
+
+
+def c_bitmap_size_h(width, height):
+    return cmd((41 << 24) | (((width >> 9) & 3) << 2) | ((height >> 9) & 3))
 
 
 def scaled_vertex2f_units(value: int) -> int:
@@ -1109,6 +1163,61 @@ def append_paletted_sprite(payload: bytearray, raw: bytes, width: int, height: i
     }
 
 
+def append_uiadv_sprite(payload: bytearray, raw: bytes, width: int, height: int, label: str, index: int):
+    # Как append_paletted_sprite, но база = UI_ADV_RAMG (хвост RAM_G, НЕ object-атлас:
+    # атлас упирается в курсор #0E8000). Палитра — общая объектная (те же индексы ICN).
+    addr = UI_ADV_RAMG + align(len(payload), 4)
+    while UI_ADV_RAMG + len(payload) < addr:
+        payload.append(0)
+    payload.extend(raw)
+    return {
+        "addr": addr,
+        "w": width,
+        "h": height,
+        "stride": width,
+        "scaled_w": (width * DISPLAY_SCALE_NUM + DISPLAY_SCALE_DEN - 1) // DISPLAY_SCALE_DEN,
+        "scaled_h": (height * DISPLAY_SCALE_NUM + DISPLAY_SCALE_DEN - 1) // DISPLAY_SCALE_DEN,
+        "icn": label,
+        "index": index,
+        "fmt": FT_PALETTED4444,
+    }
+
+
+def append_uiadv_assets(payload: bytearray, agg_data: bytes, entries):
+    """Ассеты списков героев/замков и статус-окна (interface_icons.cpp / interface_status.cpp):
+    LOCATORS [2,3,4] пустые ячейки (1+i%8, i=1..3 при 4 слотах) + [9]=Knight castle /
+    [15]=Knight town (getCastleIcnIndex); SUNMOON[0..4] фикс-слотами (кадр по дню:
+    icnId=(dow>1)?0:((week-1)%4)+1); SCROLL[0..4] скроллбар. Всё НАТИВНО (панель ×1.6 transform)."""
+    # Пустые ячейки [2,3,4] и SCROLL ВБЕЙКАНЫ в фоновые полосы (compose_icons_column) —
+    # в RAM_G нужны только ЗАМКОВЫЕ иконки (динамика: town[15]/castle[9] по стройке).
+    locators_icn = read_icn(agg_entry(agg_data, entries, "LOCATORS.ICN"))
+    locators = {}
+    for idx in (9, 15):
+        h, e = locators_icn[idx]
+        locators[idx] = append_uiadv_sprite(payload, decode_icn_indices(h, e), h["w"], h["h"], "LOCATORS.ICN", idx)
+    sunmoon_icn = read_icn(agg_entry(agg_data, entries, "SUNMOON.ICN"))
+    sun_frames = []
+    for idx in range(5):
+        h, e = sunmoon_icn[idx]
+        sun_frames.append((h, decode_icn_indices(h, e)))
+    sun_slot = align(max(len(d) for _, d in sun_frames), 4)
+    sun_base = UI_ADV_RAMG + align(len(payload), 4)
+    while UI_ADV_RAMG + len(payload) < sun_base:
+        payload.append(0)
+    for h, d in sun_frames:
+        payload.extend(d)
+        payload.extend(b"\x00" * (sun_slot - len(d)))
+    sunmoon = {
+        "addr": sun_base,
+        "slot": sun_slot,
+        "w": sun_frames[0][0]["w"],
+        "h": sun_frames[0][0]["h"],
+        "stride": sun_frames[0][0]["w"],
+        "frames": len(sun_frames),
+    }
+    return {"locators": locators, "sunmoon": sunmoon}
+
+
 def append_rgb565_sprite(payload: bytearray, raw: bytes, width: int, height: int, label: str):
     addr = RAMG_OBJECT_BASE + align(len(payload), 4)
     while RAMG_OBJECT_BASE + len(payload) < addr:
@@ -1374,6 +1483,41 @@ def adventure_border_blits(border_w: int, border_h: int,
     return blits
 
 
+def compose_icons_column(border_raw: bytes, border_w: int, agg_data: bytes, entries) -> bytes:
+    """Вирт-колонка списка 72×128 (IconsBar::redrawBackground + СТАТИКА interface_icons.cpp):
+    фоновые полосы ADVBORD + БЕЙК пустых ячеек LOCATORS[1+i%8] и скроллбара SCROLL в ПИКСЕЛИ.
+    ★Бейк, НЕ DL-спрайты: построчный тактовый бюджет FT812 — реальный лимит; отдельные
+    DL-спрайты списка переливали строку на реале («уплывший» кадр). Пиксели = 0 тактов."""
+    src_x = border_w - UI_RADAR_SIZE - 16
+    src_y = UI_RADAR_SIZE + 32
+    virt = bytearray(72 * 128)
+    for row_src, dst_y in ((src_y, 0), (src_y + 32, 32), (src_y + 32, 64), (src_y + 96, 96)):
+        for row in range(32):
+            s = (row_src + row) * border_w + src_x
+            d = (dst_y + row) * 72
+            virt[d:d + 72] = border_raw[s:s + 72]
+
+    def bake(indices: bytes, w: int, h: int, dx: int, dy: int) -> None:
+        for py in range(h):
+            for px in range(w):
+                v = indices[py * w + px]
+                if v:                              # индекс 0 = прозрачность ICN
+                    virt[(dy + py) * 72 + dx + px] = v
+
+    locators_icn = read_icn(agg_entry(agg_data, entries, "LOCATORS.ICN"))
+    for i in (1, 2, 3):                            # пустые слоты: LOCATORS[1+i%8] @ (+5, +5+i*32)
+        h, e = locators_icn[1 + i]
+        bake(decode_icn_indices(h, e), h["w"], h["h"], 5, 5 + i * 32)
+    scroll_icn = read_icn(agg_entry(agg_data, entries, "SCROLL.ICN"))
+    sc = [decode_icn_indices(h, e) for h, e in scroll_icn[:5]]
+    sh = [h for h, _ in scroll_icn[:5]]
+    bake(sc[0], sh[0]["w"], sh[0]["h"], 57, 1)     # up @ (px+57, py+1)
+    bake(sc[2], sh[2]["w"], sh[2]["h"], 57, 113)   # down @ (px+57, py+113)
+    for seg in range(5):                           # слайдер заполняет зону (items ≤ слотов)
+        bake(sc[4], sh[4]["w"], sh[4]["h"], 60, 19 + seg * 18)
+    return bytes(virt)
+
+
 def adventure_icons_background_blits(border_w: int) -> list[tuple[int, int, int, int, int, int]]:
     # IconsBar::redrawBackground for heroes and castles columns.
     blits: list[tuple[int, int, int, int, int, int]] = []
@@ -1393,9 +1537,17 @@ def append_adventure_ui_sprites(payload: bytearray, agg_data: bytes, entries, pa
     border_raw = decode_icn_indices(border_header, border_encoded)
     border_w = border_header["w"]
     border_h = border_header["h"]
-    background_rects = adventure_icons_background_blits(border_w)
-    background_rects.append((UI_STATUS_X, UI_STATUS_Y, UI_STATUS_W, UI_STATUS_H, UI_STATUS_X, UI_STATUS_Y))
-    background_blits = append_adventure_border_blits(payload, border_raw, border_w, background_rects)
+    # ★Зона списков героев/замков — КОМПОНОВАННАЯ колонка (фон + бейк LOCATORS/SCROLL,
+    # 0 тактов на строку), 4 уникальных куска 72×32, позиции обеих колонок (480/552).
+    icons_column = compose_icons_column(border_raw, border_w, agg_data, entries)
+    background_blits = []
+    for i in range(4):
+        piece = crop_indices(icons_column, 72, 0, i * 32, 72, 32)
+        sprite = append_paletted_sprite(payload, piece, 72, 32, "ICONSCOL", i)
+        for dst_x in (480, 552):
+            background_blits.append({"sprite": sprite, "dx": dst_x, "dy": 176 + i * 32})
+    background_rects = [(UI_STATUS_X, UI_STATUS_Y, UI_STATUS_W, UI_STATUS_H, UI_STATUS_X, UI_STATUS_Y)]
+    background_blits.extend(append_adventure_border_blits(payload, border_raw, border_w, background_rects))
     border_blits = append_adventure_border_blits(payload, border_raw, border_w, adventure_border_blits(border_w, border_h))
 
     button_icn = read_icn(agg_entry(agg_data, entries, "ADVBTNS.ICN"))
@@ -2458,7 +2610,110 @@ def write_runtime_map_inc(path: Path, width: int, height: int, tiles, terrain_re
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, sorc_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page: int, route_red_palette_addr: int = 0, cursor_chunks=None, hero_anim_chunks=None):
+def build_adventure_ui_dl(ui_sprites, uiadv=None) -> bytes:
+    """Бинарная сборка статического DL рамки adventure (бывший ASM-блоб AdventureUI_DL,
+    892Б в резиденте): та же последовательность команд, но блоб живёт в RAM_G (UIADV-блок)
+    и аппендится в кадре одним CMD_APPEND — минус ~880Б core И кадрового CMD-FIFO.
+    + Списки героев/замков (interface_icons.cpp): пустые ячейки LOCATORS[1+i%8], замок
+    LOCATORS[15] (drawCastleIcon Knight town), скроллбары SCROLL, cyan-маркер фокуса."""
+    ui_radar = ui_sprites["radar"]
+    opaque_pal = RAMG_OBJECT_BASE + OBJECT_PALETTE_SIZE
+    out = bytearray()
+    out += c_scissor_xy(0, 0)
+    out += c_scissor_size(1024, 768)
+    out += c_color_rgb(255, 255, 255)
+    out += c_color_a(255)
+    out += c_bitmap_handle(3)
+    out += c_cell(0)
+    out += c_bitmap_transform_a(160)
+    out += c_bitmap_transform_b(0)
+    out += c_bitmap_transform_c(0)
+    out += c_bitmap_transform_d(0)
+    out += c_bitmap_transform_e(160)
+    out += c_bitmap_transform_f(0)
+    out += c_vertex_translate_x(0)
+    out += c_vertex_translate_y(0)
+    out += c_blend_func(FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA)
+    out += c_palette_source(opaque_pal)
+    out += c_bitmap_layout_h(0, 0)
+    out += c_bitmap_size_h(0, 0)
+    out += c_begin(FT_BITMAPS)
+
+    def blit(sprite: dict, dx: int, dy: int) -> bytes:
+        w, h = sprite["w"], sprite["h"]
+        b = bytearray()
+        b += c_bitmap_source(sprite["addr"])
+        b += c_bitmap_layout(FT_PALETTED4444, sprite["stride"], h)
+        b += c_bitmap_size((w * DISPLAY_SCALE_NUM + DISPLAY_SCALE_DEN - 1) // DISPLAY_SCALE_DEN,
+                           (h * DISPLAY_SCALE_NUM + DISPLAY_SCALE_DEN - 1) // DISPLAY_SCALE_DEN)
+        b += c_vertex2f(scaled_vertex2f_units(dx), scaled_vertex2f_units(dy))
+        return bytes(b)
+
+    for item in ui_sprites["background_blits"]:
+        out += blit(item["sprite"], item["dx"], item["dy"])
+    out += c_end()
+    out += c_palette_source(RAMG_OBJECT_BASE)
+    out += c_begin(FT_BITMAPS)
+    # Кнопки панели — динамически (Render_AdvButtonsCmd), в блобе их нет.
+    out += c_end()
+    out += c_blend_func(FT_ONE, FT_ZERO)
+    out += c_palette_source(ui_radar["palette_addr"])
+    out += c_bitmap_source(ui_radar["addr"])
+    out += c_bitmap_layout(FT_PALETTED4444, ui_radar["stride"], ui_radar["h"])
+    out += c_bitmap_size(ui_radar["scaled_w"], ui_radar["scaled_h"])
+    out += c_begin(FT_BITMAPS)
+    out += c_vertex2f(scaled_vertex2f_units(UI_RADAR_X), scaled_vertex2f_units(UI_RADAR_Y))
+    out += c_end()
+    out += c_blend_func(FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA)
+    # Рамка ADVBORD непрозрачна (оригинал = Blit без альфы): OPAQUE-палитра, без дыр в тени.
+    out += c_palette_source(opaque_pal)
+    out += c_begin(FT_BITMAPS)
+    out += c_bitmap_layout_h(0, 0)
+    out += c_bitmap_size_h(0, 0)
+    for item in ui_sprites["border_blits"]:
+        out += blit(item["sprite"], item["dx"], item["dy"])
+    out += c_end()
+    out += c_bitmap_layout_h(0, 0)
+    out += c_bitmap_size_h(0, 0)
+    return bytes(out)
+
+
+def build_icons_dyn_dl(uiadv) -> bytes:
+    """Мини-DL ДИНАМИКИ списков (~120Б, RAM_G + CMD_APPEND): иконка замка + cyan-маркер
+    фокуса. Статика списков вбейкана в фон (0 тактов/строку); РАМОЧНЫЙ блоб — DEFB в core (FIFO,
+    прежний путь): большой CMD_APPEND (1.4КБ чтения RAM_G коспроцессором) конкурировал за память
+    с построчным рендером — на железе «рассыпались строки»."""
+    ICONS_Y = 176
+    HERO_COL_X, CASTLE_COL_X = 480, 552
+    out = bytearray()
+    # Замок игрока: drawCastleIcon = LOCATORS[15] (Knight town; castle→[9]) @ (+5,+5).
+    spr = uiadv["locators"][15]
+    w, h = spr["w"], spr["h"]
+    out += c_begin(FT_BITMAPS)
+    out += c_bitmap_source(spr["addr"])
+    out += c_bitmap_layout(FT_PALETTED4444, spr["stride"], h)
+    out += c_bitmap_size((w * DISPLAY_SCALE_NUM + DISPLAY_SCALE_DEN - 1) // DISPLAY_SCALE_DEN,
+                         (h * DISPLAY_SCALE_NUM + DISPLAY_SCALE_DEN - 1) // DISPLAY_SCALE_DEN)
+    out += c_vertex2f(scaled_vertex2f_units(CASTLE_COL_X + 5), scaled_vertex2f_units(ICONS_Y + 5))
+    out += c_end()
+    # Cyan-маркер фокуса (IconsPanel: DrawBorder 0xA0,0xE0,0xE0 по ячейке 56×32) —
+    # фокус = герой, слот 0. Тонкий LINE_STRIP: копейки построчного бюджета.
+    out += c_color_rgb(0xA0, 0xE0, 0xE0)
+    out += c_line_width(13)                      # ~1.6 физ.px = 1 логический
+    out += c_begin(FT_LINE_STRIP)
+    out += c_vertex2f(scaled_vertex2f_units(HERO_COL_X), scaled_vertex2f_units(ICONS_Y))
+    out += c_vertex2f(scaled_vertex2f_units(HERO_COL_X + 55), scaled_vertex2f_units(ICONS_Y))
+    out += c_vertex2f(scaled_vertex2f_units(HERO_COL_X + 55), scaled_vertex2f_units(ICONS_Y + 31))
+    out += c_vertex2f(scaled_vertex2f_units(HERO_COL_X), scaled_vertex2f_units(ICONS_Y + 31))
+    out += c_vertex2f(scaled_vertex2f_units(HERO_COL_X), scaled_vertex2f_units(ICONS_Y))
+    out += c_end()
+    out += c_color_rgb(255, 255, 255)
+    out += c_bitmap_layout_h(0, 0)
+    out += c_bitmap_size_h(0, 0)
+    return bytes(out)
+
+
+def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, sorc_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page: int, route_red_palette_addr: int = 0, cursor_chunks=None, hero_anim_chunks=None, uiadv=None, uiadv_len: int = 0):
     cursor_sprite = cursor_sprites[CURSOR_POINTER_INDEX]
     ui_radar = ui_sprites["radar"]
     lines = [
@@ -2690,61 +2945,40 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
             ]
         )
 
+    # ★Рамочный DL — DEFB в core, копируется в FIFO (прежний путь): большой CMD_APPEND
+    # (1.4КБ чтения RAM_G коспроцессором) конкурировал за память с построчным рендером —
+    # на железе «рассыпались строки». Байты собраны бинарно (build_adventure_ui_dl).
+    lines.append("AdventureUI_DL:")
+    dlb = uiadv["frame_dl_bytes"]
+    for off in range(0, len(dlb), 16):
+        chunk = dlb[off:off + 16]
+        lines.append("                DEFB " + ", ".join(f"#{b:02X}" for b in chunk))
+    lines.append(f"AdventureUI_DL_SIZE EQU {len(dlb)}")
     lines.extend(
         [
-            "AdventureUI_DL:",
-            "                FT_SCISSOR_XY 0, 0",
-            "                FT_SCISSOR_SIZE 1024, 768",
-            "                FT_COLOR_RGB 255, 255, 255",
-            "                FT_COLOR_A 255",
-            "                FT_BITMAP_HANDLE 3",
-            "                FT_CELL 0",
-            "                FT_BITMAP_TRANSFORM_A 160",
-            "                FT_BITMAP_TRANSFORM_B 0",
-            "                FT_BITMAP_TRANSFORM_C 0",
-            "                FT_BITMAP_TRANSFORM_D 0",
-            "                FT_BITMAP_TRANSFORM_E 160",
-            "                FT_BITMAP_TRANSFORM_F 0",
-            "                FT_VERTEX_TRANSLATE_X 0",
-            "                FT_VERTEX_TRANSLATE_Y 0",
-            "                FT_BLEND_FUNC FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA",
-            "                FT_PALETTE_SOURCE OBJECT_OPAQUE_PALETTE_RAMG",
-            "                FT_BITMAP_LAYOUT_H 0, 0",
-            "                FT_BITMAP_SIZE_H 0, 0",
-            "                FT_BEGIN FT_BITMAPS",
+            f"UIADV_ICONSDYN_RAMG     EQU #{uiadv['dl_addr']:06X}   ; мини-DL динамики списка (замок+маркер)",
+            f"UIADV_ICONSDYN_SIZE     EQU {uiadv['dl_size']}",
+            "",
+            "; --- Списки героев/замков (interface_icons.cpp): динамика UIADV-блока ---",
+            "; (пустые ячейки LOCATORS[2,3,4] и SCROLL вбейканы в фоновые полосы — 0 тактов/строку)",
+            "; LOCATORS замка: [9]=Knight castle, [15]=Knight town [lo,mid,hi,w,h]",
+            "UIAdvLocatorsTab:",
         ]
     )
-    for item in ui_sprites["background_blits"]:
-        sprite = item["sprite"]
-        add_paletted_blit(sprite, 0, 0, sprite["w"], sprite["h"], item["dx"], item["dy"])
-    lines.extend(["                FT_END", "                FT_PALETTE_SOURCE OBJECT_PALETTE_RAMG", "                FT_BEGIN FT_BITMAPS"])
-    # Кнопки панели приключений теперь отрисовываются динамически в Render_AdvButtonsCmd
-    # в зависимости от их логического состояния (Normal/Inactive/Disabled/Pressed).
+    for idx in (9, 15):
+        spr = uiadv["locators"][idx]
+        a = spr["addr"]
+        lines.append(f"                DEFB #{a & 0xFF:02X}, #{(a >> 8) & 0xFF:02X}, #{(a >> 16) & 0xFF:02X}, {spr['w']}, {spr['h']}  ; LOCATORS[{idx}]")
+    sun = uiadv["sunmoon"]
     lines.extend(
         [
-            "                FT_END",
-            "                FT_BLEND_FUNC FT_ONE, FT_ZERO",
-            "                FT_PALETTE_SOURCE UI_RADAR_PALETTE_RAMG",
-            f"                FT_BITMAP_SOURCE #{ui_radar['addr']:06X}",
-            f"                FT_BITMAP_LAYOUT FT_PALETTED4444, {ui_radar['stride']}, {ui_radar['h']}",
-            f"                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, {ui_radar['scaled_w']}, {ui_radar['scaled_h']}",
-            "                FT_BEGIN FT_BITMAPS",
-            f"                FT_VERTEX2F {scaled_vertex2f_units(UI_RADAR_X)}, {scaled_vertex2f_units(UI_RADAR_Y)}",
-            "                FT_END",
-            "                FT_BLEND_FUNC FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA",
-            # Рамка ADVBORD непрозрачна (оригинал = Blit без альфы): индекс-0 = сплошной чёрный,
-            # НЕ прозрачность. OBJECT_PALETTE_RAMG даёт alpha=0 у инд.0 → дыры в тени рамки.
-            # OPAQUE-палитра (alpha=15 всем) убирает дыры. Фон панели уже на ней.
-            "                FT_PALETTE_SOURCE OBJECT_OPAQUE_PALETTE_RAMG",
-            "                FT_BEGIN FT_BITMAPS",
-            "                FT_BITMAP_LAYOUT_H 0, 0",
-            "                FT_BITMAP_SIZE_H 0, 0",
+            f"UIADV_SUNMOON_RAMG      EQU #{sun['addr']:06X}   ; 5 кадров фикс-слотами (кадр по дню)",
+            f"UIADV_SUNMOON_SLOT      EQU {sun['slot']}",
+            f"UIADV_SUNMOON_W         EQU {sun['w']}",
+            f"UIADV_SUNMOON_H         EQU {sun['h']}",
+            "",
         ]
     )
-    for item in ui_sprites["border_blits"]:
-        sprite = item["sprite"]
-        add_paletted_blit(sprite, 0, 0, sprite["w"], sprite["h"], item["dx"], item["dy"])
-    lines.extend(["                FT_END", "                FT_BITMAP_LAYOUT_H 0, 0", "                FT_BITMAP_SIZE_H 0, 0", "AdventureUI_DL_SIZE EQU $ - AdventureUI_DL", ""])
 
     def generate_btn_dl(prefix: str, sprites: list):
         lines.append(f"@{prefix}Tab:")
@@ -2839,6 +3073,27 @@ def write_objects_inc(path: Path, object_chunks, object_size: int, hero_sprite, 
             ])
             ramg += real_size
         lines.extend([".CurRestore     EQU $+1", "                LD   A, #00", "                SetPage3_A", "                RET", ""])
+    # ★UIADV-блок: DL рамки + LOCATORS/SUNMOON/SCROLL → RAM_G хвост (#0F9200+) из SPG #BF+.
+    # Зовётся при Adventure_Enter (town-сцена клоберит хвост ≥#0F8000 — перезаливка обязательна).
+    if uiadv is not None and uiadv_len > 0:
+        lines.extend(["UIAdv_Upload:", "                GetPage3", "                LD   (.UARestore), A"])
+        ramg = UI_ADV_RAMG
+        remain = uiadv_len
+        page = UI_ADV_PAGE
+        while remain > 0:
+            part = min(16384, remain)
+            lines.extend([
+                f"                SetPage3 #{page:02X}",
+                "                LD   HL, #C000",
+                f"                LD   A, #{(ramg >> 16) & 0xFF:02X}",
+                f"                LD   DE, #{ramg & 0xFFFF:04X}",
+                f"                LD   BC, {part}",
+                "                CALL FT.WriteMem",
+            ])
+            ramg += part
+            remain -= part
+            page += 1
+        lines.extend([".UARestore      EQU $+1", "                LD   A, #00", "                SetPage3_A", "                RET", ""])
     # ★Walk-кадры героя: резерв RAM_G держит ТЕКУЩЕЕ направление (45 кадров не влезают).
     # HeroAnim_LoadDir(A=направление 0..dir_count-1) грузит его dir_pages страниц (DIR_PAGES-1
     # полных 16384 + последняя LAST_BYTES; иначе перельёт за #0FFFFF). HeroAnim_Upload = дефолт HORIZ.
@@ -3114,12 +3369,26 @@ def main() -> int:
     write_terrain_inc(root / "Source/ASM/generated_terrain.inc", terrain_chunks, object_chunks, viewport_chunks, width, height, object_view_page_base)
     cursor_chunks = write_chunks(root / "Assets/Converted/Cursor", "SKIRMISH_CURSOR_p{:02d}.bin", CURSOR_RESIDENT_PAGE, bytes(cursor_payload))
     hero_anim_chunks = write_chunks(root / "Assets/Converted/HeroAnim", "SKIRMISH_HEROANIM_p{:02d}.bin", HERO_ANIM_PAGE, bytes(hero_anim_payload))
-    write_objects_inc(root / "Source/ASM/generated_objects.inc", object_chunks, len(object_payload), hero_sprite, sorc_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page, route_red_palette_addr, cursor_chunks, hero_anim_chunks)
+    # ★UIADV-блок: LOCATORS/SUNMOON/SCROLL (списки+статус) + бинарный DL рамки adventure.
+    uiadv_payload = bytearray()
+    uiadv = append_uiadv_assets(uiadv_payload, agg_data, entries)
+    uiadv["frame_dl_bytes"] = build_adventure_ui_dl(ui_sprites)   # рамка → DEFB в core (FIFO)
+    dyn_dl_bytes = build_icons_dyn_dl(uiadv)                      # динамика списка → RAM_G append
+    dl_addr = UI_ADV_RAMG + align(len(uiadv_payload), 4)
+    while UI_ADV_RAMG + len(uiadv_payload) < dl_addr:
+        uiadv_payload.append(0)
+    uiadv_payload.extend(dyn_dl_bytes)
+    uiadv["dl_addr"] = dl_addr
+    uiadv["dl_size"] = len(dyn_dl_bytes)
+    if UI_ADV_RAMG + len(uiadv_payload) > 0x100000:
+        raise ValueError(f"UIADV-блок перелил RAM_G: конец #{UI_ADV_RAMG + len(uiadv_payload):06X} > #100000")
+    uiadv_chunks = write_chunks(root / "Assets/Converted/UIAdv", "SKIRMISH_UIADV_p{:02d}.bin", UI_ADV_PAGE, bytes(uiadv_payload))
+    write_objects_inc(root / "Source/ASM/generated_objects.inc", object_chunks, len(object_payload), hero_sprite, sorc_sprite, cursor_sprites, ui_sprites, route_sprites, route_table_page, route_red_palette_addr, cursor_chunks, hero_anim_chunks, uiadv, len(uiadv_payload))
     write_runtime_map_inc(root / "Source/ASM/generated_runtime_map.inc", width, height, tiles, terrain_remap, object_view_page_base, runtime_map_cells_page, object_view_entries, composite_upload_entries, palette)
     write_map_anim_inc(root / "Source/ASM/generated_map_anim.inc", map_anim_table)
     write_background_inc(root / "Source/ASM/generated_background.inc")
     write_empty_adventure_dl(root / "Source/ASM/generated_adventure_dl.inc")
-    update_spgbld(root / "spgbld_vdac2.ini", terrain_chunks + object_chunks + route_table_chunks + runtime_map_cells_chunks + object_view_chunks + upload_chunks + viewport_chunks + cursor_chunks + hero_anim_chunks)
+    update_spgbld(root / "spgbld_vdac2.ini", terrain_chunks + object_chunks + route_table_chunks + runtime_map_cells_chunks + object_view_chunks + upload_chunks + viewport_chunks + cursor_chunks + hero_anim_chunks + uiadv_chunks)
 
     if COMPOSITE_STATIC_TILEMAP:
         write_composite_view_preview(root / "Diagnostics/terrain_ground32_preview.png", terrain_payload, palette, width, height, 0, 0)

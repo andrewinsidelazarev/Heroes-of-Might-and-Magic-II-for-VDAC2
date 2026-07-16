@@ -5061,14 +5061,14 @@ Battle_AIArcMeleePick:
                 LD   HL, 0
                 LD   (BattleArcBestDiff), HL
                 LD   C, 0
-.mpLoop:        LD   A, (BattleArcAdjMask)            ; E в маске?
-                LD   B, C
+.mpLoop:        LD   A, C                             ; ★FIX: индекс кандидата пишем КАЖДУЮ итерацию
+                LD   (BattleArcEIdx), A               ;   (был баг: писался только на set-бите → .mpNext
+                LD   A, (BattleArcAdjMask)            ;   перезагружал протухший счётчик на unset-битах
+                LD   B, C                             ;   выше set-бита → вечный цикл; hang боя со стрелком)
                 INC  B
 .mpBit:         RRCA
                 DJNZ .mpBit
                 JP   NC, .mpNext
-                LD   A, C
-                LD   (BattleArcEIdx), A
                 ; ---- Phase A (slot3): мой count, мой id; E id; E hp-пул; E retaliated ----
                 LD   A, (BattleActiveUnit)
                 CALL Battle_UnitAddr

@@ -913,6 +913,7 @@ def build_payload(palette, img, units, agg, ent):
     none_sprite = (put(none_m), none_w, none_h)
     # Стрела лучника (faithful ICN::ARCH_MSL[4] = горизонтальный снаряд; RedrawMissileAnimation).
     # Пред-масштаб ×1.6 NEAREST (как поле/юниты), палитра ЮНИТОВ. Нормаль (выстрел вправо) + зеркало (влево).
+    # NB: полный выбор кадра по углу (getProjectileID, 9 кадров) заблокирован бюджетом резидента (CoreEnd).
     from PIL import Image as _Img
     _amh, _ame = read_icn(agg_entry(agg, ent, "ARCH_MSL.ICN"))[4]
     _abase = _Img.frombytes("L", (_amh["w"], _amh["h"]), bytes(decode_icn_indices(_amh, _ame)))

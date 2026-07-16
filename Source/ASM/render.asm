@@ -1631,10 +1631,22 @@ Render_CursorCmd:
                 RET
 
 Render_AdventureUICmd:
+                ; Рамка — DEFB-блоб через FIFO (прежний путь): большой CMD_APPEND (1.4КБ
+                ; чтения RAM_G коспроцессором) воровал bandwidth у построчного рендера
+                ; FT812 -> «рассыпались строки» на железе.
                 LD   HL, AdventureUI_DL
                 LD   BC, AdventureUI_DL_SIZE
                 CALL Render_CmdBufCopy
+                ; Динамика списков (иконка замка + cyan-маркер) ВРЕМЕННО ВЫКЛ:
+                ; тест A бинарного поиска «рваная верхняя четверть» на реале
+                ; (подозрение: CMD_APPEND-чтение RAM_G конкурирует с лучом).
                 RET
+                if 0
+                LD   BC, UIADV_ICONSDYN_SIZE
+                LD   A, (UIADV_ICONSDYN_RAMG >> 16) & #FF
+                LD   DE, UIADV_ICONSDYN_RAMG & #FFFF
+                JP   Render_CmdAppend
+                endif
 
 Render_RightPanelCmd:
                 LD   A, (ActiveHeroIndex)
@@ -3581,9 +3593,9 @@ FOG_CMD_BYTES EQU RuntimeDL_ObjectTranslate_SIZE + 24 + (GAME_VIEW_TILE_W + 1) *
 MAP_ANIM_MAX_PER_FRAME EQU 10         ; целиком вмещает мельницу (10 частей)
 MAP_ANIM_CMD_BYTES EQU 44 + MAP_ANIM_MAX_PER_FRAME * 16
                 if BG_DXT_RAW_SIZE
-RUNTIME_CMD_FRAME_MAX EQU 4 + BackgroundDxt_DL_SIZE + RuntimeDL_ObjectTranslate_SIZE + 12 + RuntimeDL_ObjectTranslate_SIZE + 12 + HERO_PATH_CMD_MAX + (HERO_MARKER_DL_SIZE - 4) + MAP_ANIM_CMD_BYTES + FOG_CMD_BYTES + AdventureUI_DL_SIZE + 152 + UI_RightPanel_DL_SIZE + MINIMAP_RECT_CMD_BYTES + RESOURCE_PANEL_CMD_BYTES + CURSOR_DL_SIZE
+RUNTIME_CMD_FRAME_MAX EQU 4 + BackgroundDxt_DL_SIZE + RuntimeDL_ObjectTranslate_SIZE + 12 + RuntimeDL_ObjectTranslate_SIZE + 12 + HERO_PATH_CMD_MAX + (HERO_MARKER_DL_SIZE - 4) + MAP_ANIM_CMD_BYTES + FOG_CMD_BYTES + AdventureUI_DL_SIZE + 12 + 152 + UI_RightPanel_DL_SIZE + MINIMAP_RECT_CMD_BYTES + RESOURCE_PANEL_CMD_BYTES + CURSOR_DL_SIZE
                 else
-RUNTIME_CMD_FRAME_MAX EQU 4 + RuntimeDL_Header_SIZE + 12 + RuntimeDL_RightBand_SIZE + 12 + (RuntimeDL_Tail_SIZE - 4) + RuntimeDL_ObjectTranslate_SIZE + 12 + RuntimeDL_ObjectTranslate_SIZE + 12 + HERO_PATH_CMD_MAX + (HERO_MARKER_DL_SIZE - 4) + MAP_ANIM_CMD_BYTES + FOG_CMD_BYTES + AdventureUI_DL_SIZE + 152 + UI_RightPanel_DL_SIZE + MINIMAP_RECT_CMD_BYTES + RESOURCE_PANEL_CMD_BYTES + CURSOR_DL_SIZE
+RUNTIME_CMD_FRAME_MAX EQU 4 + RuntimeDL_Header_SIZE + 12 + RuntimeDL_RightBand_SIZE + 12 + (RuntimeDL_Tail_SIZE - 4) + RuntimeDL_ObjectTranslate_SIZE + 12 + RuntimeDL_ObjectTranslate_SIZE + 12 + HERO_PATH_CMD_MAX + (HERO_MARKER_DL_SIZE - 4) + MAP_ANIM_CMD_BYTES + FOG_CMD_BYTES + AdventureUI_DL_SIZE + 12 + 152 + UI_RightPanel_DL_SIZE + MINIMAP_RECT_CMD_BYTES + RESOURCE_PANEL_CMD_BYTES + CURSOR_DL_SIZE
                 endif
                 ifdef DYNAMIC_ACTOR_RAMG
 RUNTIME_CMD_FRAME_MAX_WITH_ACTOR EQU RUNTIME_CMD_FRAME_MAX + (ACTOR_DL_SIZE - 4)

@@ -7,7 +7,7 @@ OBJECT_PALETTE_SIZE     EQU 512
 OBJECT_OPAQUE_PALETTE_SIZE EQU 512
 OBJECT_ATLAS_PAGE_BASE  EQU #07
 OBJECT_ATLAS_PAGE_COUNT EQU 28
-OBJECT_ATLAS_SIZE       EQU 449018
+OBJECT_ATLAS_SIZE       EQU 451322
 HERO_SPRITE_RAMG        EQU #0F6A00
 HERO_SPRITE_W           EQU 47
 HERO_SPRITE_H           EQU 54
@@ -43,8 +43,8 @@ CURSOR_BATTLE_BASE_INDEX EQU 27
 CURSOR_TABLE_ENTRY_SIZE EQU 12
 UI_BORDER_W             EQU 640
 UI_BORDER_H             EQU 480
-UI_RADAR_RAMG           EQU #0DAE80
-UI_RADAR_PALETTE_RAMG   EQU #0DFF80
+UI_RADAR_RAMG           EQU #0DB780
+UI_RADAR_PALETTE_RAMG   EQU #0E0880
 UI_RADAR_W              EQU 144
 UI_RADAR_H              EQU 144
 UI_RADAR_STRIDE         EQU 144
@@ -216,110 +216,110 @@ CursorSpriteTable:
 MINIMAP_MAP_W           EQU 36
 MINIMAP_MAP_H           EQU 36
 
-UI_STONBACK_RAMG        EQU #0D52D8
+UI_STONBACK_RAMG        EQU #0D5BD8
 UI_STONBACK_W           EQU 144
 UI_STONBACK_H           EQU 72
 UI_STONBACK_STRIDE      EQU 144
-UI_RESSMALL_RAMG        EQU #0D7B58
+UI_RESSMALL_RAMG        EQU #0D8458
 UI_RESSMALL_W           EQU 133
 UI_RESSMALL_H           EQU 56
 UI_RESSMALL_STRIDE      EQU 133
-UI_SUNMOON_RAMG         EQU #0D9870
+UI_SUNMOON_RAMG         EQU #0DA170
 UI_SUNMOON_W            EQU 144
 UI_SUNMOON_H            EQU 25
 UI_SUNMOON_STRIDE       EQU 144
-UI_LBL_MONTH_RAMG       EQU #0C8BE8
+UI_LBL_MONTH_RAMG       EQU #0C94E8
 UI_LBL_MONTH_W          EQU 45
 UI_LBL_MONTH_H          EQU 10
 UI_LBL_MONTH_STRIDE     EQU 45
-UI_LBL_WEEK_RAMG       EQU #0C8DAC
+UI_LBL_WEEK_RAMG       EQU #0C96AC
 UI_LBL_WEEK_W          EQU 39
 UI_LBL_WEEK_H          EQU 10
 UI_LBL_WEEK_STRIDE     EQU 39
-UI_LBL_DAY_RAMG       EQU #0C8F34
+UI_LBL_DAY_RAMG       EQU #0C9834
 UI_LBL_DAY_W          EQU 28
 UI_LBL_DAY_H          EQU 12
 UI_LBL_DAY_STRIDE     EQU 28
 UI_ARMY_COUNT           EQU 2
-UI_ARMY0_RAMG           EQU #0DA680
+UI_ARMY0_RAMG           EQU #0DAF80
 UI_ARMY0_W              EQU 32
 UI_ARMY0_H              EQU 32
 UI_ARMY0_STRIDE         EQU 32
 UI_ARMY0_COUNT          EQU 40
-UI_ARMY1_RAMG           EQU #0DAA80
+UI_ARMY1_RAMG           EQU #0DB380
 UI_ARMY1_W              EQU 32
 UI_ARMY1_H              EQU 32
 UI_ARMY1_STRIDE         EQU 32
 UI_ARMY1_COUNT          EQU 4
-UI_PORTXTRA_RAMG        EQU #0C9484
+UI_PORTXTRA_RAMG        EQU #0C9D84
 UI_PORTXTRA_W           EQU 46
 UI_PORTXTRA_H           EQU 22
 UI_PORTXTRA_STRIDE      EQU 46
-UI_MOBILITY_RAMG        EQU #0C9878
+UI_MOBILITY_RAMG        EQU #0CA178
 UI_MOBILITY_W           EQU 7
 UI_MOBILITY_H           EQU 22
 UI_MOBILITY_STRIDE      EQU 7
 UI_MOBILITY_FRAMES      EQU 26
 MobilityFrameTable:
-                DEFB #78, #98, #0C
-                DEFB #14, #99, #0C
-                DEFB #B0, #99, #0C
-                DEFB #4C, #9A, #0C
-                DEFB #E8, #9A, #0C
-                DEFB #84, #9B, #0C
-                DEFB #20, #9C, #0C
-                DEFB #BC, #9C, #0C
-                DEFB #58, #9D, #0C
-                DEFB #F4, #9D, #0C
-                DEFB #90, #9E, #0C
-                DEFB #2C, #9F, #0C
-                DEFB #C8, #9F, #0C
-                DEFB #64, #A0, #0C
-                DEFB #00, #A1, #0C
-                DEFB #9C, #A1, #0C
-                DEFB #38, #A2, #0C
-                DEFB #D4, #A2, #0C
-                DEFB #70, #A3, #0C
-                DEFB #0C, #A4, #0C
-                DEFB #A8, #A4, #0C
-                DEFB #44, #A5, #0C
-                DEFB #E0, #A5, #0C
-                DEFB #7C, #A6, #0C
-                DEFB #18, #A7, #0C
-                DEFB #B4, #A7, #0C
-UI_MANA_RAMG            EQU #0CA850
+                DEFB #78, #A1, #0C
+                DEFB #14, #A2, #0C
+                DEFB #B0, #A2, #0C
+                DEFB #4C, #A3, #0C
+                DEFB #E8, #A3, #0C
+                DEFB #84, #A4, #0C
+                DEFB #20, #A5, #0C
+                DEFB #BC, #A5, #0C
+                DEFB #58, #A6, #0C
+                DEFB #F4, #A6, #0C
+                DEFB #90, #A7, #0C
+                DEFB #2C, #A8, #0C
+                DEFB #C8, #A8, #0C
+                DEFB #64, #A9, #0C
+                DEFB #00, #AA, #0C
+                DEFB #9C, #AA, #0C
+                DEFB #38, #AB, #0C
+                DEFB #D4, #AB, #0C
+                DEFB #70, #AC, #0C
+                DEFB #0C, #AD, #0C
+                DEFB #A8, #AD, #0C
+                DEFB #44, #AE, #0C
+                DEFB #E0, #AE, #0C
+                DEFB #7C, #AF, #0C
+                DEFB #18, #B0, #0C
+                DEFB #B4, #B0, #0C
+UI_MANA_RAMG            EQU #0CB150
 UI_MANA_W               EQU 7
 UI_MANA_H               EQU 22
 UI_MANA_STRIDE          EQU 7
 UI_MANA_FRAMES          EQU 26
 ManaFrameTable:
-                DEFB #50, #A8, #0C
-                DEFB #EC, #A8, #0C
-                DEFB #88, #A9, #0C
-                DEFB #24, #AA, #0C
-                DEFB #C0, #AA, #0C
-                DEFB #5C, #AB, #0C
-                DEFB #F8, #AB, #0C
-                DEFB #94, #AC, #0C
-                DEFB #30, #AD, #0C
-                DEFB #CC, #AD, #0C
-                DEFB #68, #AE, #0C
-                DEFB #04, #AF, #0C
-                DEFB #A0, #AF, #0C
-                DEFB #3C, #B0, #0C
-                DEFB #D8, #B0, #0C
-                DEFB #74, #B1, #0C
-                DEFB #10, #B2, #0C
-                DEFB #AC, #B2, #0C
-                DEFB #48, #B3, #0C
-                DEFB #E4, #B3, #0C
-                DEFB #80, #B4, #0C
-                DEFB #1C, #B5, #0C
-                DEFB #B8, #B5, #0C
-                DEFB #54, #B6, #0C
-                DEFB #F0, #B6, #0C
-                DEFB #8C, #B7, #0C
-UI_MINIPORT_RAMG        EQU #0CB828
+                DEFB #50, #B1, #0C
+                DEFB #EC, #B1, #0C
+                DEFB #88, #B2, #0C
+                DEFB #24, #B3, #0C
+                DEFB #C0, #B3, #0C
+                DEFB #5C, #B4, #0C
+                DEFB #F8, #B4, #0C
+                DEFB #94, #B5, #0C
+                DEFB #30, #B6, #0C
+                DEFB #CC, #B6, #0C
+                DEFB #68, #B7, #0C
+                DEFB #04, #B8, #0C
+                DEFB #A0, #B8, #0C
+                DEFB #3C, #B9, #0C
+                DEFB #D8, #B9, #0C
+                DEFB #74, #BA, #0C
+                DEFB #10, #BB, #0C
+                DEFB #AC, #BB, #0C
+                DEFB #48, #BC, #0C
+                DEFB #E4, #BC, #0C
+                DEFB #80, #BD, #0C
+                DEFB #1C, #BE, #0C
+                DEFB #B8, #BE, #0C
+                DEFB #54, #BF, #0C
+                DEFB #F0, #BF, #0C
+                DEFB #8C, #C0, #0C
+UI_MINIPORT_RAMG        EQU #0CC128
 UI_MINIPORT_W           EQU 30
 UI_MINIPORT_H           EQU 22
 UI_MINIPORT_STRIDE      EQU 30
@@ -327,243 +327,89 @@ UI_MINIPORT_FRAMES      EQU 60
 
 DIGIT_ENTRY             EQU 5
 DigitTable:
-                DEFB #F4, #89, #0C, 5, 10
-                DEFB #28, #8A, #0C, 3, 10
-                DEFB #48, #8A, #0C, 5, 10
-                DEFB #7C, #8A, #0C, 5, 10
-                DEFB #B0, #8A, #0C, 5, 10
-                DEFB #E4, #8A, #0C, 5, 10
-                DEFB #18, #8B, #0C, 5, 10
-                DEFB #4C, #8B, #0C, 5, 10
-                DEFB #80, #8B, #0C, 5, 10
-                DEFB #B4, #8B, #0C, 5, 10
-RESOURCE_PANEL_RAMG     EQU #0C9084
+                DEFB #F4, #92, #0C, 5, 10
+                DEFB #28, #93, #0C, 3, 10
+                DEFB #48, #93, #0C, 5, 10
+                DEFB #7C, #93, #0C, 5, 10
+                DEFB #B0, #93, #0C, 5, 10
+                DEFB #E4, #93, #0C, 5, 10
+                DEFB #18, #94, #0C, 5, 10
+                DEFB #4C, #94, #0C, 5, 10
+                DEFB #80, #94, #0C, 5, 10
+                DEFB #B4, #94, #0C, 5, 10
+RESOURCE_PANEL_RAMG     EQU #0C9984
 
 AdventureUI_DL:
-                FT_SCISSOR_XY 0, 0
-                FT_SCISSOR_SIZE 1024, 768
-                FT_COLOR_RGB 255, 255, 255
-                FT_COLOR_A 255
-                FT_BITMAP_HANDLE 3
-                FT_CELL 0
-                FT_BITMAP_TRANSFORM_A 160
-                FT_BITMAP_TRANSFORM_B 0
-                FT_BITMAP_TRANSFORM_C 0
-                FT_BITMAP_TRANSFORM_D 0
-                FT_BITMAP_TRANSFORM_E 160
-                FT_BITMAP_TRANSFORM_F 0
-                FT_VERTEX_TRANSLATE_X 0
-                FT_VERTEX_TRANSLATE_Y 0
-                FT_BLEND_FUNC FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA
-                FT_PALETTE_SOURCE OBJECT_OPAQUE_PALETTE_RAMG
-                FT_BITMAP_LAYOUT_H 0, 0
-                FT_BITMAP_SIZE_H 0, 0
-                FT_BEGIN FT_BITMAPS
-                FT_BITMAP_SOURCE #0B3F74
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 72, 32
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 116, 52
-                FT_VERTEX2F 12288, 4506
-                FT_BITMAP_SOURCE #0B4874
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 72, 32
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 116, 52
-                FT_VERTEX2F 12288, 5325
-                FT_BITMAP_SOURCE #0B4874
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 72, 32
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 116, 52
-                FT_VERTEX2F 12288, 6144
-                FT_BITMAP_SOURCE #0B5174
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 72, 32
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 116, 52
-                FT_VERTEX2F 12288, 6963
-                FT_BITMAP_SOURCE #0B3F74
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 72, 32
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 116, 52
-                FT_VERTEX2F 14131, 4506
-                FT_BITMAP_SOURCE #0B4874
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 72, 32
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 116, 52
-                FT_VERTEX2F 14131, 5325
-                FT_BITMAP_SOURCE #0B4874
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 72, 32
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 116, 52
-                FT_VERTEX2F 14131, 6144
-                FT_BITMAP_SOURCE #0B5174
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 72, 32
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 116, 52
-                FT_VERTEX2F 14131, 6963
-                FT_BITMAP_SOURCE #0B5A74
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 144, 72
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 231, 116
-                FT_VERTEX2F 12288, 10035
-                FT_END
-                FT_PALETTE_SOURCE OBJECT_PALETTE_RAMG
-                FT_BEGIN FT_BITMAPS
-                FT_END
-                FT_BLEND_FUNC FT_ONE, FT_ZERO
-                FT_PALETTE_SOURCE UI_RADAR_PALETTE_RAMG
-                FT_BITMAP_SOURCE #0DAE80
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 144, 144
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 231, 231
-                FT_BEGIN FT_BITMAPS
-                FT_VERTEX2F 12288, 410
-                FT_END
-                FT_BLEND_FUNC FT_SRC_ALPHA, FT_ONE_MINUS_SRC_ALPHA
-                FT_PALETTE_SOURCE OBJECT_OPAQUE_PALETTE_RAMG
-                FT_BEGIN FT_BITMAPS
-                FT_BITMAP_LAYOUT_H 0, 0
-                FT_BITMAP_SIZE_H 0, 0
-                FT_BITMAP_SOURCE #0B82F4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 193, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 309, 26
-                FT_VERTEX2F 0, 0
-                FT_BITMAP_SOURCE #0B8F04
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 6, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 10, 26
-                FT_VERTEX2F 4941, 0
-                FT_BITMAP_SOURCE #0B8F64
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 24, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 39, 26
-                FT_VERTEX2F 5094, 0
-                FT_BITMAP_SOURCE #0B90E4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 32, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 52, 26
-                FT_VERTEX2F 5709, 0
-                FT_BITMAP_SOURCE #0B92E4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 25, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 40, 26
-                FT_VERTEX2F 6528, 0
-                FT_BITMAP_SOURCE #0B9474
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 6, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 10, 26
-                FT_VERTEX2F 7168, 0
-                FT_BITMAP_SOURCE #0B94D4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 319, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 511, 26
-                FT_VERTEX2F 7322, 0
-                FT_BITMAP_SOURCE #0BA8C4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 35, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 56, 26
-                FT_VERTEX2F 15488, 0
-                FT_BITMAP_SOURCE #0BAAF4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 239
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 383
-                FT_VERTEX2F 0, 410
-                FT_BITMAP_SOURCE #0BB9E4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 32
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 52
-                FT_VERTEX2F 0, 6528
-                FT_BITMAP_SOURCE #0BBBE4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 125
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 200
-                FT_VERTEX2F 0, 7347
-                FT_BITMAP_SOURCE #0BC3B4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 4
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 7
-                FT_VERTEX2F 0, 10547
-                FT_BITMAP_SOURCE #0BC3F4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 48
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 77
-                FT_VERTEX2F 0, 10650
-                FT_BITMAP_SOURCE #0BC6F4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 239
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 383
-                FT_VERTEX2F 11878, 410
-                FT_BITMAP_SOURCE #0BD5E4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 32
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 52
-                FT_VERTEX2F 11878, 6528
-                FT_BITMAP_SOURCE #0BD7E4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 50
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 80
-                FT_VERTEX2F 11878, 7347
-                FT_BITMAP_SOURCE #0BDB04
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 32
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 52
-                FT_VERTEX2F 11878, 8627
-                FT_BITMAP_SOURCE #0BDD04
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 43
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 69
-                FT_VERTEX2F 11878, 9446
-                FT_BITMAP_SOURCE #0BDFB4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 8
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 13
-                FT_VERTEX2F 11878, 10547
-                FT_BITMAP_SOURCE #0BE034
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 44
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 71
-                FT_VERTEX2F 11878, 10752
-                FT_BITMAP_SOURCE #0BE2F4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 239
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 383
-                FT_VERTEX2F 15974, 410
-                FT_BITMAP_SOURCE #0BF1E4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 32
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 52
-                FT_VERTEX2F 15974, 6528
-                FT_BITMAP_SOURCE #0BF3E4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 50
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 80
-                FT_VERTEX2F 15974, 7347
-                FT_BITMAP_SOURCE #0BF704
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 32
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 52
-                FT_VERTEX2F 15974, 8627
-                FT_BITMAP_SOURCE #0BF904
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 43
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 69
-                FT_VERTEX2F 15974, 9446
-                FT_BITMAP_SOURCE #0BFBB4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 4
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 7
-                FT_VERTEX2F 15974, 10547
-                FT_BITMAP_SOURCE #0BFBF4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 16, 48
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 26, 77
-                FT_VERTEX2F 15974, 10650
-                FT_BITMAP_SOURCE #0BFEF4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 193, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 309, 26
-                FT_VERTEX2F 0, 11878
-                FT_BITMAP_SOURCE #0C0B04
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 6, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 10, 26
-                FT_VERTEX2F 4941, 11878
-                FT_BITMAP_SOURCE #0C0B64
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 24, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 39, 26
-                FT_VERTEX2F 5094, 11878
-                FT_BITMAP_SOURCE #0C0CE4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 32, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 52, 26
-                FT_VERTEX2F 5709, 11878
-                FT_BITMAP_SOURCE #0C0EE4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 25, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 40, 26
-                FT_VERTEX2F 6528, 11878
-                FT_BITMAP_SOURCE #0C1074
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 6, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 10, 26
-                FT_VERTEX2F 7168, 11878
-                FT_BITMAP_SOURCE #0C10D4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 319, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 511, 26
-                FT_VERTEX2F 7322, 11878
-                FT_BITMAP_SOURCE #0C24C4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 35, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 56, 26
-                FT_VERTEX2F 15488, 11878
-                FT_BITMAP_SOURCE #0C26F4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 144, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 231, 26
-                FT_VERTEX2F 12288, 4096
-                FT_BITMAP_SOURCE #0C2FF4
-                FT_BITMAP_LAYOUT FT_PALETTED4444, 144, 16
-                FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 231, 26
-                FT_VERTEX2F 12288, 7782
-                FT_END
-                FT_BITMAP_LAYOUT_H 0, 0
-                FT_BITMAP_SIZE_H 0, 0
-AdventureUI_DL_SIZE EQU $ - AdventureUI_DL
+                DEFB #00, #00, #00, #1B, #00, #03, #40, #1C, #FF, #FF, #FF, #04, #FF, #00, #00, #10
+                DEFB #03, #00, #00, #05, #00, #00, #00, #06, #A0, #00, #00, #15, #00, #00, #00, #16
+                DEFB #00, #00, #00, #17, #00, #00, #00, #18, #A0, #00, #00, #19, #00, #00, #00, #1A
+                DEFB #00, #00, #00, #2B, #00, #00, #00, #2C, #14, #00, #00, #0B, #00, #92, #07, #2A
+                DEFB #00, #00, #00, #28, #00, #00, #00, #29, #01, #00, #00, #1F, #74, #3F, #0B, #01
+                DEFB #20, #90, #78, #07, #34, #E8, #00, #08, #9A, #11, #00, #58, #74, #3F, #0B, #01
+                DEFB #20, #90, #78, #07, #34, #E8, #00, #08, #9A, #91, #99, #5B, #74, #48, #0B, #01
+                DEFB #20, #90, #78, #07, #34, #E8, #00, #08, #CD, #14, #00, #58, #74, #48, #0B, #01
+                DEFB #20, #90, #78, #07, #34, #E8, #00, #08, #CD, #94, #99, #5B, #74, #51, #0B, #01
+                DEFB #20, #90, #78, #07, #34, #E8, #00, #08, #00, #18, #00, #58, #74, #51, #0B, #01
+                DEFB #20, #90, #78, #07, #34, #E8, #00, #08, #00, #98, #99, #5B, #74, #5A, #0B, #01
+                DEFB #20, #90, #78, #07, #34, #E8, #00, #08, #33, #1B, #00, #58, #74, #5A, #0B, #01
+                DEFB #20, #90, #78, #07, #34, #E8, #00, #08, #33, #9B, #99, #5B, #74, #63, #0B, #01
+                DEFB #48, #20, #79, #07, #74, #CE, #01, #08, #33, #27, #00, #58, #00, #00, #00, #21
+                DEFB #00, #90, #07, #2A, #01, #00, #00, #1F, #00, #00, #00, #21, #08, #00, #00, #0B
+                DEFB #80, #08, #0E, #2A, #80, #B7, #0D, #01, #90, #20, #79, #07, #E7, #CE, #01, #08
+                DEFB #01, #00, #00, #1F, #9A, #01, #00, #58, #00, #00, #00, #21, #14, #00, #00, #0B
+                DEFB #00, #92, #07, #2A, #01, #00, #00, #1F, #00, #00, #00, #28, #00, #00, #00, #29
+                DEFB #F4, #8B, #0B, #01, #10, #82, #79, #07, #1A, #6A, #02, #08, #00, #00, #00, #40
+                DEFB #04, #98, #0B, #01, #10, #0C, #78, #07, #1A, #14, #00, #08, #00, #80, #A6, #49
+                DEFB #64, #98, #0B, #01, #10, #30, #78, #07, #1A, #4E, #00, #08, #00, #00, #F3, #49
+                DEFB #E4, #99, #0B, #01, #10, #40, #78, #07, #1A, #68, #00, #08, #00, #80, #26, #4B
+                DEFB #E4, #9B, #0B, #01, #10, #32, #78, #07, #1A, #50, #00, #08, #00, #00, #C0, #4C
+                DEFB #74, #9D, #0B, #01, #10, #0C, #78, #07, #1A, #14, #00, #08, #00, #00, #00, #4E
+                DEFB #D4, #9D, #0B, #01, #10, #7E, #7A, #07, #1A, #FE, #03, #08, #00, #00, #4D, #4E
+                DEFB #C4, #B1, #0B, #01, #10, #46, #78, #07, #1A, #70, #00, #08, #00, #00, #40, #5E
+                DEFB #F4, #B3, #0B, #01, #EF, #20, #78, #07, #7F, #35, #00, #08, #9A, #01, #00, #40
+                DEFB #E4, #C2, #0B, #01, #20, #20, #78, #07, #34, #34, #00, #08, #80, #19, #00, #40
+                DEFB #E4, #C4, #0B, #01, #7D, #20, #78, #07, #C8, #34, #00, #08, #B3, #1C, #00, #40
+                DEFB #B4, #CC, #0B, #01, #04, #20, #78, #07, #07, #34, #00, #08, #33, #29, #00, #40
+                DEFB #F4, #CC, #0B, #01, #30, #20, #78, #07, #4D, #34, #00, #08, #9A, #29, #00, #40
+                DEFB #F4, #CF, #0B, #01, #EF, #20, #78, #07, #7F, #35, #00, #08, #9A, #01, #33, #57
+                DEFB #E4, #DE, #0B, #01, #20, #20, #78, #07, #34, #34, #00, #08, #80, #19, #33, #57
+                DEFB #E4, #E0, #0B, #01, #32, #20, #78, #07, #50, #34, #00, #08, #B3, #1C, #33, #57
+                DEFB #04, #E4, #0B, #01, #20, #20, #78, #07, #34, #34, #00, #08, #B3, #21, #33, #57
+                DEFB #04, #E6, #0B, #01, #2B, #20, #78, #07, #45, #34, #00, #08, #E6, #24, #33, #57
+                DEFB #B4, #E8, #0B, #01, #08, #20, #78, #07, #0D, #34, #00, #08, #33, #29, #33, #57
+                DEFB #34, #E9, #0B, #01, #2C, #20, #78, #07, #47, #34, #00, #08, #00, #2A, #33, #57
+                DEFB #F4, #EB, #0B, #01, #EF, #20, #78, #07, #7F, #35, #00, #08, #9A, #01, #33, #5F
+                DEFB #E4, #FA, #0B, #01, #20, #20, #78, #07, #34, #34, #00, #08, #80, #19, #33, #5F
+                DEFB #E4, #FC, #0B, #01, #32, #20, #78, #07, #50, #34, #00, #08, #B3, #1C, #33, #5F
+                DEFB #04, #00, #0C, #01, #20, #20, #78, #07, #34, #34, #00, #08, #B3, #21, #33, #5F
+                DEFB #04, #02, #0C, #01, #2B, #20, #78, #07, #45, #34, #00, #08, #E6, #24, #33, #5F
+                DEFB #B4, #04, #0C, #01, #04, #20, #78, #07, #07, #34, #00, #08, #33, #29, #33, #5F
+                DEFB #F4, #04, #0C, #01, #30, #20, #78, #07, #4D, #34, #00, #08, #9A, #29, #33, #5F
+                DEFB #F4, #07, #0C, #01, #10, #82, #79, #07, #1A, #6A, #02, #08, #66, #2E, #00, #40
+                DEFB #04, #14, #0C, #01, #10, #0C, #78, #07, #1A, #14, #00, #08, #66, #AE, #A6, #49
+                DEFB #64, #14, #0C, #01, #10, #30, #78, #07, #1A, #4E, #00, #08, #66, #2E, #F3, #49
+                DEFB #E4, #15, #0C, #01, #10, #40, #78, #07, #1A, #68, #00, #08, #66, #AE, #26, #4B
+                DEFB #E4, #17, #0C, #01, #10, #32, #78, #07, #1A, #50, #00, #08, #66, #2E, #C0, #4C
+                DEFB #74, #19, #0C, #01, #10, #0C, #78, #07, #1A, #14, #00, #08, #66, #2E, #00, #4E
+                DEFB #D4, #19, #0C, #01, #10, #7E, #7A, #07, #1A, #FE, #03, #08, #66, #2E, #4D, #4E
+                DEFB #C4, #2D, #0C, #01, #10, #46, #78, #07, #1A, #70, #00, #08, #66, #2E, #40, #5E
+                DEFB #F4, #2F, #0C, #01, #10, #20, #79, #07, #1A, #CE, #01, #08, #00, #10, #00, #58
+                DEFB #F4, #38, #0C, #01, #10, #20, #79, #07, #1A, #CE, #01, #08, #66, #1E, #00, #58
+                DEFB #00, #00, #00, #21, #00, #00, #00, #28, #00, #00, #00, #29
+AdventureUI_DL_SIZE EQU 892
+UIADV_ICONSDYN_RAMG     EQU #0FE050   ; мини-DL динамики списка (замок+маркер)
+UIADV_ICONSDYN_SIZE     EQU 72
+
+; --- Списки героев/замков (interface_icons.cpp): динамика UIADV-блока ---
+; (пустые ячейки LOCATORS[2,3,4] и SCROLL вбейканы в фоновые полосы — 0 тактов/строку)
+; LOCATORS замка: [9]=Knight castle, [15]=Knight town [lo,mid,hi,w,h]
+UIAdvLocatorsTab:
+                DEFB #00, #92, #0F, 46, 22  ; LOCATORS[9]
+                DEFB #F4, #95, #0F, 47, 22  ; LOCATORS[15]
+UIADV_SUNMOON_RAMG      EQU #0F9A00   ; 5 кадров фикс-слотами (кадр по дню)
+UIADV_SUNMOON_SLOT      EQU 3600
+UIADV_SUNMOON_W         EQU 144
+UIADV_SUNMOON_H         EQU 25
 
 @UI_BtnNormalTab:
                 DEFW UI_BtnNormal_0_DL
@@ -575,42 +421,42 @@ AdventureUI_DL_SIZE EQU $ - AdventureUI_DL
                 DEFW UI_BtnNormal_6_DL
                 DEFW UI_BtnNormal_7_DL
 UI_BtnNormal_0_DL:
-                FT_BITMAP_SOURCE #0C38F4
+                FT_BITMAP_SOURCE #0C41F4
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 12288, 8192
 UI_BtnNormal_1_DL:
-                FT_BITMAP_SOURCE #0C4314
+                FT_BITMAP_SOURCE #0C4C14
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 13210, 8192
 UI_BtnNormal_2_DL:
-                FT_BITMAP_SOURCE #0C4D34
+                FT_BITMAP_SOURCE #0C5634
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 14131, 8192
 UI_BtnNormal_3_DL:
-                FT_BITMAP_SOURCE #0C5754
+                FT_BITMAP_SOURCE #0C6054
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 15053, 8192
 UI_BtnNormal_4_DL:
-                FT_BITMAP_SOURCE #0C6174
+                FT_BITMAP_SOURCE #0C6A74
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 12288, 9114
 UI_BtnNormal_5_DL:
-                FT_BITMAP_SOURCE #0C6B94
+                FT_BITMAP_SOURCE #0C7494
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 13210, 9114
 UI_BtnNormal_6_DL:
-                FT_BITMAP_SOURCE #0C75B4
+                FT_BITMAP_SOURCE #0C7EB4
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 14131, 9114
 UI_BtnNormal_7_DL:
-                FT_BITMAP_SOURCE #0C7FD4
+                FT_BITMAP_SOURCE #0C88D4
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 15053, 9114
@@ -625,42 +471,42 @@ UI_BtnNormal_7_DL:
                 DEFW UI_BtnPressed_6_DL
                 DEFW UI_BtnPressed_7_DL
 UI_BtnPressed_0_DL:
-                FT_BITMAP_SOURCE #0C3E04
+                FT_BITMAP_SOURCE #0C4704
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 12288, 8192
 UI_BtnPressed_1_DL:
-                FT_BITMAP_SOURCE #0C4824
+                FT_BITMAP_SOURCE #0C5124
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 13210, 8192
 UI_BtnPressed_2_DL:
-                FT_BITMAP_SOURCE #0C5244
+                FT_BITMAP_SOURCE #0C5B44
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 14131, 8192
 UI_BtnPressed_3_DL:
-                FT_BITMAP_SOURCE #0C5C64
+                FT_BITMAP_SOURCE #0C6564
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 15053, 8192
 UI_BtnPressed_4_DL:
-                FT_BITMAP_SOURCE #0C6684
+                FT_BITMAP_SOURCE #0C6F84
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 12288, 9114
 UI_BtnPressed_5_DL:
-                FT_BITMAP_SOURCE #0C70A4
+                FT_BITMAP_SOURCE #0C79A4
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 13210, 9114
 UI_BtnPressed_6_DL:
-                FT_BITMAP_SOURCE #0C7AC4
+                FT_BITMAP_SOURCE #0C83C4
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 14131, 9114
 UI_BtnPressed_7_DL:
-                FT_BITMAP_SOURCE #0C84E4
+                FT_BITMAP_SOURCE #0C8DE4
                 FT_BITMAP_LAYOUT FT_PALETTED4444, 36, 36
                 FT_BITMAP_SIZE FT_NEAREST, FT_BORDER, FT_BORDER, 58, 58
                 FT_VERTEX2F 15053, 9114
@@ -704,7 +550,7 @@ Objects_Upload:
                 LD   HL, #C000
                 LD   A, (.DHi)
                 LD   DE, (.DLo)
-                LD   BC, 6650
+                LD   BC, 8954
                 CALL FT.WriteMem
                 LD   A, (.RestorePage)
                 SetPage3_A
@@ -743,6 +589,26 @@ Cursor_GlobalUpload:
                 LD   BC, 10740
                 CALL FT.WriteMem
 .CurRestore     EQU $+1
+                LD   A, #00
+                SetPage3_A
+                RET
+
+UIAdv_Upload:
+                GetPage3
+                LD   (.UARestore), A
+                SetPage3 #BF
+                LD   HL, #C000
+                LD   A, #0F
+                LD   DE, #9200
+                LD   BC, 16384
+                CALL FT.WriteMem
+                SetPage3 #C0
+                LD   HL, #C000
+                LD   A, #0F
+                LD   DE, #D200
+                LD   BC, 3736
+                CALL FT.WriteMem
+.UARestore      EQU $+1
                 LD   A, #00
                 SetPage3_A
                 RET

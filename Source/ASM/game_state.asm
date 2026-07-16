@@ -27,7 +27,7 @@ HERO_START_TILE_X   EQU 24
 HERO_START_TILE_Y   EQU 14
 HERO_STEP_PIXELS    EQU 2
 HERO_MOVE_FRAME_MASK EQU 0
-HERO_PATH_MAX       EQU 88            ; буфер пути (< 96: буферы #4300/#4360 врозь на 96); под бюджет рендера полного маршрута + полоски MP
+HERO_PATH_MAX       EQU 87            ; буфер пути (< 96: буферы #4300/#4360 врозь на 96); под бюджет рендера полного маршрута + полоски MP; 88→87: 16Б FIFO-бюджета ушло на CMD_APPEND динамики списка (12Б)
 PATH_DEBUG_MAX      EQU MAP0_TILES
 PATH_NODES_PER_FRAME EQU 8
 PATH_STATE_IDLE     EQU 0
@@ -124,6 +124,9 @@ Adventure_Enter:
                 CALL Adventure_LoadMap            ; стрим битмапов карты (#20-8F) с SD в их страницы
                 CALL Background_Upload            ; (иначе старый меню-DL покажет мусор поверх
                 CALL Objects_Upload              ;  частично загруженных adventure-битмапов)
+                CALL UIAdv_Upload                 ; UIADV-блок (DL рамки + LOCATORS/SUNMOON/SCROLL);
+                                                  ; хвост RAM_G ≥#0F8000 клоберится городом →
+                                                  ; залив на КАЖДОМ входе (первый и re-enter)
                 LD   A, GAME_MODE_ADVENTURE
                 LD   (GameMode), A
                 LD   A, (AdvReenter)              ; ВОЗВРАТ из боя/города: НЕ сбрасывать героя/
