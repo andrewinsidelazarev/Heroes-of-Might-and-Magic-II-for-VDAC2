@@ -25,3 +25,7 @@ OpenHMM2/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Опорные снимки проекта, публикуемые вместе с репозиторием
+!/Pre-releases/
+!/Pre-releases/**
